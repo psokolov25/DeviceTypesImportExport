@@ -39,16 +39,18 @@ class ServerStartupAndSwaggerUiTest {
             final HttpResponse<String> swaggerUiRedirectResponse = sendGetWithoutRedirects(server.getURL() + "/swagger-ui");
             assertThat(swaggerUiRedirectResponse.statusCode()).isEqualTo(302);
             assertThat(swaggerUiRedirectResponse.headers().firstValue("location"))
-                    .contains("/swagger-ui-assets/index.html?url=/swagger/device-template-demo.yml");
+                    .contains("/swagger-ui/index.html");
 
-            final HttpResponse<String> swaggerUiPageResponse = sendGet(client, server.getURL() + "/swagger-ui-assets/index.html?url=/swagger/device-template-demo.yml");
+            final HttpResponse<String> swaggerUiPageResponse = sendGet(client, server.getURL() + "/swagger-ui/index.html");
             assertThat(swaggerUiPageResponse.statusCode()).isEqualTo(200);
             assertThat(swaggerUiPageResponse.body()).contains("<div id=\"swagger-ui\"></div>");
             assertThat(swaggerUiPageResponse.body()).contains("./swagger-ui-bundle.js");
+            assertThat(swaggerUiPageResponse.body()).contains("swagger-initializer.js");
 
-            final HttpResponse<String> swaggerInitializerResponse = sendGet(client, server.getURL() + "/swagger-ui-assets/swagger-initializer.js?url=/swagger/device-template-demo.yml");
+            final HttpResponse<String> swaggerInitializerResponse = sendGet(client, server.getURL() + "/swagger-ui/swagger-initializer.js");
             assertThat(swaggerInitializerResponse.statusCode()).isEqualTo(200);
             assertThat(swaggerInitializerResponse.body()).contains("SwaggerUIBundle");
+            assertThat(swaggerInitializerResponse.body()).contains("/swagger/device-template-demo.yml");
         }
     }
 
