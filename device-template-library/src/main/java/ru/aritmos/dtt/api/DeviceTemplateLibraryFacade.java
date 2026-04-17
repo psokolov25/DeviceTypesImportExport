@@ -66,6 +66,23 @@ public interface DeviceTemplateLibraryFacade {
      */
     BranchEquipment assembleBranch(BranchEquipmentAssemblyRequest request);
 
+
+    /**
+     * Парсит JSON профиля оборудования в типизированную модель.
+     *
+     * @param json profile JSON
+     * @return модель профиля
+     */
+    EquipmentProfile parseProfileJson(String json);
+
+    /**
+     * Парсит JSON оборудования отделений в типизированную модель.
+     *
+     * @param json branch equipment JSON
+     * @return модель branch equipment
+     */
+    BranchEquipment parseBranchJson(String json);
+
     /**
      * Генерирует JSON профиля оборудования.
      *
