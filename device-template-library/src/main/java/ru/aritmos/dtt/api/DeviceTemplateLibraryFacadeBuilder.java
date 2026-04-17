@@ -6,9 +6,13 @@ import ru.aritmos.dtt.archive.DttArchiveReader;
 import ru.aritmos.dtt.archive.DttArchiveWriter;
 import ru.aritmos.dtt.assembly.DefaultTemplateAssemblyService;
 import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonGenerator;
+import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonParser;
 import ru.aritmos.dtt.json.branch.DeviceManagerBranchJsonGenerator;
+import ru.aritmos.dtt.json.branch.DeviceManagerBranchJsonParser;
 import ru.aritmos.dtt.json.profile.DefaultEquipmentProfileJsonGenerator;
+import ru.aritmos.dtt.json.profile.DefaultEquipmentProfileJsonParser;
 import ru.aritmos.dtt.json.profile.EquipmentProfileJsonGenerator;
+import ru.aritmos.dtt.json.profile.EquipmentProfileJsonParser;
 import ru.aritmos.dtt.validation.DefaultTemplateValidationService;
 
 import java.util.Objects;
@@ -22,7 +26,9 @@ public class DeviceTemplateLibraryFacadeBuilder {
     private DttArchiveWriter archiveWriter = new DefaultDttArchiveWriter();
     private TemplateValidationService validationService = new DefaultTemplateValidationService();
     private TemplateAssemblyService assemblyService = new DefaultTemplateAssemblyService();
+    private EquipmentProfileJsonParser profileJsonParser = new DefaultEquipmentProfileJsonParser();
     private EquipmentProfileJsonGenerator profileJsonGenerator = new DefaultEquipmentProfileJsonGenerator();
+    private DeviceManagerBranchJsonParser branchJsonParser = new DefaultDeviceManagerBranchJsonParser();
     private DeviceManagerBranchJsonGenerator branchJsonGenerator = new DefaultDeviceManagerBranchJsonGenerator();
 
     /**
@@ -61,12 +67,32 @@ public class DeviceTemplateLibraryFacadeBuilder {
         return this;
     }
 
+
+    /**
+     * @param profileJsonParser парсер profile JSON
+     * @return builder
+     */
+    public DeviceTemplateLibraryFacadeBuilder withProfileJsonParser(EquipmentProfileJsonParser profileJsonParser) {
+        this.profileJsonParser = Objects.requireNonNull(profileJsonParser, "profileJsonParser is required");
+        return this;
+    }
+
     /**
      * @param profileJsonGenerator генератор profile JSON
      * @return builder
      */
     public DeviceTemplateLibraryFacadeBuilder withProfileJsonGenerator(EquipmentProfileJsonGenerator profileJsonGenerator) {
         this.profileJsonGenerator = Objects.requireNonNull(profileJsonGenerator, "profileJsonGenerator is required");
+        return this;
+    }
+
+
+    /**
+     * @param branchJsonParser парсер branch JSON
+     * @return builder
+     */
+    public DeviceTemplateLibraryFacadeBuilder withBranchJsonParser(DeviceManagerBranchJsonParser branchJsonParser) {
+        this.branchJsonParser = Objects.requireNonNull(branchJsonParser, "branchJsonParser is required");
         return this;
     }
 
@@ -90,7 +116,9 @@ public class DeviceTemplateLibraryFacadeBuilder {
                 archiveWriter,
                 validationService,
                 assemblyService,
+                profileJsonParser,
                 profileJsonGenerator,
+                branchJsonParser,
                 branchJsonGenerator
         );
     }

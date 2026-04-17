@@ -92,7 +92,7 @@
 - read/write DTT bytes;
 - validate DTT bytes/template;
 - assemble profile/branch модели;
-- generate profile/branch JSON.
+- parse/generate profile/branch JSON.
 - batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`).
 
 Пример методного использования:
@@ -114,6 +114,8 @@ String profileJson = facade.toProfileJson(
 - `GET /api/system/health`.
 - `POST /api/dtt/validate` (application/octet-stream).
 - `POST /api/dtt/inspect` (application/octet-stream).
+- `POST /api/dtt/import/profile` (application/json, Base64 DTT set -> profile JSON).
+- `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
 
 ## Тесты
 

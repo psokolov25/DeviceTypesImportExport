@@ -44,7 +44,9 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 MergeStrategy.FAIL_IF_EXISTS
         ));
         assertThat(profile.deviceTypes()).containsKey("display");
-        assertThat(facade.toProfileJson(profile)).contains("display");
+        final String profileJson = facade.toProfileJson(profile);
+        assertThat(profileJson).contains("display");
+        assertThat(facade.parseProfileJson(profileJson).deviceTypes()).containsKey("display");
 
         final var branch = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
                 List.of(new BranchImportRequest(
@@ -56,7 +58,9 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         ));
 
         assertThat(branch.branches()).containsKey("branch-1");
-        assertThat(facade.toBranchJson(branch)).contains("branch-1");
+        final String branchJson = facade.toBranchJson(branch);
+        assertThat(branchJson).contains("branch-1");
+        assertThat(facade.parseBranchJson(branchJson).branches()).containsKey("branch-1");
     }
 
 

@@ -16,10 +16,14 @@ import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.assembly.DefaultTemplateAssemblyService;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonGenerator;
+import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonParser;
 import ru.aritmos.dtt.json.branch.DeviceManagerBranchJsonGenerator;
+import ru.aritmos.dtt.json.branch.DeviceManagerBranchJsonParser;
 import ru.aritmos.dtt.json.profile.DefaultEquipmentProfileJsonGenerator;
+import ru.aritmos.dtt.json.profile.DefaultEquipmentProfileJsonParser;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 import ru.aritmos.dtt.json.profile.EquipmentProfileJsonGenerator;
+import ru.aritmos.dtt.json.profile.EquipmentProfileJsonParser;
 import ru.aritmos.dtt.validation.DefaultTemplateValidationService;
 
 import java.io.ByteArrayInputStream;
@@ -38,7 +42,9 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     private final DttArchiveWriter archiveWriter;
     private final TemplateValidationService validationService;
     private final TemplateAssemblyService assemblyService;
+    private final EquipmentProfileJsonParser profileJsonParser;
     private final EquipmentProfileJsonGenerator profileJsonGenerator;
+    private final DeviceManagerBranchJsonParser branchJsonParser;
     private final DeviceManagerBranchJsonGenerator branchJsonGenerator;
 
     /**
@@ -50,7 +56,9 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 new DefaultDttArchiveWriter(),
                 new DefaultTemplateValidationService(),
                 new DefaultTemplateAssemblyService(),
+                new DefaultEquipmentProfileJsonParser(),
                 new DefaultEquipmentProfileJsonGenerator(),
+                new DefaultDeviceManagerBranchJsonParser(),
                 new DefaultDeviceManagerBranchJsonGenerator()
         );
     }
@@ -63,14 +71,18 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             DttArchiveWriter archiveWriter,
             TemplateValidationService validationService,
             TemplateAssemblyService assemblyService,
+            EquipmentProfileJsonParser profileJsonParser,
             EquipmentProfileJsonGenerator profileJsonGenerator,
+            DeviceManagerBranchJsonParser branchJsonParser,
             DeviceManagerBranchJsonGenerator branchJsonGenerator
     ) {
         this.archiveReader = Objects.requireNonNull(archiveReader, "archiveReader is required");
         this.archiveWriter = Objects.requireNonNull(archiveWriter, "archiveWriter is required");
         this.validationService = Objects.requireNonNull(validationService, "validationService is required");
         this.assemblyService = Objects.requireNonNull(assemblyService, "assemblyService is required");
+        this.profileJsonParser = Objects.requireNonNull(profileJsonParser, "profileJsonParser is required");
         this.profileJsonGenerator = Objects.requireNonNull(profileJsonGenerator, "profileJsonGenerator is required");
+        this.branchJsonParser = Objects.requireNonNull(branchJsonParser, "branchJsonParser is required");
         this.branchJsonGenerator = Objects.requireNonNull(branchJsonGenerator, "branchJsonGenerator is required");
     }
 
@@ -105,6 +117,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public BranchEquipment assembleBranch(BranchEquipmentAssemblyRequest request) {
         return assemblyService.assembleBranchEquipment(request);
+    }
+
+    @Override
+    public EquipmentProfile parseProfileJson(String json) {
+        return profileJsonParser.parse(json);
+    }
+
+    @Override
+    public BranchEquipment parseBranchJson(String json) {
+        return branchJsonParser.parse(json);
     }
 
     @Override
