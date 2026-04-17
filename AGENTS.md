@@ -1,894 +1,768 @@
 # AGENTS.md
 
-## 1. Назначение проекта
+## Назначение репозитория
 
-Проект реализует production-ready решение на **Java 17 + Micronaut + Maven** для экспорта и импорта шаблонов типов оборудования в/из архива **`.dtts`**, а также для двусторонней работы с двумя видами JSON-моделей:
+Этот репозиторий содержит production-ready multi-module Maven проект на Java 17 + Micronaut 4.x для работы с шаблонами типов устройств в формате **`.dtt`**.
 
-1. **JSON отделений** — реальная конфигурация оборудования по отделениям.
-2. **JSON профиля оборудования** — шаблонный профиль набора оборудования отделения.
+Проект обязан поддерживать **три модели данных**:
 
-Предметная модель должна соответствовать реальной структуре `DeviceManager.json`: у отделений есть `deviceTypes`, у типов устройств есть `deviceTypeParamValues`, `eventHandlers`, `commands`, lifecycle-секции (`onStartEvent`, `onStopEvent`, `onPublicStartEvent`, `onPublicFinishEvent`), `deviceTypeFunctions`, а также `devices[*].deviceParamValues`; встречаются вложенные объектные параметры вроде `zones`, типы без дочерних устройств и типы с несколькими экземплярами устройств. 
+1. **`DTT`** — шаблон одного типа устройства.
+2. **JSON профиля оборудования** — карта `deviceTypes`, то есть структура, эквивалентная содержимому `deviceTypes` внутри одного branch в `DeviceManager.json`.
+3. **JSON оборудования отделений** — полный JSON уровня `DeviceManager.json`, содержащий набор отделений, внутри которых находятся `deviceTypes` и далее полная конфигурация типов устройств и устройств.
 
----
-
-## 2. Главная цель
-
-Нужно построить библиотеку и demo-service, которые поддерживают следующие направления преобразования:
-
-* `branch-json -> dtts`
-* `dtts -> branch-json`
-* `equipment-profile-json -> dtts`
-* `dtts -> equipment-profile-json`
-* `branch-json -> equipment-profile-json`
-* `equipment-profile-json -> branch-json`
-
-При этом `.dtts` является **каноническим переносимым форматом шаблона типа оборудования**, не привязанным жестко только к branch JSON.
+Ключевая идея: **`.dtt` — это канонический переносимый шаблон одного типа устройства**, а профиль оборудования и оборудование отделений собираются из **одного или нескольких `.dtt`**.
 
 ---
 
-## 3. Что обязательно должно быть реализовано
+## Ключевые термины
 
-### 3.1. Библиотека
+### DTT
 
-Модуль библиотеки должен:
+`.dtt` — ZIP-архив шаблона **одного** типа устройства.
 
-* экспортировать шаблон типа оборудования из JSON отделений;
-* экспортировать шаблон типа оборудования из JSON профиля оборудования;
-* импортировать `.dtts` в модель отделений;
-* импортировать `.dtts` в модель профиля оборудования;
-* уметь генерировать:
+Он содержит:
 
-  * новый JSON отделений,
-  * patch existing JSON отделений,
-  * merged JSON отделений,
-  * новый JSON профиля оборудования,
-  * patch existing JSON профиля оборудования,
-  * merged JSON профиля оборудования;
-* уметь делать preview без записи;
-* уметь читать и валидировать `.dtts`;
-* уметь извлекать и сравнивать версии шаблонов;
-* уметь возвращать версии шаблонов в итоговом JSON;
-* уметь автоматически подставлять **значения по умолчанию из шаблона**, если при генерации итогового JSON значение явно не указано.
+- метаданные типа устройства;
+- схему параметров типа;
+- схему параметров устройств;
+- Groovy-скрипты;
+- значения по умолчанию;
+- примерные значения;
+- binding hints;
+- информацию, достаточную для восстановления:
+  - в JSON профиля оборудования;
+  - в JSON оборудования отделений.
 
-### 3.2. Demo-service
+### Профиль оборудования
 
-Micronaut-служба должна предоставлять REST API + Swagger UI для:
+Профиль оборудования — это **только карта `deviceTypes`**, без внешней branch-обёртки.
 
-* загрузки branch JSON;
-* загрузки equipment-profile JSON;
-* загрузки/скачивания `.dtts`;
-* экспорта шаблона;
-* импорта шаблона;
-* inspect архива;
-* validate архива;
-* preview diff;
-* генерации итогового branch JSON;
-* генерации итогового equipment-profile JSON;
-* извлечения версий шаблонов;
-* сравнения версий шаблонов.
+Иначе говоря, это отдельный JSON, форма которого соответствует тому, как `deviceTypes` хранится внутри одного отделения в `DeviceManager.json`.
 
-### 3.3. Документация
+### Оборудование отделений
 
-Обязательно:
+Оборудование отделений — это полный JSON наподобие `DeviceManager.json`:
 
-* очень подробный `README.md`;
-* полный JavaDoc на русском языке;
-* настоящий `AGENTS.md`, согласованный с кодом, README, OpenAPI и тестами.
+- карта отделений;
+- внутри каждого отделения — `deviceTypes`;
+- внутри типов устройств — параметры типа, скрипты, команды, устройства и их параметры.
 
 ---
 
-## 4. Ключевые инварианты предметной области
+## Главные архитектурные правила
 
-### 4.1. Тип оборудования
-
-Тип оборудования включает:
-
-* метаданные типа;
-* параметры типа (`deviceTypeParamValues`);
-* Groovy-скрипты:
-
-  * lifecycle,
-  * event handlers,
-  * commands,
-  * functions;
-* список дочерних устройств или отсутствие таковых;
-* схему параметров дочерних устройств;
-* версию шаблона;
-* значения по умолчанию для параметров.
-
-### 4.2. Экземпляры устройств
-
-В одном отделении или профиле может быть:
-
-* несколько разных типов устройств;
-* несколько экземпляров одного и того же типа;
-* экземпляры с разными именами;
-* экземпляры с числовыми постфиксами;
-* экземпляры с разными значениями `deviceParamValues`.
-
-### 4.3. Тип без дочерних устройств
-
-Если у типа оборудования нет устройств, он всё равно должен импортироваться и экспортироваться как полноценный шаблон.
-
-### 4.4. Вложенные параметры
-
-Нужно поддерживать вложенные параметры типа `Object`, `Array`, составные структуры и nullable-поля.
-
----
-
-## 5. Новый обязательный блок: версии шаблонов
-
-### 5.1. Общие правила
-
-У каждого шаблона типа оборудования должна быть **отдельная версия шаблона**.
-
-Нельзя смешивать:
-
-* `formatVersion` — версия формата `.dtts`;
-* `templateVersion` — версия шаблона типа оборудования;
-* `parameterSchemaVersion` — версия схемы параметров.
-
-### 5.2. Для шаблона обязательно хранить
-
-Минимум следующие поля:
-
-* `templateId`
-* `templateCode`
-* `templateVersion`
-* `templateVersionLabel`
-* `templateRevision`
-* `templateStatus`
-* `templateCreatedAt`
-* `templateUpdatedAt`
-
-### 5.3. Где версия обязана присутствовать
-
-Версия шаблона должна быть отражена:
-
-* в `manifest.json`;
-* в `template/device-type.json`;
-* во внутренней canonical model;
-* в DTO библиотеки;
-* в DTO demo-service;
-* в итоговом branch JSON;
-* в итоговом equipment-profile JSON;
-* в inspect/validate/import/export results.
-
-### 5.4. Получение версии шаблона
-
-Нужно иметь возможность получить версию:
-
-* из `.dtts`;
-* из branch JSON;
-* из equipment-profile JSON;
-* список версий всех шаблонов из branch JSON;
-* список версий всех шаблонов из equipment-profile JSON;
-* сравнение двух версий.
-
-### 5.5. Конфликты версий
-
-Нужно поддержать version conflict policy:
-
-* `ALLOW_SAME_VERSION`
-* `REJECT_OLDER_VERSION`
-* `ALLOW_UPGRADE`
-* `ALLOW_DOWNGRADE`
-* `REPLACE_REGARDLESS_OF_VERSION`
-* `KEEP_EXISTING_VERSION`
-* `CREATE_PARALLEL_VERSION`
-* `FAIL_ON_VERSION_CONFLICT`
+1. Не делай упрощённые демонстрационные реализации там, где нужна расширяемая архитектура.
+2. Не теряй Groovy-код ни при каких преобразованиях.
+3. Явно разделяй:
+   - шаблон типа устройства (`DTT`);
+   - JSON профиля оборудования;
+   - JSON оборудования отделений;
+   - каноническую внутреннюю модель;
+   - схему параметров;
+   - значения по умолчанию;
+   - явные override-значения;
+   - archive DTO;
+   - public API DTO;
+   - raw source model.
+4. Не смешивай схему параметров и конкретные значения в одну неразличимую массу.
+5. Поддерживай сценарий `device type without child devices`.
+6. Поддерживай сценарий `device type with one or many child devices`.
+7. Поддерживай сборку:
+   - одного `.dtt` в профиль оборудования;
+   - нескольких `.dtt` в профиль оборудования;
+   - одного `.dtt` в оборудование отделений;
+   - нескольких `.dtt` в оборудование отделений.
+8. Поддерживай обратный процесс:
+   - profile JSON -> набор `.dtt`;
+   - branch equipment JSON -> набор `.dtt`.
+9. Сохраняй максимум метаданных параметров:
+   - `name`
+   - `displayName`
+   - `type`
+   - `description`
+   - `exampleValue`
+   - `paramatersMap`
+   - иные вспомогательные поля.
+10. Любая новая функциональность должна быть покрыта тестами.
+11. Любая публичная API-сущность должна иметь подробный JavaDoc на русском языке.
+12. Если README, JavaDoc, код и тесты расходятся — исправляй расхождение, а не маскируй его.
 
 ---
 
-## 6. Новый обязательный блок: значения по умолчанию параметров шаблона
+## Ключевое изменение формата
 
-### 6.1. Общая идея
+### Используется `.dtt`, а не `.dtts`
 
-У шаблона у параметров должны быть **значения по умолчанию оборудования**.
+`.dtt` всегда описывает **один тип устройства**.
 
-Это обязательная часть модели.
+Если требуется собрать профиль оборудования или оборудование нескольких отделений, используются **один или более `.dtt`**.
+
+### Внутри `.dtt` используется YAML, а не JSON
+
+Все описательные файлы внутри шаблона должны быть в формате **YAML (`.yml`)**, а не JSON.
+
+Это обязательное архитектурное правило.
+
+Причины:
+
+- YAML удобнее читать человеку;
+- YAML удобнее редактировать вручную;
+- YAML даёт более понятные diff в git;
+- YAML лучше подходит для review и контроля изменений.
+
+### Что именно должно быть в YAML
+
+В YAML должны храниться:
+
+- манифест;
+- описание типа устройства;
+- схемы параметров;
+- binding hints;
+- default values;
+- example values;
+- origin metadata;
+- примеры запросов/сборки, если они кладутся в архив.
+
+Groovy-код должен храниться отдельными `.groovy` файлами.
+
+---
+
+## Ожидаемая структура `.dtt`
+
+`.dtt` — ZIP-архив с предсказуемой внутренней структурой.
+
+Минимально ожидаются:
+
+- `manifest.yml`
+- `template/device-type.yml`
+- `template/device-type-parameters.yml`
+- `template/device-parameters-schema.yml`
+- `template/template-origin.yml`
+- `template/binding-hints.yml`
+- `template/default-values.yml`
+- `template/example-values.yml`
+- `scripts/onStartEvent.groovy`
+- `scripts/onStopEvent.groovy`
+- `scripts/onPublicStartEvent.groovy`
+- `scripts/onPublicFinishEvent.groovy`
+- `scripts/deviceTypeFunctions.groovy`
+- `scripts/event-handlers/<EVENT_NAME>.groovy`
+- `scripts/commands/<COMMAND_NAME>.groovy`
+- `examples/profile-values-example.yml`
+- `examples/branch-values-example.yml`
+- `README-IN-ARCHIVE.md`
+
+---
+
+## Минимальные требования к `manifest.yml`
+
+`manifest.yml` должен содержать минимум:
+
+- `formatName: DTT`
+- `formatVersion`
+- `createdAt`
+- `createdBy`
+- `libraryVersion`
+- `deviceTypeId`
+- `deviceTypeName`
+- `deviceTypeDisplayName`
+- `deviceTypeDescription`
+- `deviceTypeKind`
+- `supportsChildDevices`
+- `containsLifecycleScripts`
+- `containsEventHandlers`
+- `containsCommands`
+- `containsDeviceTypeFunctions`
+- `parameterSchemaVersion`
+- `defaultValuesIncluded`
+- `exampleValuesIncluded`
+- `supportsProfileImport`
+- `supportsBranchImport`
+- `sourceKind`
+- `sourceSummary`
+
+Если меняется структура шаблона, не ломай старые архивы без явного изменения `formatVersion` и логики обратной совместимости.
+
+---
+
+## Архитектурные инварианты
+
+### 1. Каноническая внутренняя модель обязательна
+
+Все преобразования должны идти через каноническую внутреннюю модель.
+
+Нельзя строить core-логику на хаотичных прямых преобразованиях вида:
+
+- `Map -> Map`
+- `JSON tree -> JSON tree`
+- `YAML tree -> branch JSON tree`
+
+Минимально ожидаются сущности уровня:
+
+- `CanonicalDeviceTypeTemplate`
+- `CanonicalDeviceTypeMetadata`
+- `CanonicalParameterSchema`
+- `CanonicalParameterDefinition`
+- `CanonicalDeviceInstanceTemplate`
+- `CanonicalScriptSet`
+- `CanonicalDefaultValues`
+- `CanonicalProfileProjection`
+- `CanonicalBranchProjection`
+
+### 2. Нужно разделять source models
+
+Должны существовать разные raw-модели и парсеры для:
+
+- `.dtt`
+- profile JSON
+- branch equipment JSON
+
+Не пытайся решить всё одним универсальным `Map<String, Object>`-подходом, если можно сделать типизированные модели.
+
+### 3. `.dtt` не должен быть branch-only форматом
+
+`.dtt` обязан быть пригоден:
+
+- для сборки profile JSON;
+- для сборки branch equipment JSON.
+
+### 4. Default values должны быть отделены от override values
 
 Нужно различать:
 
-* `exampleValue` — пример для документации и диагностики;
-* `defaultValue` — техническое значение по умолчанию;
-* `defaultEquipmentValue` — дефолтное значение, которое должно подставляться при генерации equipment JSON / branch JSON;
-* явно заданное значение в request;
-* уже существующее значение в target JSON.
+- значения по умолчанию из шаблона;
+- примерные значения;
+- значения, переданные пользователем явно при сборке профиля;
+- значения, переданные пользователем явно при сборке оборудования отделений.
 
-### 6.2. Обязательные правила подстановки default values
+### 5. IDs не считаются абсолютной истиной
 
-Если при генерации branch JSON или equipment-profile JSON **какое-либо значение не указано явно**, библиотека должна использовать:
+При переносе между средами и моделями исходные `id` нельзя слепо считать вечными идентификаторами.
 
-1. значение из входного request;
-2. если его нет — `defaultEquipmentValue` из шаблона;
-3. если его нет — `defaultValue` из шаблона;
-4. если его нет — существующее значение из target JSON при merge-режиме;
-5. если его нет — `null`, только если параметр nullable;
-6. иначе — validation issue / import error.
-
-### 6.3. Где нужны default values
-
-Default values должны поддерживаться для:
-
-* параметров типа оборудования;
-* параметров дочерних устройств;
-* вложенных объектных параметров;
-* элементов массивов, если это допустимо по схеме.
-
-### 6.4. Для параметра шаблона обязательно хранить
-
-Минимум:
-
-* `name`
-* `displayName`
-* `type`
-* `description`
-* `exampleValue`
-* `defaultValue`
-* `defaultEquipmentValue`
-* `required`
-* `nullable`
-* `sourceHints`
-* `paramatersMap` / служебные маппинги, если есть
-* nested schema / array item schema — если применимо
-
-### 6.5. Default values в документации и API
-
-Swagger, README и JavaDoc должны явно описывать:
-
-* что такое `defaultEquipmentValue`;
-* чем он отличается от `exampleValue`;
-* в каком порядке применяется подстановка;
-* как это влияет на branch JSON и equipment-profile JSON.
+Нужны стратегии разрешения конфликтов и генерации новых идентификаторов.
 
 ---
 
-## 7. Архитектурный подход
+## Поддерживаемые направления преобразований
 
-### 7.1. Тип проекта
+### A. Один `.dtt` -> profile JSON
 
-Проект должен быть **multi-module Maven project**.
+На вход:
 
-### 7.2. Модули
+- один `.dtt`;
+- явные значения параметров типа и устройств
+  или
+- указание использовать default values из шаблона.
 
-Обязательные модули:
+На выход:
 
-1. `device-template-library`
-2. `device-template-demo-service`
+- profile JSON с одной записью типа устройства.
 
-Опционально:
+### B. Несколько `.dtt` -> profile JSON
 
-3. `device-template-library-test-support`
+На вход:
 
-### 7.3. Внутренняя архитектура библиотеки
+- один или более `.dtt`;
+- для каждого шаблона:
+  - значения параметров типа;
+  - значения параметров устройств;
+  - либо флаг использования default values.
 
-Обязательно разделить:
+На выход:
 
-* raw source model для branch JSON;
-* raw source model для equipment-profile JSON;
-* canonical internal model;
-* archive model;
-* public API DTO;
-* import/export requests and results.
+- единый profile JSON — карта `deviceTypes`.
 
----
+### C. Один `.dtt` -> branch equipment JSON
 
-## 8. Рекомендуемая структура пакетов
+На вход:
 
-### 8.1. Библиотека
+- один `.dtt`;
+- список отделений;
+- для каждого отделения:
+  - значения параметров типа;
+  - список устройств;
+  - значения параметров устройств;
+  - либо флаг использования default values.
 
-* `ru.aritmos.dtts.api`
-* `ru.aritmos.dtts.api.dto`
-* `ru.aritmos.dtts.archive`
-* `ru.aritmos.dtts.archive.model`
-* `ru.aritmos.dtts.export`
-* `ru.aritmos.dtts.importing`
-* `ru.aritmos.dtts.json.branch`
-* `ru.aritmos.dtts.json.profile`
-* `ru.aritmos.dtts.model`
-* `ru.aritmos.dtts.model.branch`
-* `ru.aritmos.dtts.model.profile`
-* `ru.aritmos.dtts.model.canonical`
-* `ru.aritmos.dtts.model.version`
-* `ru.aritmos.dtts.transformation`
-* `ru.aritmos.dtts.validation`
-* `ru.aritmos.dtts.exception`
+На выход:
 
-### 8.2. Demo-service
+- полный JSON оборудования отделений.
 
-* `ru.aritmos.dtts.demo.controller`
-* `ru.aritmos.dtts.demo.service`
-* `ru.aritmos.dtts.demo.dto`
-* `ru.aritmos.dtts.demo.config`
+### D. Несколько `.dtt` -> branch equipment JSON
 
----
+На вход:
 
-## 9. Формат `.dtts`
+- один или более `.dtt`;
+- список отделений;
+- для каждого отделения:
+  - какие шаблоны применять;
+  - значения параметров типов;
+  - значения параметров устройств;
+  - режим использования default values;
+  - merge strategy.
 
-`.dtts` — ZIP-архив со строго определенной структурой.
+На выход:
 
-### 9.1. Обязательная структура
+- полный JSON оборудования отделений.
 
-* `manifest.json`
-* `template/device-type.json`
-* `template/device-type-parameters.json`
-* `template/device-parameters-schema.json`
-* `template/template-origin.json`
-* `template/profile-binding-hints.json`
-* `scripts/onStartEvent.groovy`
-* `scripts/onStopEvent.groovy`
-* `scripts/onPublicStartEvent.groovy`
-* `scripts/onPublicFinishEvent.groovy`
-* `scripts/deviceTypeFunctions.groovy`
-* `scripts/event-handlers/<EVENT_NAME>.groovy`
-* `scripts/commands/<COMMAND_NAME>.groovy`
-* `examples/branch-bindings-example.json`
-* `examples/equipment-profile-example.json`
-* `README-IN-ARCHIVE.md`
+### E. Profile JSON -> набор `.dtt`
 
-### 9.2. Что должно быть в `manifest.json`
+На вход:
 
-Минимум:
+- profile JSON.
 
-* `formatName`
-* `formatVersion`
-* `createdAt`
-* `createdBy`
-* `libraryVersion`
-* `templateSourceKind`
-* `templateId`
-* `templateCode`
-* `templateVersion`
-* `templateVersionLabel`
-* `templateRevision`
-* `templateStatus`
-* `templateCreatedAt`
-* `templateUpdatedAt`
-* `deviceTypeCode`
-* `deviceTypeName`
-* `deviceTypeDisplayName`
-* `deviceTypeDescription`
-* `deviceTypeKind`
-* `supportsDevices`
-* `containsScripts`
-* `containsEventHandlers`
-* `containsCommands`
-* `containsDeviceTypeFunctions`
-* `parameterSchemaVersion`
-* `supportsBranchJsonImport`
-* `supportsEquipmentProfileImport`
+На выход:
+
+- набор `.dtt`, по одному на каждый тип устройства.
+
+### F. Branch equipment JSON -> набор `.dtt`
+
+На вход:
+
+- полный JSON оборудования отделений.
+
+На выход:
+
+- набор `.dtt`, по одному на каждый тип устройства:
+  - либо из выбранного отделения;
+  - либо агрегированный по нескольким отделениям;
+  - либо по явно заданному набору типов.
 
 ---
 
-## 10. Источники и целевые модели
+## Работа с параметрами
 
-### 10.1. Branch JSON
+Поддерживаемые типы минимум:
 
-Модель реальных отделений и оборудования.
+- `String`
+- `Number`
+- `Boolean`
+- `Select`
+- `Object`
+- `Array`
+- `nullable`
+- отсутствие значения как отдельный случай
 
-### 10.2. Equipment Profile JSON
+Всегда старайся сохранять:
 
-Модель шаблонного профиля оборудования отделения.
+- `exampleValue`
+- `defaultValue`
+- display name
+- description
+- auxiliary metadata
+- nested object schema
+- array item schema
 
-### 10.3. Canonical model
+Для `Object` и вложенных структур, вроде `zones`, должна строиться полноценная вложенная схема.
 
-Единая внутренняя модель, через которую выполняются:
-
-* экспорт;
-* импорт;
-* diff;
-* merge;
-* cross-model conversion;
-* version handling;
-* default-value resolution.
-
----
-
-## 11. Обязательные публичные интерфейсы
-
-### 11.1. Экспорт/импорт
-
-* `DeviceTypeTemplateExportService`
-* `DeviceTypeTemplateImportService`
-
-### 11.2. Архив
-
-* `DttsArchiveReader`
-* `DttsArchiveWriter`
-
-### 11.3. Схемы и парсинг
-
-* `DeviceTypeSchemaBuilder`
-* `DeviceManagerJsonParser`
-* `DeviceManagerJsonGenerator`
-* `EquipmentProfileJsonParser`
-* `EquipmentProfileJsonGenerator`
-
-### 11.4. Трансформации
-
-* `BranchProfileTransformationService`
-
-### 11.5. Валидация
-
-* `TemplateValidationService`
-
-### 11.6. Версии
-
-* `TemplateVersionService`
-* `TemplateMetadataResolver`
-
-### 11.7. Подстановка default values
-
-Нужно добавить отдельный сервис, например:
-
-* `TemplateDefaultValueResolver`
-
-Он обязан уметь:
-
-* вычислять итоговое значение параметра;
-* применять `defaultEquipmentValue`;
-* работать с nested object schema;
-* работать с массивами;
-* формировать trace/diagnostics о том, откуда было взято итоговое значение.
+Не упрощай вложенные параметры до строки JSON, если их можно хранить как структурированную схему.
 
 ---
 
-## 12. Обязательные DTO
+## Работа со скриптами
 
-### 12.1. Базовые DTO
+Groovy-код хранить отдельно и без модификации.
 
-* `DttsArchiveDescriptor`
-* `DeviceTypeTemplate`
-* `DeviceTypeMetadata`
-* `TemplateParameterSchema`
-* `TemplateParameterDefinition`
-* `TemplateScriptSet`
-* `ImportResult`
-* `ExportResult`
-* `ValidationResult`
-* `ValidationIssue`
+Нужно поддерживать:
 
-### 12.2. DTO для branch JSON
+- `onStartEvent`
+- `onStopEvent`
+- `onPublicStartEvent`
+- `onPublicFinishEvent`
+- `eventHandlers`
+- `commands`
+- `deviceTypeFunctions`
 
-* `BranchImportRequest`
-* `BranchDeviceTypeImportRequest`
-* `DeviceInstanceImportRequest`
+Не нормализуй скрипты “для красоты”, не меняй форматирование и не переписывай содержимое.
 
-### 12.3. DTO для equipment profile JSON
-
-* `EquipmentProfileImportRequest`
-* `EquipmentProfileDeviceTypeImportRequest`
-* `ProfileDeviceInstanceTemplateRequest`
-
-### 12.4. DTO для версий
-
-* `TemplateVersionInfo`
-* `TemplateVersionDescriptor`
-* `TemplateVersionComparisonResult`
-* `TemplateVersionConflict`
-* `TemplateVersionSummary`
-
-### 12.5. DTO для default resolution
-
-Нужно добавить, например:
-
-* `ResolvedParameterValue`
-* `DefaultValueResolutionTrace`
-* `DefaultValueSource`
-* `ResolvedTemplateDefaultsSummary`
+Пустые и отсутствующие секции должны корректно читаться и восстанавливаться.
 
 ---
 
-## 13. Модели версий и default values — обязательные поля
+## Merge-стратегии
 
-### 13.1. `DeviceTypeMetadata`
+Должны поддерживаться и тестироваться:
 
-Должна содержать:
+- `FAIL_IF_EXISTS`
+- `REPLACE`
+- `MERGE_NON_NULLS`
+- `MERGE_PRESERVE_EXISTING`
+- `CREATE_COPY_WITH_SUFFIX`
 
-* `templateId`
-* `templateCode`
-* `templateVersion`
-* `templateVersionLabel`
-* `templateRevision`
-* `templateStatus`
+Эти стратегии должны работать:
 
-### 13.2. `TemplateParameterDefinition`
+- при сборке profile JSON из нескольких `.dtt`;
+- при сборке branch equipment JSON из нескольких `.dtt`;
+- при patch/merge в существующие JSON.
 
-Должна содержать:
+Если добавляешь новую merge-логику:
 
-* `name`
-* `displayName`
-* `type`
-* `description`
-* `exampleValue`
-* `defaultValue`
-* `defaultEquipmentValue`
-* `required`
-* `nullable`
-* `nestedSchema`
-* `arrayItemSchema`
-
-### 13.3. `ImportResult`
-
-Должен содержать:
-
-* `appliedTemplateVersion`
-* `existingTemplateVersion`
-* `versionConflicts`
-* `templateVersionSummaries`
-* `resolvedDefaultsSummary`
-
-### 13.4. `ExportResult`
-
-Должен содержать:
-
-* `exportedTemplateVersion`
-* `templateVersionInfo`
-
-### 13.5. `ValidationResult`
-
-Должен содержать:
-
-* `templateVersionInfo`
-* `versionValidationIssues`
-* `defaultValueValidationIssues`
+1. сначала формализуй поведение на конфликтах;
+2. затем обнови DTO;
+3. затем обнови сервисы;
+4. затем обнови README;
+5. затем добавь тесты на конфликтные сценарии.
 
 ---
 
-## 14. Merge-стратегии
+## Ожидаемая структура репозитория
 
-Нужно поддерживать базовые merge strategies:
+Корневой проект должен быть multi-module:
 
-* `FAIL_IF_EXISTS`
-* `REPLACE`
-* `MERGE_NON_NULLS`
-* `MERGE_PRESERVE_EXISTING`
-* `CREATE_COPY_WITH_SUFFIX`
+- `device-template-library`
+- `device-template-demo-service`
+- при необходимости `device-template-library-test-support`
 
-Отдельно поддерживать version conflict strategy:
+Типовые пакеты библиотеки:
 
-* `ALLOW_SAME_VERSION`
-* `REJECT_OLDER_VERSION`
-* `ALLOW_UPGRADE`
-* `ALLOW_DOWNGRADE`
-* `REPLACE_REGARDLESS_OF_VERSION`
-* `KEEP_EXISTING_VERSION`
-* `CREATE_PARALLEL_VERSION`
-* `FAIL_ON_VERSION_CONFLICT`
+- `ru.aritmos.dtt.api`
+- `ru.aritmos.dtt.api.dto`
+- `ru.aritmos.dtt.archive`
+- `ru.aritmos.dtt.archive.model`
+- `ru.aritmos.dtt.export`
+- `ru.aritmos.dtt.importing`
+- `ru.aritmos.dtt.json.profile`
+- `ru.aritmos.dtt.json.branch`
+- `ru.aritmos.dtt.model`
+- `ru.aritmos.dtt.model.profile`
+- `ru.aritmos.dtt.model.branch`
+- `ru.aritmos.dtt.model.canonical`
+- `ru.aritmos.dtt.assembly`
+- `ru.aritmos.dtt.validation`
+- `ru.aritmos.dtt.exception`
 
----
+Типовые пакеты demo-service:
 
-## 15. Правила генерации итогового JSON
-
-### 15.1. Итоговый branch JSON обязан возвращать
-
-* метаданные типа устройства;
-* версии шаблонов;
-* итоговые значения параметров;
-* явно заполненные значения;
-* значения, подставленные из default values;
-* при необходимости — служебный блок `templateMetadata`.
-
-### 15.2. Итоговый equipment-profile JSON обязан возвращать
-
-* метаданные типа устройства;
-* версии шаблонов;
-* профильные значения;
-* значения, подставленные из default values;
-* шаблонные устройства;
-* при необходимости — `templateMetadata`.
-
-### 15.3. Единый способ хранения метаданных шаблона
-
-Выбрать один согласованный вариант и использовать везде одинаково, предпочтительно:
-
-* `templateMetadata`
-
-  * `templateId`
-  * `templateCode`
-  * `templateVersion`
-  * `templateVersionLabel`
-  * `templateRevision`
-  * `templateStatus`
+- `ru.aritmos.dtt.demo.controller`
+- `ru.aritmos.dtt.demo.service`
+- `ru.aritmos.dtt.demo.dto`
+- `ru.aritmos.dtt.demo.config`
 
 ---
 
-## 16. REST API demo-service
+## Обязательные сервисы библиотеки
 
-### 16.1. Экспорт
+Минимально ожидаются:
 
-* `POST /api/templates/export/from-branch-json`
-* `POST /api/templates/export/from-equipment-profile-json`
+- `DeviceTypeTemplateExportService`
+- `DeviceTypeTemplateImportService`
+- `DttArchiveReader`
+- `DttArchiveWriter`
+- `DeviceManagerBranchJsonParser`
+- `DeviceManagerBranchJsonGenerator`
+- `EquipmentProfileJsonParser`
+- `EquipmentProfileJsonGenerator`
+- `TemplateAssemblyService`
+- `TemplateValidationService`
 
-### 16.2. Архив
+### Дополнительные пояснения
 
-* `POST /api/templates/validate`
-* `POST /api/templates/inspect`
+#### `DeviceTypeTemplateExportService`
 
-### 16.3. Импорт
+Должен уметь:
 
-* `POST /api/templates/import/to-branch-json`
-* `POST /api/templates/import/to-branch-json/generate`
-* `POST /api/templates/import/to-equipment-profile-json`
-* `POST /api/templates/import/to-equipment-profile-json/generate`
+- экспортировать один `.dtt` из profile JSON;
+- экспортировать один `.dtt` из branch equipment JSON;
+- экспортировать набор `.dtt`.
 
-### 16.4. Cross-model преобразования
+#### `DeviceTypeTemplateImportService`
 
-* `POST /api/templates/convert/branch-json-to-equipment-profile`
-* `POST /api/templates/convert/equipment-profile-to-branch-json`
+Должен уметь:
 
-### 16.5. Preview
+- читать один `.dtt`;
+- читать набор `.dtt`;
+- валидировать шаблоны;
+- строить profile JSON;
+- строить branch equipment JSON.
 
-* `POST /api/templates/import/preview-diff`
+#### `TemplateAssemblyService`
 
-### 16.6. Версии
+Должен уметь:
 
-* `POST /api/templates/version/read`
-* `POST /api/templates/version/extract-from-branch-json`
-* `POST /api/templates/version/extract-from-equipment-profile-json`
-* `POST /api/templates/version/compare`
-
----
-
-## 17. Swagger / OpenAPI
-
-Swagger UI обязан:
-
-* подробно документировать все DTO;
-* иметь примеры branch JSON;
-* иметь примеры equipment-profile JSON;
-* иметь примеры `.dtts`;
-* показывать version-related поля;
-* показывать default-related поля;
-* объяснять порядок применения default values;
-* объяснять разницу между:
-
-  * `formatVersion`
-  * `templateVersion`
-  * `parameterSchemaVersion`
+- собирать profile JSON из одного/нескольких `.dtt`;
+- собирать branch equipment JSON из одного/нескольких `.dtt`;
+- применять default values;
+- применять explicit overrides;
+- делать preview результата.
 
 ---
 
-## 18. README — обязательные разделы
+## DTO и публичное API
 
-README должен содержать как минимум:
+Нужны понятные public DTO.
 
-1. назначение библиотеки;
-2. архитектуру проекта;
-3. структуру `.dtts`;
-4. экспорт из branch JSON;
-5. экспорт из equipment-profile JSON;
-6. импорт в branch JSON;
-7. импорт в equipment-profile JSON;
-8. branch JSON `<->` DTTS;
-9. equipment-profile JSON `<->` DTTS;
-10. branch JSON `<->` equipment-profile JSON;
-11. версии шаблонов;
-12. отличие `templateVersion` от `formatVersion`;
-13. как получить номер версии шаблона;
-14. как версии возвращаются в итоговом JSON;
-15. default values параметров шаблона;
-16. порядок применения default values;
-17. как формируются итоговые значения параметров;
-18. merge strategies;
-19. version conflict strategies;
-20. validation;
-21. ограничения;
-22. расширение формата в будущем;
-23. типовые ошибки и диагностика.
+Минимально ожидаются:
+
+### Общие DTO
+
+- `DttArchiveDescriptor`
+- `DeviceTypeTemplate`
+- `DeviceTypeMetadata`
+- `TemplateParameterSchema`
+- `TemplateParameterDefinition`
+- `TemplateScriptSet`
+- `TemplateDefaultValues`
+- `ValidationResult`
+- `ValidationIssue`
+- `ExportResult`
+- `ImportResult`
+
+### Для сборки профиля оборудования
+
+- `EquipmentProfileAssemblyRequest`
+- `EquipmentProfileDeviceTypeRequest`
+- `TemplateValueOverride`
+- `DeviceInstanceValueOverride`
+
+### Для сборки оборудования отделений
+
+- `BranchEquipmentAssemblyRequest`
+- `BranchImportRequest`
+- `BranchDeviceTypeImportRequest`
+- `DeviceInstanceImportRequest`
+
+### Для обратного экспорта
+
+- `ProfileExportRequest`
+- `BranchEquipmentExportRequest`
+- `BatchDttExportResult`
+
+Не прячь важные сценарии в анонимные `Map<String, Object>`.
 
 ---
 
-## 19. JavaDoc
+## Исключения
+
+Используй собственные диагностичные исключения:
+
+- `DttFormatException`
+- `TemplateValidationException`
+- `TemplateImportException`
+- `TemplateExportException`
+- `TemplateAssemblyException`
+
+Не бросай сырые `RuntimeException` из core-логики формата, если можно дать предметное исключение.
+
+---
+
+## Правила для demo-service
+
+Demo-service должен быть рабочим, а не декоративным.
+
+Он обязан поддерживать минимум:
+
+- валидацию `.dtt`;
+- инспекцию `.dtt`;
+- export from profile JSON;
+- export all `.dtt` from profile JSON;
+- export from branch equipment JSON;
+- export all `.dtt` from branch equipment JSON;
+- import one/many `.dtt` to profile JSON;
+- import one/many `.dtt` to branch equipment JSON;
+- preview для сборки профиля;
+- preview для сборки оборудования отделений.
+
+### Для контроллеров demo-service
+
+- Всегда добавляй OpenAPI annotations.
+- Для DTO добавляй примеры.
+- Для multipart endpoints описывай содержимое явно.
+- Для ошибок валидации возвращай структурированный результат.
+- Не делай Swagger UI формальным — он должен реально показывать сценарии работы с одним и несколькими `.dtt`.
+
+---
+
+## README и документация
+
+README обязан быть синхронизирован с кодом.
+
+При любых архитектурных изменениях проверь и обнови:
+
+1. формат `.dtt`;
+2. YAML-структуру архива;
+3. реальные имена классов;
+4. список эндпоинтов;
+5. сценарии сборки profile JSON;
+6. сценарии сборки branch equipment JSON;
+7. сценарии обратного экспорта в набор `.dtt`;
+8. примеры default values и explicit overrides;
+9. merge-стратегии.
+
+Если README описывает несуществующий класс, endpoint или структуру архива — это дефект.
+
+---
+
+## JavaDoc
 
 JavaDoc обязателен для:
 
-* всех public interfaces;
-* всех public classes;
-* всех DTO;
-* всех enum;
-* всех исключений;
-* всех контроллеров;
-* ключевых внутренних сервисов;
-* package-info.java.
+- public interfaces;
+- public classes;
+- DTO;
+- enum;
+- exception classes;
+- public service classes;
+- controller classes;
+- `package-info.java` ключевых пакетов.
 
-JavaDoc должен быть:
+JavaDoc должен быть на русском языке и объяснять смысл, а не просто повторять имя поля.
 
-* на русском языке;
-* объясняющим, а не формальным;
-* согласованным с кодом;
-* согласованным с README;
-* согласованным со Swagger.
+Хороший JavaDoc должен объяснять:
 
----
-
-## 20. Обязательные исключения
-
-Нужно использовать собственные исключения:
-
-* `DttsFormatException`
-* `TemplateValidationException`
-* `TemplateImportException`
-* `TemplateExportException`
-* `EquipmentProfileTransformationException`
-* `TemplateVersionConflictException`
-* `TemplateDefaultValueResolutionException`
+- что делает сущность;
+- для какой модели она предназначена (`DTT`, profile JSON, branch equipment JSON, canonical model);
+- какие есть ограничения;
+- как трактуются значения по умолчанию;
+- как ведёт себя код при конфликтах и ошибках.
 
 ---
 
-## 21. Обязательные тесты
+## Технологические ограничения
 
-### 21.1. Архив и round-trip
-
-* экспорт `.dtts` из branch JSON;
-* экспорт `.dtts` из equipment-profile JSON;
-* импорт `.dtts` в branch JSON;
-* импорт `.dtts` в equipment-profile JSON;
-* round-trip для branch JSON;
-* round-trip для equipment-profile JSON;
-* cross-round-trip между моделями;
-* deterministic zip.
-
-### 21.2. Предметная модель
-
-* тип устройства без устройств;
-* тип устройства с несколькими экземплярами;
-* разные схемы параметров устройств;
-* вложенные объектные параметры;
-* пустые/null скрипты;
-* несколько event handlers;
-* несколько commands.
-
-### 21.3. Версии
-
-* чтение версии из `.dtts`;
-* экспорт с версией;
-* импорт с версией;
-* возврат версии в branch JSON;
-* возврат версии в equipment-profile JSON;
-* inspect/validate/import/export result с версиями;
-* equal version scenario;
-* upgrade scenario;
-* downgrade conflict;
-* compareVersions.
-
-### 21.4. Default values
-
-Обязательные тесты:
-
-* параметр без явного значения использует `defaultEquipmentValue`;
-* если нет `defaultEquipmentValue`, используется `defaultValue`;
-* если request задает значение — оно имеет приоритет над default;
-* nested object parameter uses default values;
-* device parameter uses template default;
-* branch JSON generation fills defaults;
-* equipment-profile JSON generation fills defaults;
-* preview result показывает, что значение взято из default;
-* validation detects invalid default type;
-* null/default interaction for nullable and non-nullable fields.
-
-### 21.5. REST и OpenAPI
-
-* контроллеры demo-service;
-* генерация Swagger/OpenAPI;
-* version endpoints;
-* default resolution endpoints/flows.
+- Java 17
+- Micronaut 4.x
+- Maven
+- JUnit 5
+- AssertJ
+- Mockito только если действительно нужен
+- Jackson или Micronaut Serialization
+- ZIP через `java.util.zip` или Apache Commons Compress
+- OpenAPI / Swagger UI через Micronaut OpenAPI
+- Без Lombok
+- Не использовать `@SuppressWarnings`, кроме реально оправданных случаев
+- Не оставлять бессодержательные `TODO`
+- Не вводить магические строки там, где они влияют на формат `.dtt`
 
 ---
 
-## 22. Качество кода
+## Стиль изменений
 
-Обязательные правила:
+### Делай
 
-* Java 17;
-* Micronaut 4.x;
-* Maven;
-* без Lombok;
-* без бессмысленных TODO;
-* без временных заглушек;
-* без `@SuppressWarnings`, если нет реальной причины;
-* чистый, читаемый, расширяемый код;
-* иммутабельные DTO там, где возможно;
-* builder/factory там, где это оправдано;
-* без магических строк для формата и имен архивных entry.
+- небольшие логически цельные изменения;
+- типизированные DTO;
+- явные границы между archive/API/canonical/raw model;
+- обновление тестов вместе с кодом;
+- обновление README и JavaDoc вместе с кодом.
 
----
+### Не делай
 
-## 23. Что агент не должен делать
-
-Запрещено:
-
-* терять Groovy-код;
-* преобразовывать скрипты “для красоты”;
-* смешивать схему и конкретные значения в одну неразличимую структуру;
-* смешивать `exampleValue` и `defaultEquipmentValue`;
-* игнорировать версии шаблонов;
-* генерировать итоговый JSON без возврата версий шаблонов;
-* оставлять неявное поведение default values без документации и тестов;
-* делать декоративный demo-service без реальных endpoint flows;
-* документировать несуществующие классы или endpoint’ы.
+- огромные несвязанные рефакторинги “заодно”;
+- скрытую смену формата `.dtt`;
+- нарушение обратной совместимости без изменения `formatVersion`;
+- замену типизированной модели на `Map<String, Object>` без серьёзной причины.
 
 ---
 
-## 24. Приоритеты реализации
+## Правила для тестов
 
-Если реализация ведется поэтапно, порядок приоритета такой:
+Минимальный обязательный набор сценариев при изменениях в core-логике:
 
-1. canonical model;
-2. version model;
-3. parameter schema + default values;
-4. archive reader/writer;
-5. export/import services;
-6. branch JSON parser/generator;
-7. equipment-profile JSON parser/generator;
-8. cross-model transformation;
-9. validation;
-10. demo-service;
-11. Swagger;
-12. README/JavaDoc;
-13. exhaustive tests.
-
----
-
-## 25. Правила согласованности результата
-
-Перед завершением работы обязательно проверить:
-
-* что код компилируется;
-* что тесты соответствуют архитектуре;
-* что README описывает реально существующие классы;
-* что JavaDoc не расходится с кодом;
-* что OpenAPI не расходится с контроллерами;
-* что версии шаблонов реально возвращаются в JSON;
-* что default values реально подставляются;
-* что preview показывает происхождение значений;
-* что один и тот же кейс поддержан:
-
-  * в library,
-  * в demo-service,
-  * в README,
-  * в JavaDoc,
-  * в тестах.
+- один `.dtt` -> profile JSON;
+- несколько `.dtt` -> profile JSON;
+- один `.dtt` -> branch equipment JSON;
+- несколько `.dtt` -> branch equipment JSON;
+- profile JSON -> набор `.dtt`;
+- branch equipment JSON -> набор `.dtt`;
+- round-trip profile -> dtt set -> profile;
+- round-trip branches -> dtt set -> branches;
+- YAML parsing;
+- broken YAML;
+- missing required YAML files;
+- deterministic ZIP output;
+- type without child devices;
+- multiple device instances of same type;
+- nested object parameters;
+- null/empty scripts;
+- multiple event handlers;
+- multiple commands;
+- merge strategy conflicts;
+- demo-service OpenAPI generation.
 
 ---
 
-## 26. Definition of Done
+## Проверка перед завершением задачи
 
-Задача считается завершенной только если одновременно выполнены все условия:
+Перед тем как считать работу завершённой, проверь:
 
-1. `.dtts` поддерживает шаблон как для branch JSON, так и для equipment-profile JSON.
-2. У каждого шаблона есть версия.
-3. Версию шаблона можно получить отдельно.
-4. Версии шаблонов возвращаются в итоговых JSON.
-5. У параметров шаблона есть `defaultValue` и `defaultEquipmentValue`.
-6. При отсутствии явного значения генерация использует значение по умолчанию из шаблона.
-7. Есть полные тесты на version handling и default value resolution.
-8. Demo-service предоставляет реальные endpoint’ы.
-9. Swagger UI показывает версии и default values.
-10. README и JavaDoc подробно описывают всё перечисленное.
-
----
-
-## 27. Ожидаемый результат от агента
-
-Агент должен выдать:
-
-1. полный multi-module Maven project;
-2. полный исходный код;
-3. полный `README.md`;
-4. полный JavaDoc в исходниках;
-5. полный набор тестов;
-6. рабочий demo-service;
-7. примеры `.dtts`;
-8. примеры branch JSON;
-9. примеры equipment-profile JSON;
-10. примеры JSON с версиями шаблонов;
-11. примеры JSON с подставленными default values;
-12. примеры version conflict handling.
+1. проект компилируется;
+2. тесты проходят;
+3. новый код покрыт тестами;
+4. README не расходится с кодом;
+5. JavaDoc не расходится с кодом;
+6. OpenAPI не сломан;
+7. сценарии profile JSON поддержаны;
+8. сценарии branch equipment JSON поддержаны;
+9. обратный экспорт в набор `.dtt` поддержан;
+10. Groovy-код не теряется;
+11. YAML внутри `.dtt` остался читаемым и предсказуемым;
+12. deterministic archive output не сломан, если затронут архиватор.
 
 ---
 
-## 28. Итоговый смысл проекта в одной фразе
+## Команды
 
-Нужно реализовать расширяемую библиотеку и demo-service, которые умеют переносить, версионировать, валидировать и применять шаблоны типов оборудования через формат `.dtts` между branch JSON и equipment-profile JSON, при этом сохраняя Groovy-код, версии шаблонов и корректно подставляя значения параметров по умолчанию.
+Если в задаче не сказано иное, используй Maven wrapper.
+
+### Базовые команды
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository clean test
+./mvnw -Dmaven.repo.local=.m2/repository clean verify
+./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-library test
+./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service test
+```
+
+Если меняется:
+
+- формат `.dtt`;
+- YAML serialization/deserialization;
+- archive reader/writer;
+- profile assembly;
+- branch assembly;
+- merge-логика;
+- demo-service OpenAPI,
+
+предпочитай полный `clean verify`, а не частичный прогон.
+
+---
+
+## Приоритеты при неоднозначности
+
+Если есть неоднозначность, приоритет такой:
+
+1. сохранность данных и Groovy-кода;
+2. корректность модели и обратимость преобразования;
+3. предсказуемость формата `.dtt`;
+4. диагностичность ошибок;
+5. читаемость YAML;
+6. читаемость кода;
+7. удобство API и demo-service.
+
+---
+
+## Что считать завершённой работой
+
+Работа считается завершённой только если:
+
+- код реализован;
+- тесты добавлены и проходят;
+- README обновлён;
+- JavaDoc обновлён;
+- форматные и архитектурные инварианты не нарушены.
+
+Если что-то не выполнено — укажи это явно в отчёте.
+
+---
+
+## Формат отчёта о проделанной работе
+
+Когда завершаешь задачу, в ответе кратко укажи:
+
+1. что изменено;
+2. какие модули затронуты;
+3. какие тесты добавлены/обновлены;
+4. какие ограничения или риски остались;
+5. какие команды запускались для проверки.
+
+Не пиши общие фразы вроде “улучшил архитектуру”; перечисляй конкретные изменения.
