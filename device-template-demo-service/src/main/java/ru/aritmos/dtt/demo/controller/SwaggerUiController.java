@@ -10,13 +10,13 @@ import io.swagger.v3.oas.annotations.Hidden;
  * Контроллер маршрутизации для открытия Swagger UI по короткому адресу `/swagger-ui`.
  *
  * <p>Фронтенд Swagger UI берется из webjar-зависимости, а этот контроллер только
- * выдает redirect на страницу `index.html` с параметром `url` для OpenAPI-спецификации.
+ * выдает redirect на стандартный `index.html`, который инициализируется локальным `swagger-initializer.js`.
  */
 @Controller
 @Hidden
 public class SwaggerUiController {
 
-    private static final String SWAGGER_UI_LOCATION = "/swagger-ui-assets/index.html?url=/swagger/device-template-demo.yml";
+    private static final String SWAGGER_UI_LOCATION = "/swagger-ui/index.html";
 
     /**
      * Перенаправляет запросы `/swagger-ui` на страницу Swagger UI из webjar.
