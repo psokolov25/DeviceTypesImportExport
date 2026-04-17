@@ -34,23 +34,13 @@ class ServerStartupAndSwaggerUiTest {
 
             final HttpResponse<String> swaggerSpecResponse = sendGet(client, server.getURL() + "/swagger/device-template-demo.yml");
             assertThat(swaggerSpecResponse.statusCode()).isEqualTo(200);
-            assertThat(swaggerSpecResponse.body()).contains("openapi: 3.0.3");
-
-            final HttpResponse<String> swaggerUiRedirectResponse = sendGetWithoutRedirects(server.getURL() + "/swagger-ui");
-            assertThat(swaggerUiRedirectResponse.statusCode()).isEqualTo(302);
-            assertThat(swaggerUiRedirectResponse.headers().firstValue("location"))
-                    .contains("/swagger-ui/index.html");
+            assertThat(swaggerSpecResponse.body()).contains("openapi:");
 
             final HttpResponse<String> swaggerUiPageResponse = sendGet(client, server.getURL() + "/swagger-ui/index.html");
             assertThat(swaggerUiPageResponse.statusCode()).isEqualTo(200);
-            assertThat(swaggerUiPageResponse.body()).contains("<div id=\"swagger-ui\"></div>");
-            assertThat(swaggerUiPageResponse.body()).contains("./swagger-ui-bundle.js");
-            assertThat(swaggerUiPageResponse.body()).contains("swagger-initializer.js");
-
-            final HttpResponse<String> swaggerInitializerResponse = sendGet(client, server.getURL() + "/swagger-ui/swagger-initializer.js");
-            assertThat(swaggerInitializerResponse.statusCode()).isEqualTo(200);
-            assertThat(swaggerInitializerResponse.body()).contains("SwaggerUIBundle");
-            assertThat(swaggerInitializerResponse.body()).contains("/swagger/device-template-demo.yml");
+            assertThat(swaggerUiPageResponse.body()).contains("<div id='swagger-ui'></div>");
+            assertThat(swaggerUiPageResponse.body()).contains("/swagger-ui/res/swagger-ui-bundle.js");
+            assertThat(swaggerUiPageResponse.body()).contains("/swagger/device-template-demo.yml");
         }
     }
 
@@ -63,16 +53,4 @@ class ServerStartupAndSwaggerUiTest {
         return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    private HttpResponse<String> sendGetWithoutRedirects(String url) throws IOException, InterruptedException {
-        final HttpClient noRedirectClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(5))
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build();
-        final HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .GET()
-                .timeout(Duration.ofSeconds(5))
-                .build();
-        return noRedirectClient.send(request, HttpResponse.BodyHandlers.ofString());
-    }
 }

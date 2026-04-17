@@ -13,7 +13,7 @@
     <name>Device Template Demo Service</name>
 
     <properties>
-        <swagger.ui.dist.version>5.17.14</swagger.ui.dist.version>
+        <micronaut.openapi.version>6.13.2</micronaut.openapi.version>
     </properties>
 
     <dependencies>
@@ -43,9 +43,9 @@
             <version>2.2.22</version>
         </dependency>
         <dependency>
-            <groupId>org.webjars.npm</groupId>
-            <artifactId>swagger-ui-dist</artifactId>
-            <version>${swagger.ui.dist.version}</version>
+            <groupId>io.micronaut.openapi</groupId>
+            <artifactId>micronaut-openapi-annotations</artifactId>
+            <version>${micronaut.openapi.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -91,7 +91,15 @@
                             <artifactId>micronaut-inject-java</artifactId>
                             <version>${micronaut.version}</version>
                         </path>
+                        <path>
+                            <groupId>io.micronaut.openapi</groupId>
+                            <artifactId>micronaut-openapi</artifactId>
+                            <version>${micronaut.openapi.version}</version>
+                        </path>
                     </annotationProcessorPaths>
+                    <compilerArgs>
+                        <arg>-Amicronaut.openapi.filename=device-template-demo</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>
