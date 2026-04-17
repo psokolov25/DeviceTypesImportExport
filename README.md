@@ -125,6 +125,26 @@ String profileJson = facade.toProfileJson(
 ./mvnw -Dmaven.repo.local=.m2/repository clean test
 ```
 
+## Как запустить demo-service
+
+В репозитории уже есть Maven Wrapper:
+
+- `./mvnw` для Linux/macOS;
+- `mvnw.cmd` для Windows.
+
+> Важно: `device-template-demo-service` зависит от локального модуля `device-template-library`,  
+> поэтому запускать demo-модуль нужно с флагом `-am` (also-make), чтобы Maven сначала собрал зависимый модуль.
+
+Запуск из корня репозитория:
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service -am test
+./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service -am install -DskipTests
+./mvnw -Dmaven.repo.local=.m2/repository -f device-template-demo-service/pom.xml exec:java
+```
+
+Типовая причина ошибки `Could not find artifact ru.aritmos.dtt:device-template-library:0.1.0-SNAPSHOT` — запуск demo-модуля без `-am` или без предварительной сборки root-проекта.
+
 Покрыты сценарии:
 
 - merge-стратегии сборки profile JSON;
