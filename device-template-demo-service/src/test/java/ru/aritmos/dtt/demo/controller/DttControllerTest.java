@@ -3,6 +3,7 @@ package ru.aritmos.dtt.demo.controller;
 import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
@@ -71,6 +72,20 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldPreviewDttSetToProfileJson() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportDttSetToProfileRequest request = new ImportDttSetToProfileRequest(
+                List.of(Base64.getEncoder().encodeToString(bytes)),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var response = controller.previewProfile(request);
+
+        assertThat(response.deviceTypesCount()).isEqualTo(1);
+        assertThat(response.profileJson()).contains("display");
+    }
+
+    @Test
     void shouldExportAllDttFromProfileJson() {
         final ExportAllDttFromProfileRequest request = new ExportAllDttFromProfileRequest(
                 new EquipmentProfile(Map.of(
@@ -78,7 +93,8 @@ class DttControllerTest {
                         new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of())
                 )),
                 null,
-                List.of("display")
+                List.of("display"),
+                null
         );
 
         final var response = controller.exportAllFromProfile(request);
@@ -105,6 +121,22 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldPreviewDttSetToBranchJson() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportDttSetToBranchRequest request = new ImportDttSetToBranchRequest(
+                List.of(Base64.getEncoder().encodeToString(bytes)),
+                List.of("branch-1", "branch-2"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var response = controller.previewBranch(request);
+
+        assertThat(response.branchesCount()).isEqualTo(2);
+        assertThat(response.branchJson()).contains("branch-1");
+        assertThat(response.branchJson()).contains("display");
+    }
+
+    @Test
     void shouldExportAllDttFromBranchJson() {
         final ExportAllDttFromBranchRequest request = new ExportAllDttFromBranchRequest(
                 new BranchEquipment(Map.of(
@@ -124,7 +156,8 @@ class DttControllerTest {
                 null,
                 List.of("branch-1"),
                 List.of("display"),
-                MergeStrategy.FAIL_IF_EXISTS
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
         );
 
         final var response = controller.exportAllFromBranch(request);
@@ -165,7 +198,7 @@ class DttControllerTest {
 
     @Test
     void shouldFailOnBlankProfileJson() {
-        assertThatThrownBy(() -> controller.exportAllFromProfile(new ExportAllDttFromProfileRequest(null, null, List.of())))
+        assertThatThrownBy(() -> controller.exportAllFromProfile(new ExportAllDttFromProfileRequest(null, null, List.of(), null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either profile or profileJson must be provided");
     }
@@ -177,7 +210,8 @@ class DttControllerTest {
                 null,
                 List.of(),
                 List.of(),
-                MergeStrategy.FAIL_IF_EXISTS
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
         )))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either branchEquipment or branchJson must be provided");
@@ -188,9 +222,10 @@ class DttControllerTest {
         final ExportAllDttFromProfileRequest request = new ExportAllDttFromProfileRequest(
                 null,
                 "{" +
-                        "\"display\":{\"metadata\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\"},\"deviceTypeParamValues\":{}}" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"deviceTypeParamValues\":{}}" +
                         "}",
-                List.of("display")
+                List.of("display"),
+                null
         );
 
         final var response = controller.exportAllFromProfile(request);
@@ -210,10 +245,31 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldPreviewProfileFromDttZipUpload() {
+        final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
+
+        final var response = controller.previewProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+
+        assertThat(response.deviceTypesCount()).isEqualTo(1);
+        assertThat(response.profileJson()).contains("display");
+    }
+
+    @Test
     void shouldImportBranchFromDttZipUpload() {
         final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
 
         final var response = controller.importToBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+
+        assertThat(response.branchesCount()).isEqualTo(1);
+        assertThat(response.branchJson()).contains("branch-1");
+        assertThat(response.branchJson()).contains("display");
+    }
+
+    @Test
+    void shouldPreviewBranchFromDttZipUpload() {
+        final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
+
+        final var response = controller.previewBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
 
         assertThat(response.branchesCount()).isEqualTo(1);
         assertThat(response.branchJson()).contains("branch-1");
@@ -228,7 +284,8 @@ class DttControllerTest {
                         new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of())
                 )),
                 null,
-                List.of("display")
+                List.of("display"),
+                "2.1.0"
         );
 
         final var response = controller.exportAllFromProfileDownload(request);
@@ -236,6 +293,11 @@ class DttControllerTest {
         assertThat(response.getStatus().getCode()).isEqualTo(200);
         assertThat(response.getHeaders().get("Content-Disposition")).contains("profile-dtt-set.zip");
         assertThat(countDttEntries(response.body())).isEqualTo(1);
+        final var exportedTemplate = new DefaultDttArchiveReader()
+                .read(new java.io.ByteArrayInputStream(firstDttEntry(response.body())));
+        assertThat(exportedTemplate.descriptor().formatVersion()).isEqualTo("1.0");
+        assertThat(exportedTemplate.descriptor().deviceTypeVersion()).isEqualTo("2.1.0");
+        assertThat(exportedTemplate.metadata().description()).endsWith("2.1.0");
     }
 
     @Test
@@ -245,13 +307,14 @@ class DttControllerTest {
                 "{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
-                        "\"display\":{\"template\":{\"metadata\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\"},\"deviceTypeParamValues\":{}},\"devices\":{}}" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
-                        "}",
+                "}",
                 List.of("branch-1"),
                 List.of("display"),
-                MergeStrategy.FAIL_IF_EXISTS
+                MergeStrategy.FAIL_IF_EXISTS,
+                "2.1.0"
         );
 
         final var response = controller.exportAllFromBranchDownload(request);
@@ -259,6 +322,11 @@ class DttControllerTest {
         assertThat(response.getStatus().getCode()).isEqualTo(200);
         assertThat(response.getHeaders().get("Content-Disposition")).contains("branch-dtt-set.zip");
         assertThat(countDttEntries(response.body())).isEqualTo(1);
+        final var exportedTemplate = new DefaultDttArchiveReader()
+                .read(new java.io.ByteArrayInputStream(firstDttEntry(response.body())));
+        assertThat(exportedTemplate.descriptor().formatVersion()).isEqualTo("1.0");
+        assertThat(exportedTemplate.descriptor().deviceTypeVersion()).isEqualTo("2.1.0");
+        assertThat(exportedTemplate.metadata().description()).endsWith("2.1.0");
     }
 
     @Test
@@ -268,13 +336,14 @@ class DttControllerTest {
                 "{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
-                        "\"display\":{\"template\":{\"metadata\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\"},\"deviceTypeParamValues\":{}},\"devices\":{}}" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
-                        "}",
+                "}",
                 List.of("branch-1"),
                 List.of("display"),
-                MergeStrategy.FAIL_IF_EXISTS
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
         );
 
         final var response = controller.exportAllFromBranch(request);
@@ -305,7 +374,7 @@ class DttControllerTest {
 
     private byte[] createArchiveBytes(String deviceTypeId, String onStart) {
         final DttArchiveTemplate template = new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", deviceTypeId),
+                new DttArchiveDescriptor("DTT", "1.0", deviceTypeId, null),
                 new DeviceTypeMetadata(deviceTypeId, "Display", "Display", "desc"),
                 Map.of(),
                 Map.of(),
@@ -350,6 +419,18 @@ class DttControllerTest {
                 }
             }
             return count;
+        }
+    }
+
+    private byte[] firstDttEntry(byte[] zipBytes) throws IOException {
+        try (ZipInputStream input = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".dtt")) {
+                    return input.readAllBytes();
+                }
+            }
+            throw new IllegalStateException("zip payload does not contain .dtt entry");
         }
     }
 }

@@ -118,13 +118,14 @@ public interface DeviceTemplateLibraryFacade {
     BatchDttExportResult exportDttSetFromProfile(ProfileExportRequest request);
 
     /**
-     * Экспортирует набор DTT-архивов из строкового profile JSON.
+     * Экспортирует набор DTT-архивов из строкового profile JSON с явной версией шаблона типа устройства.
      *
      * @param profileJson строковое представление карты deviceTypes
      * @param deviceTypeIds опциональный фильтр deviceTypeId
+     * @param dttVersion версия шаблона типа устройства, фиксируемая в DTT
      * @return архивы по id типа устройства
      */
-    BatchDttExportResult exportDttSetFromProfileJson(String profileJson, List<String> deviceTypeIds);
+    BatchDttExportResult exportDttSetFromProfileJson(String profileJson, List<String> deviceTypeIds, String dttVersion);
 
     /**
      * Импортирует набор DTT-архивов в profile модель оборудования.
@@ -134,6 +135,15 @@ public interface DeviceTemplateLibraryFacade {
      * @return собранный профиль оборудования
      */
     EquipmentProfile importDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy);
+
+    /**
+     * Выполняет preview-сборку profile JSON из набора DTT-архивов без сохранения результата.
+     *
+     * @param archives bytes-архивы DTT
+     * @param mergeStrategy стратегия разрешения конфликтов типов
+     * @return рассчитанный профиль оборудования
+     */
+    EquipmentProfile previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy);
 
     /**
      * Экспортирует все типы устройств из branch equipment модели в набор DTT-архивов.
@@ -153,18 +163,20 @@ public interface DeviceTemplateLibraryFacade {
     BatchDttExportResult exportDttSetFromBranch(BranchEquipmentExportRequest request);
 
     /**
-     * Экспортирует набор DTT-архивов из строкового branch equipment JSON.
+     * Экспортирует набор DTT-архивов из строкового branch equipment JSON с явной версией шаблона типа устройства.
      *
      * @param branchJson строковое представление branch equipment JSON
      * @param branchIds опциональный фильтр branchId
      * @param deviceTypeIds опциональный фильтр deviceTypeId
      * @param mergeStrategy стратегия merge конфликтов между branch
+     * @param dttVersion версия шаблона типа устройства, фиксируемая в DTT
      * @return архивы по id типа устройства
      */
     BatchDttExportResult exportDttSetFromBranchJson(String branchJson,
                                                     List<String> branchIds,
                                                     List<String> deviceTypeIds,
-                                                    MergeStrategy mergeStrategy);
+                                                    MergeStrategy mergeStrategy,
+                                                    String dttVersion);
 
     /**
      * Импортирует набор DTT-архивов в branch equipment модель для заданных отделений.
@@ -177,9 +189,24 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment importDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
+     * Выполняет preview-сборку branch equipment из набора DTT-архивов без сохранения результата.
+     *
+     * @param archives bytes-архивы DTT
+     * @param branchIds идентификаторы отделений, в которые нужно импортировать все переданные типы
+     * @param mergeStrategy стратегия разрешения конфликтов типов внутри каждого отделения
+     * @return рассчитанная branch equipment модель
+     */
+    BranchEquipment previewDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует набор DTT-архивов в profile модель из Base64-представления.
      */
     EquipmentProfile importDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy);
+
+    /**
+     * Выполняет preview-сборку profile JSON из Base64-представления набора DTT-архивов.
+     */
+    EquipmentProfile previewDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy);
 
     /**
      * Импортирует набор DTT-архивов в branch equipment модель из Base64-представления.
@@ -187,14 +214,29 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment importDttBase64SetToBranch(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
+     * Выполняет preview-сборку branch equipment из Base64-представления набора DTT-архивов.
+     */
+    BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует zip-архив с .dtt файлами в profile модель.
      */
     EquipmentProfile importDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy);
 
     /**
+     * Выполняет preview-сборку profile JSON из zip-архива с `.dtt` файлами.
+     */
+    EquipmentProfile previewDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует zip-архив с .dtt файлами в branch equipment модель.
      */
     BranchEquipment importDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Выполняет preview-сборку branch equipment из zip-архива с `.dtt` файлами.
+     */
+    BranchEquipment previewDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
      * Экспортирует набор DTT-архивов профиля в zip-представление.

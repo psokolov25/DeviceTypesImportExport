@@ -16,7 +16,7 @@ class DefaultCanonicalTemplateMapperTest {
     @Test
     void shouldMapArchiveToCanonicalAndBackWithoutLosingScripts() {
         final DttArchiveTemplate archive = new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.2", "display"),
+                new DttArchiveDescriptor("DTT", "1.2", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
                 Map.of("p", Map.of("type", "String")),
                 Map.of("ip", Map.of("type", "String")),

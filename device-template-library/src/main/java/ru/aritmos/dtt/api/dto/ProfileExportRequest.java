@@ -10,9 +10,11 @@ import java.util.List;
  * @param profile исходная модель профиля оборудования (карта deviceTypes)
  * @param deviceTypeIds опциональный список deviceTypeId для выборочного экспорта;
  *                      если null/пустой — экспортируются все типы
+ * @param dttVersion опциональная версия шаблона, которая фиксируется в DTT и добавляется в описание типа
  */
 public record ProfileExportRequest(
         EquipmentProfile profile,
-        List<String> deviceTypeIds
+        List<String> deviceTypeIds,
+        String dttVersion
 ) {
 }

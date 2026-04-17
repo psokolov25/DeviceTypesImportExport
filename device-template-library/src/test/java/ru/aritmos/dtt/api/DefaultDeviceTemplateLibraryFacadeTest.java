@@ -134,7 +134,7 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 MergeStrategy.FAIL_IF_EXISTS
         ));
 
-        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, List.of("cashbox")));
+        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, List.of("cashbox"), null));
 
         assertThat(exported.archivesByDeviceTypeId()).containsOnlyKeys("cashbox");
     }
@@ -158,7 +158,8 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 branch,
                 List.of("missing-branch"),
                 List.of("display"),
-                MergeStrategy.FAIL_IF_EXISTS
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
         )))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown branchIds");
@@ -173,19 +174,185 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         final var profileFromBase64 = facade.importDttBase64SetToProfile(List.of(archiveBase64), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromBase64.deviceTypes()).containsKey("display");
 
-        final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profileFromBase64, List.of("display")));
+        final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(countDttEntries(zipPayload)).isEqualTo(1);
 
         final var profileFromZip = facade.importDttZipToProfile(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromZip.deviceTypes()).containsKey("display");
 
-        final String zipBase64 = facade.exportProfileToDttZipBase64(new ProfileExportRequest(profileFromBase64, List.of("display")));
+        final String zipBase64 = facade.exportProfileToDttZipBase64(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(zipBase64).isNotBlank();
+    }
+
+    @Test
+    void shouldSupportPreviewModesInFacade() {
+        final DttArchiveTemplate template = template();
+        final byte[] archiveBytes = facade.writeDtt(template);
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final var profileFromBytes = facade.previewDttSetToProfile(List.of(archiveBytes), MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(profileFromBytes.deviceTypes()).containsKey("display");
+
+        final var profileFromBase64 = facade.previewDttBase64SetToProfile(List.of(archiveBase64), MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(profileFromBase64.deviceTypes()).containsKey("display");
+
+        final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profileFromBytes, List.of("display"), null));
+        final var profileFromZip = facade.previewDttZipToProfile(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(profileFromZip.deviceTypes()).containsKey("display");
+
+        final var branchFromBytes = facade.previewDttSetToBranch(List.of(archiveBytes), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(branchFromBytes.branches()).containsKey("branch-1");
+
+        final var branchFromBase64 = facade.previewDttBase64SetToBranch(
+                List.of(archiveBase64),
+                List.of("branch-1"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+        assertThat(branchFromBase64.branches()).containsKey("branch-1");
+
+        final var branchFromZip = facade.previewDttZipToBranch(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(branchFromZip.branches()).containsKey("branch-1");
+    }
+
+    @Test
+    void shouldFailWhenPreviewArchivesCollectionIsEmpty() {
+        assertThatThrownBy(() -> facade.previewDttSetToProfile(List.of(), MergeStrategy.FAIL_IF_EXISTS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("archives must contain at least one DTT archive");
+
+        assertThatThrownBy(() -> facade.previewDttSetToBranch(List.of(), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("archives must contain at least one DTT archive");
+    }
+
+    @Test
+    void shouldExportDttWithRequestedVersionAndDefaultValuesFromProfileJson() {
+        final var sourceTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of("ip", "127.0.0.1", "port", 8080)
+        );
+        final var profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(sourceTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, List.of("display"), "2.5.0"));
+        final byte[] archiveBytes = exported.archivesByDeviceTypeId().get("display");
+        final DttArchiveTemplate restored = facade.readDtt(archiveBytes);
+
+        assertThat(restored.descriptor().formatVersion()).isEqualTo("1.0");
+        assertThat(restored.descriptor().deviceTypeVersion()).isEqualTo("2.5.0");
+        assertThat(restored.defaultValues()).containsEntry("ip", "127.0.0.1").containsEntry("port", 8080);
+        assertThat(restored.metadata().description()).endsWith("2.5.0");
+    }
+
+    @Test
+    void shouldExportDttFromProfileJsonStringWithRequestedVersion() {
+        final String profileJson = """
+                {
+                  "display": {
+                    "id": "display",
+                    "name": "Display",
+                    "displayName": "Display",
+                    "description": "desc",
+                    "deviceTypeParamValues": {
+                      "ip": "10.0.0.1"
+                    }
+                  }
+                }
+                """;
+
+        final var exported = facade.exportDttSetFromProfileJson(profileJson, List.of("display"), "3.0.1");
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+
+        assertThat(restored.descriptor().deviceTypeVersion()).isEqualTo("3.0.1");
+        assertThat(restored.defaultValues()).containsEntry("ip", "10.0.0.1");
+        assertThat(restored.metadata().description()).endsWith("3.0.1");
+    }
+
+    @Test
+    void shouldExportDttFromBranchJsonStringWithRequestedVersion() {
+        final String branchJson = """
+                {
+                  "branch-1": {
+                    "id": "branch-1",
+                    "displayName": "Main",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display",
+                        "description": "desc",
+                        "deviceTypeParamValues": {
+                          "ip": "10.0.0.2"
+                        },
+                        "devices": {}
+                      }
+                    }
+                  }
+                }
+                """;
+
+        final var exported = facade.exportDttSetFromBranchJson(
+                branchJson,
+                List.of("branch-1"),
+                List.of("display"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.2"
+        );
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+
+        assertThat(restored.descriptor().deviceTypeVersion()).isEqualTo("3.0.2");
+        assertThat(restored.defaultValues()).containsEntry("ip", "10.0.0.2");
+        assertThat(restored.metadata().description()).endsWith("3.0.2");
+    }
+
+    @Test
+    void shouldExtractDefaultValuesFromDeviceManagerStyleParameterObjects() {
+        final var sourceTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "prefix", Map.of(
+                                "value", "SSS",
+                                "name", "prefix",
+                                "displayName", "entrypoint_prefix",
+                                "type", "String"
+                        ),
+                        "zones", Map.of(
+                                "value", Map.of(
+                                        "0", Map.of(
+                                                "enabled", Map.of("value", true),
+                                                "text", Map.of("value", "CLOSED")
+                                        )
+                                ),
+                                "name", "zones",
+                                "type", "Object"
+                        )
+                )
+        );
+        final var profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(sourceTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, List.of("display"), "4.0.0"));
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+
+        assertThat(restored.defaultValues()).containsEntry("prefix", "SSS");
+        assertThat(restored.defaultValues()).containsKey("zones");
+        final Map<String, Object> zones = (Map<String, Object>) restored.defaultValues().get("zones");
+        assertThat(zones).containsKey("0");
+        final Map<String, Object> zoneZero = (Map<String, Object>) zones.get("0");
+        assertThat(zoneZero)
+                .containsEntry("enabled", true)
+                .containsEntry("text", "CLOSED");
     }
 
     private DttArchiveTemplate template() {
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "display"),
+                new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Display", "desc"),
                 Map.of(),
                 Map.of(),

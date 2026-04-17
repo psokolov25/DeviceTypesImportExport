@@ -53,7 +53,7 @@ class DeviceTemplateLibraryFacadeBuilderTest {
 
     private DttArchiveTemplate template() {
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "display"),
+                new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Display", "desc"),
                 Map.of(),
                 Map.of(),

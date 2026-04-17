@@ -31,9 +31,16 @@ class BranchJsonParserGeneratorTest {
         ));
 
         final String json = generator.generate(branchEquipment);
+        assertThat(json).contains("\"deviceTypes\":{\"type-1\":{\"id\":\"type-1\"");
+        assertThat(json).doesNotContain("\"template\"");
+        assertThat(json).contains("\"url\":{\"value\":\"x\",\"name\":\"url\"}");
         final BranchEquipment parsed = parser.parse(json);
 
         assertThat(parsed.branches()).containsKey("branch-1");
         assertThat(parsed.branches().get("branch-1").deviceTypes()).containsKey("type-1");
+        final Map<String, Object> params = parsed.branches().get("branch-1").deviceTypes().get("type-1").template().deviceTypeParamValues();
+        assertThat((Map<String, Object>) params.get("url"))
+                .containsEntry("value", "x")
+                .containsEntry("name", "url");
     }
 }

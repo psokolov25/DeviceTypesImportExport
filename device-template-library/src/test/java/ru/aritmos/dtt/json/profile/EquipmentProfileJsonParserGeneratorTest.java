@@ -21,9 +21,15 @@ class EquipmentProfileJsonParserGeneratorTest {
         ));
 
         final String json = generator.generate(profile);
+        assertThat(json).contains("\"id\":\"type-1\"");
+        assertThat(json).doesNotContain("\"metadata\"");
+        assertThat(json).contains("\"ip\":{\"value\":\"1\",\"name\":\"ip\"}");
         final EquipmentProfile parsed = parser.parse(json);
 
         assertThat(parsed.deviceTypes()).containsKey("type-1");
-        assertThat(parsed.deviceTypes().get("type-1").deviceTypeParamValues()).containsEntry("ip", "1");
+        final Map<String, Object> params = parsed.deviceTypes().get("type-1").deviceTypeParamValues();
+        assertThat((Map<String, Object>) params.get("ip"))
+                .containsEntry("value", "1")
+                .containsEntry("name", "ip");
     }
 }

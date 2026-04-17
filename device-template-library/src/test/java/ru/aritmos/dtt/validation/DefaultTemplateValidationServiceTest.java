@@ -37,7 +37,7 @@ class DefaultTemplateValidationServiceTest {
     @Test
     void shouldDetectSyntaxErrorsInEventHandlersAndCommands() {
         final DttArchiveTemplate template = new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "display"),
+                new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
                 Map.of(),
                 Map.of(),
@@ -63,7 +63,7 @@ class DefaultTemplateValidationServiceTest {
 
     private DttArchiveTemplate templateWithScripts(String onStart, String handler) {
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "display"),
+                new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
                 Map.of(),
                 Map.of(),

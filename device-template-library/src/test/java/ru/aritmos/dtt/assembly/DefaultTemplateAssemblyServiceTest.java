@@ -64,6 +64,15 @@ class DefaultTemplateAssemblyServiceTest {
                 .containsEntry("b", "override");
     }
 
+    @Test
+    void shouldPreviewEquipmentProfile() {
+        final var profile = service.previewEquipmentProfile(requestWithConflict(MergeStrategy.REPLACE));
+
+        assertThat(profile.deviceTypes()).hasSize(1);
+        assertThat(profile.deviceTypes().get("type-1").deviceTypeParamValues())
+                .containsEntry("url", "incoming");
+    }
+
     private EquipmentProfileAssemblyRequest requestWithConflict(MergeStrategy strategy) {
         final DeviceTypeTemplate first = new DeviceTypeTemplate(
                 new DeviceTypeMetadata("type-1", "Terminal", "Терминал", "desc"),

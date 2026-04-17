@@ -106,6 +106,24 @@ class BranchAssemblyServiceTest {
                 .hasMessageContaining("уже существует");
     }
 
+    @Test
+    void shouldPreviewBranchAssembly() {
+        final DeviceTypeTemplate type = type("type-1");
+        final BranchEquipmentAssemblyRequest request = new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(new EquipmentProfileDeviceTypeRequest(type, true), List.of()))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var result = service.previewBranchEquipment(request);
+
+        assertThat(result.branches()).containsKey("branch-1");
+        assertThat(result.branches().get("branch-1").deviceTypes()).containsKey("type-1");
+    }
+
     private DeviceTypeTemplate type(String id) {
         return new DeviceTypeTemplate(new DeviceTypeMetadata(id, id, id, id), Map.of("a", "b"));
     }

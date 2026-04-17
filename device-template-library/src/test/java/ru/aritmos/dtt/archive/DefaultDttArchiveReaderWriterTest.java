@@ -84,7 +84,7 @@ class DefaultDttArchiveReaderWriterTest {
 
     private DttArchiveTemplate sampleTemplate() {
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "display-type"),
+                new DttArchiveDescriptor("DTT", "1.0", "display-type", null),
                 new DeviceTypeMetadata("display-type", "Display", "Дисплей", "Табло"),
                 Map.of("TicketZone", Map.of("type", "String")),
                 Map.of("IP", Map.of("type", "String")),

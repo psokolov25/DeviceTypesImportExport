@@ -101,6 +101,28 @@ public class DttController {
     }
 
     /**
+     * Выполняет preview-сборку profile JSON из одного или нескольких DTT-архивов.
+     *
+     * @param request запрос с Base64-представлением архивов и merge-стратегией
+     * @return preview profile JSON и количество типов устройств
+     */
+    @Post(uri = "/preview/profile", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview сборки profile JSON из набора DTT")
+    @ApiResponse(responseCode = "200", description = "Preview profile JSON")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка валидации входных данных",
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 archive at index 0\"}"))
+    )
+    public ImportDttSetToProfileResponse previewProfile(@Body ImportDttSetToProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        final List<byte[]> archives = decodeArchives(request.archivesBase64());
+        return demoService.previewDttSetToProfile(archives, request.mergeStrategy());
+    }
+
+    /**
      * Импортирует zip-архив с файлами .dtt в profile JSON (режим upload-download).
      *
      * @param zipPayload zip-архив с файлами .dtt
@@ -112,6 +134,20 @@ public class DttController {
     public ImportDttSetToProfileResponse importToProfileUpload(@Body byte[] zipPayload,
                                                                @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
         return demoService.importDttZipToProfile(zipPayload, mergeStrategy);
+    }
+
+    /**
+     * Выполняет preview-сборку profile JSON из zip-архива с файлами .dtt (режим upload-download).
+     *
+     * @param zipPayload zip-архив с файлами .dtt
+     * @param mergeStrategy стратегия merge
+     * @return preview profile JSON и количество типов устройств
+     */
+    @Post(uri = "/preview/profile/upload{?mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview profile JSON из zip DTT (upload-download)")
+    public ImportDttSetToProfileResponse previewProfileUpload(@Body byte[] zipPayload,
+                                                              @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+        return demoService.previewDttZipToProfile(zipPayload, mergeStrategy);
     }
 
     /**
@@ -141,6 +177,31 @@ public class DttController {
     }
 
     /**
+     * Выполняет preview-сборку branch equipment JSON из одного или нескольких DTT-архивов.
+     *
+     * @param request запрос с Base64-архивами, branch и merge-стратегией
+     * @return preview branch equipment JSON и количество branch
+     */
+    @Post(uri = "/preview/branch", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview сборки branch equipment JSON из набора DTT")
+    @ApiResponse(responseCode = "200", description = "Preview branch equipment JSON")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка входных данных",
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}"))
+    )
+    public ImportDttSetToBranchResponse previewBranch(@Body ImportDttSetToBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        final List<byte[]> archives = decodeArchives(request.archivesBase64());
+        if (request.branchIds() == null || request.branchIds().isEmpty()) {
+            throw new IllegalArgumentException("branchIds must contain at least one branch id");
+        }
+        return demoService.previewDttSetToBranch(archives, request.branchIds(), request.mergeStrategy());
+    }
+
+    /**
      * Импортирует zip-архив с файлами .dtt в branch equipment JSON (режим upload-download).
      *
      * @param zipPayload zip-архив с файлами .dtt
@@ -157,6 +218,25 @@ public class DttController {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
         return demoService.importDttZipToBranch(zipPayload, branchIds, mergeStrategy);
+    }
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON из zip-архива с файлами .dtt (режим upload-download).
+     *
+     * @param zipPayload zip-архив с файлами .dtt
+     * @param branchIds branch-ы назначения
+     * @param mergeStrategy стратегия merge
+     * @return preview branch JSON и количество branch
+     */
+    @Post(uri = "/preview/branch/upload{?branchIds,mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview branch equipment JSON из zip DTT (upload-download)")
+    public ImportDttSetToBranchResponse previewBranchUpload(@Body byte[] zipPayload,
+                                                            @QueryValue List<String> branchIds,
+                                                            @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+        if (branchIds == null || branchIds.isEmpty()) {
+            throw new IllegalArgumentException("branchIds must contain at least one branch id");
+        }
+        return demoService.previewDttZipToBranch(zipPayload, branchIds, mergeStrategy);
     }
 
 
@@ -212,10 +292,10 @@ public class DttController {
             throw new IllegalArgumentException("request must not be null");
         }
         if (request.profile() != null) {
-            return demoService.exportAllDttFromProfile(request.profile(), request.deviceTypeIds());
+            return demoService.exportAllDttFromProfile(request.profile(), request.deviceTypeIds(), request.dttVersion());
         }
         if (request.profileJson() != null && !request.profileJson().isBlank()) {
-            return demoService.exportAllDttFromProfileJson(request.profileJson(), request.deviceTypeIds());
+            return demoService.exportAllDttFromProfileJson(request.profileJson(), request.deviceTypeIds(), request.dttVersion());
         }
         throw new IllegalArgumentException("Either profile or profileJson must be provided");
     }
@@ -229,7 +309,12 @@ public class DttController {
         if (request == null || (request.profile() == null && (request.profileJson() == null || request.profileJson().isBlank()))) {
             throw new IllegalArgumentException("Either profile or profileJson must be provided");
         }
-        final byte[] payload = demoService.exportProfileToZip(request.profile(), request.profileJson(), request.deviceTypeIds());
+        final byte[] payload = demoService.exportProfileToZip(
+                request.profile(),
+                request.profileJson(),
+                request.deviceTypeIds(),
+                request.dttVersion()
+        );
         return HttpResponse.ok(payload)
                 .header("Content-Disposition", "attachment; filename=\"profile-dtt-set.zip\"");
     }
@@ -302,7 +387,8 @@ public class DttController {
                     request.branchEquipment(),
                     request.branchIds(),
                     request.deviceTypeIds(),
-                    request.mergeStrategy()
+                    request.mergeStrategy(),
+                    request.dttVersion()
             );
         }
         if (request.branchJson() != null && !request.branchJson().isBlank()) {
@@ -310,7 +396,8 @@ public class DttController {
                     request.branchJson(),
                     request.branchIds(),
                     request.deviceTypeIds(),
-                    request.mergeStrategy()
+                    request.mergeStrategy(),
+                    request.dttVersion()
             );
         }
         throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
@@ -330,7 +417,8 @@ public class DttController {
                 request.branchJson(),
                 request.branchIds(),
                 request.deviceTypeIds(),
-                request.mergeStrategy()
+                request.mergeStrategy(),
+                request.dttVersion()
         );
         return HttpResponse.ok(payload)
                 .header("Content-Disposition", "attachment; filename=\"branch-dtt-set.zip\"");

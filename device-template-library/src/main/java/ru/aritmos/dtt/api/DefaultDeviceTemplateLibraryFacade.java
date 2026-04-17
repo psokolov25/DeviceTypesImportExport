@@ -1,6 +1,7 @@
 package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
+import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
@@ -153,7 +154,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
 
     @Override
     public BatchDttExportResult exportDttSetFromProfile(EquipmentProfile profile) {
-        return exportDttSetFromProfile(new ProfileExportRequest(profile, List.of()));
+        return exportDttSetFromProfile(new ProfileExportRequest(profile, List.of(), null));
     }
 
     @Override
@@ -165,7 +166,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         final Map<String, byte[]> archives = new LinkedHashMap<>();
 
         if (filterIds == null || filterIds.isEmpty()) {
-            deviceTypes.forEach((typeId, deviceType) -> archives.put(typeId, writeDtt(toArchiveTemplate(typeId, deviceType))));
+            deviceTypes.forEach((typeId, deviceType) -> archives.put(typeId, writeDtt(toArchiveTemplate(typeId, deviceType, request.dttVersion()))));
             return new BatchDttExportResult(archives);
         }
 
@@ -174,30 +175,29 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             if (deviceType == null) {
                 throw new IllegalArgumentException("Unknown deviceTypeId in profile export request: " + typeId);
             }
-            archives.put(typeId, writeDtt(toArchiveTemplate(typeId, deviceType)));
+            archives.put(typeId, writeDtt(toArchiveTemplate(typeId, deviceType, request.dttVersion())));
         }
         return new BatchDttExportResult(archives);
     }
 
     @Override
-    public BatchDttExportResult exportDttSetFromProfileJson(String profileJson, List<String> deviceTypeIds) {
-        return exportDttSetFromProfile(new ProfileExportRequest(parseProfileJson(profileJson), deviceTypeIds));
+    public BatchDttExportResult exportDttSetFromProfileJson(String profileJson, List<String> deviceTypeIds, String dttVersion) {
+        return exportDttSetFromProfile(new ProfileExportRequest(parseProfileJson(profileJson), deviceTypeIds, dttVersion));
     }
 
     @Override
     public EquipmentProfile importDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
-        final List<EquipmentProfileDeviceTypeRequest> requests = archives.stream()
-                .map(this::readDtt)
-                .map(this::toDeviceTypeTemplate)
-                .map(template -> new EquipmentProfileDeviceTypeRequest(template, true))
-                .toList();
+        return assembleProfile(toProfileAssemblyRequest(archives, mergeStrategy));
+    }
 
-        return assembleProfile(new EquipmentProfileAssemblyRequest(requests, List.of(), mergeStrategy));
+    @Override
+    public EquipmentProfile previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
+        return assemblyService.previewEquipmentProfile(toProfileAssemblyRequest(archives, mergeStrategy));
     }
 
     @Override
     public BatchDttExportResult exportDttSetFromBranch(BranchEquipment branchEquipment, MergeStrategy mergeStrategy) {
-        return exportDttSetFromBranch(new BranchEquipmentExportRequest(branchEquipment, List.of(), List.of(), mergeStrategy));
+        return exportDttSetFromBranch(new BranchEquipmentExportRequest(branchEquipment, List.of(), List.of(), mergeStrategy, null));
     }
 
     @Override
@@ -219,7 +219,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                     return;
                 }
                 final String key = resolveKeyForBranchExport(archives, typeId, branchId, effectiveMergeStrategy);
-                archives.put(key, writeDtt(toArchiveTemplate(key, branchType.template())));
+                archives.put(key, writeDtt(toArchiveTemplate(key, branchType.template(), request.dttVersion())));
                 exportedDeviceTypeIds.add(typeId);
             });
         });
@@ -237,39 +237,35 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     public BatchDttExportResult exportDttSetFromBranchJson(String branchJson,
                                                            List<String> branchIds,
                                                            List<String> deviceTypeIds,
-                                                           MergeStrategy mergeStrategy) {
-        return exportDttSetFromBranch(new BranchEquipmentExportRequest(parseBranchJson(branchJson), branchIds, deviceTypeIds, mergeStrategy));
+                                                           MergeStrategy mergeStrategy,
+                                                           String dttVersion) {
+        return exportDttSetFromBranch(new BranchEquipmentExportRequest(
+                parseBranchJson(branchJson),
+                branchIds,
+                deviceTypeIds,
+                mergeStrategy,
+                dttVersion
+        ));
     }
 
     @Override
     public BranchEquipment importDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
-        Objects.requireNonNull(archives, "archives is required");
-        if (branchIds == null || branchIds.isEmpty()) {
-            throw new IllegalArgumentException("branchIds must contain at least one branch id");
-        }
+        return assembleBranch(toBranchAssemblyRequest(archives, branchIds, mergeStrategy));
+    }
 
-        final List<EquipmentProfileDeviceTypeRequest> deviceTypeRequests = archives.stream()
-                .map(this::readDtt)
-                .map(this::toDeviceTypeTemplate)
-                .map(template -> new EquipmentProfileDeviceTypeRequest(template, true))
-                .toList();
-
-        final List<BranchImportRequest> branches = branchIds.stream()
-                .map(branchId -> new BranchImportRequest(
-                        branchId,
-                        branchId,
-                        deviceTypeRequests.stream()
-                                .map(request -> new BranchDeviceTypeImportRequest(request, List.of()))
-                                .toList()
-                ))
-                .toList();
-
-        return assembleBranch(new BranchEquipmentAssemblyRequest(branches, mergeStrategy));
+    @Override
+    public BranchEquipment previewDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
+        return assemblyService.previewBranchEquipment(toBranchAssemblyRequest(archives, branchIds, mergeStrategy));
     }
 
     @Override
     public EquipmentProfile importDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy) {
         return importDttSetToProfile(decodeBase64Archives(archivesBase64), mergeStrategy);
+    }
+
+    @Override
+    public EquipmentProfile previewDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy) {
+        return previewDttSetToProfile(decodeBase64Archives(archivesBase64), mergeStrategy);
     }
 
     @Override
@@ -280,13 +276,30 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64,
+                                                       List<String> branchIds,
+                                                       MergeStrategy mergeStrategy) {
+        return previewDttSetToBranch(decodeBase64Archives(archivesBase64), branchIds, mergeStrategy);
+    }
+
+    @Override
     public EquipmentProfile importDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy) {
         return importDttSetToProfile(readDttFilesFromZip(zipPayload), mergeStrategy);
     }
 
     @Override
+    public EquipmentProfile previewDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy) {
+        return previewDttSetToProfile(readDttFilesFromZip(zipPayload), mergeStrategy);
+    }
+
+    @Override
     public BranchEquipment importDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy) {
         return importDttSetToBranch(readDttFilesFromZip(zipPayload), branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchEquipment previewDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy) {
+        return previewDttSetToBranch(readDttFilesFromZip(zipPayload), branchIds, mergeStrategy);
     }
 
     @Override
@@ -313,14 +326,56 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         return new DeviceTypeTemplate(template.metadata(), template.defaultValues() == null ? Map.of() : template.defaultValues());
     }
 
-    private DttArchiveTemplate toArchiveTemplate(String typeId, DeviceTypeTemplate deviceType) {
+    private EquipmentProfileAssemblyRequest toProfileAssemblyRequest(List<byte[]> archives, MergeStrategy mergeStrategy) {
+        Objects.requireNonNull(archives, "archives is required");
+        if (archives.isEmpty()) {
+            throw new IllegalArgumentException("archives must contain at least one DTT archive");
+        }
+        final List<EquipmentProfileDeviceTypeRequest> requests = archives.stream()
+                .map(this::readDtt)
+                .map(this::toDeviceTypeTemplate)
+                .map(template -> new EquipmentProfileDeviceTypeRequest(template, true))
+                .toList();
+        return new EquipmentProfileAssemblyRequest(requests, List.of(), mergeStrategy);
+    }
+
+    private BranchEquipmentAssemblyRequest toBranchAssemblyRequest(List<byte[]> archives,
+                                                                   List<String> branchIds,
+                                                                   MergeStrategy mergeStrategy) {
+        Objects.requireNonNull(archives, "archives is required");
+        if (archives.isEmpty()) {
+            throw new IllegalArgumentException("archives must contain at least one DTT archive");
+        }
+        if (branchIds == null || branchIds.isEmpty()) {
+            throw new IllegalArgumentException("branchIds must contain at least one branch id");
+        }
+        final List<EquipmentProfileDeviceTypeRequest> deviceTypeRequests = archives.stream()
+                .map(this::readDtt)
+                .map(this::toDeviceTypeTemplate)
+                .map(template -> new EquipmentProfileDeviceTypeRequest(template, true))
+                .toList();
+        final List<BranchImportRequest> branches = branchIds.stream()
+                .map(branchId -> new BranchImportRequest(
+                        branchId,
+                        branchId,
+                        deviceTypeRequests.stream()
+                                .map(request -> new BranchDeviceTypeImportRequest(request, List.of()))
+                                .toList()
+                ))
+                .toList();
+        return new BranchEquipmentAssemblyRequest(branches, mergeStrategy);
+    }
+
+    private DttArchiveTemplate toArchiveTemplate(String typeId, DeviceTypeTemplate deviceType, String dttVersion) {
+        final String effectiveVersion = normalizeDttVersion(dttVersion);
+        final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", typeId),
-                deviceType.metadata(),
+                new DttArchiveDescriptor("DTT", "1.0", typeId, effectiveVersion),
+                metadata,
                 Map.of(),
                 Map.of(),
                 Map.of(),
-                deviceType.deviceTypeParamValues(),
+                extractDefaultValues(deviceType.deviceTypeParamValues()),
                 Map.of(),
                 null,
                 null,
@@ -329,6 +384,57 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 null,
                 Map.of(),
                 Map.of()
+        );
+    }
+
+    private Map<String, Object> extractDefaultValues(Map<String, Object> deviceTypeParamValues) {
+        if (deviceTypeParamValues == null || deviceTypeParamValues.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, Object> extracted = new LinkedHashMap<>();
+        deviceTypeParamValues.forEach((key, value) -> extracted.put(key, extractCanonicalValue(value)));
+        return extracted;
+    }
+
+    private Object extractCanonicalValue(Object value) {
+        if (value instanceof Map<?, ?> mapValue) {
+            if (mapValue.containsKey("value")) {
+                return extractCanonicalValue(mapValue.get("value"));
+            }
+            final Map<String, Object> nested = new LinkedHashMap<>();
+            mapValue.forEach((nestedKey, nestedValue) ->
+                    nested.put(String.valueOf(nestedKey), extractCanonicalValue(nestedValue))
+            );
+            return nested;
+        }
+        if (value instanceof List<?> listValue) {
+            final List<Object> extracted = new java.util.ArrayList<>(listValue.size());
+            for (Object entry : listValue) {
+                extracted.add(extractCanonicalValue(entry));
+            }
+            return extracted;
+        }
+        return value;
+    }
+
+    private String normalizeDttVersion(String dttVersion) {
+        if (dttVersion == null || dttVersion.isBlank()) {
+            return "1.0";
+        }
+        return dttVersion.trim();
+    }
+
+    private DeviceTypeMetadata appendVersionToDescription(DeviceTypeMetadata metadata, String dttVersion) {
+        final String description = metadata.description() == null ? "" : metadata.description();
+        final String versionSuffix = " " + dttVersion;
+        final String normalizedDescription = description.endsWith(versionSuffix)
+                ? description
+                : description + versionSuffix;
+        return new DeviceTypeMetadata(
+                metadata.id(),
+                metadata.name(),
+                metadata.displayName(),
+                normalizedDescription
         );
     }
 
