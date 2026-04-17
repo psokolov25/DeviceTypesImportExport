@@ -101,8 +101,10 @@ public class DttDemoService {
      * @param profile модель profile JSON
      * @return Base64-представление экспортированных DTT-архивов
      */
-    public ExportAllDttFromProfileResponse exportAllDttFromProfile(EquipmentProfile profile, List<String> deviceTypeIds) {
-        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, deviceTypeIds));
+    public ExportAllDttFromProfileResponse exportAllDttFromProfile(EquipmentProfile profile,
+                                                                   List<String> deviceTypeIds,
+                                                                   String dttVersion) {
+        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, deviceTypeIds, dttVersion));
         final Map<String, String> encoded = exported.archivesByDeviceTypeId().entrySet().stream()
                 .collect(java.util.stream.Collectors.toMap(
                         Map.Entry::getKey,
@@ -120,8 +122,10 @@ public class DttDemoService {
      * @param deviceTypeIds опциональный фильтр типов устройств
      * @return Base64-представление экспортированных DTT-архивов
      */
-    public ExportAllDttFromProfileResponse exportAllDttFromProfileJson(String profileJson, List<String> deviceTypeIds) {
-        return exportAllDttFromProfile(facade.parseProfileJson(profileJson), deviceTypeIds);
+    public ExportAllDttFromProfileResponse exportAllDttFromProfileJson(String profileJson,
+                                                                       List<String> deviceTypeIds,
+                                                                       String dttVersion) {
+        return exportAllDttFromProfile(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion);
     }
 
     /**
@@ -136,6 +140,68 @@ public class DttDemoService {
                                                              List<String> branchIds,
                                                              MergeStrategy mergeStrategy) {
         final var branch = facade.importDttSetToBranch(archives, branchIds, mergeStrategy);
+        final String branchJson = facade.toBranchJson(branch);
+        final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
+        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+    }
+
+    /**
+     * Выполняет preview-сборку profile JSON из набора DTT-архивов без сохранения результата.
+     *
+     * @param archives список DTT-архивов
+     * @param mergeStrategy стратегия разрешения конфликтов
+     * @return рассчитанный preview profile JSON и количество типов устройств
+     */
+    public ImportDttSetToProfileResponse previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
+        final var profile = facade.previewDttSetToProfile(archives, mergeStrategy);
+        final String profileJson = facade.toProfileJson(profile);
+        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
+        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+    }
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON из набора DTT-архивов без сохранения результата.
+     *
+     * @param archives список DTT-архивов
+     * @param branchIds branch-ы назначения
+     * @param mergeStrategy стратегия разрешения конфликтов
+     * @return рассчитанный preview branch equipment JSON и количество отделений
+     */
+    public ImportDttSetToBranchResponse previewDttSetToBranch(List<byte[]> archives,
+                                                              List<String> branchIds,
+                                                              MergeStrategy mergeStrategy) {
+        final var branch = facade.previewDttSetToBranch(archives, branchIds, mergeStrategy);
+        final String branchJson = facade.toBranchJson(branch);
+        final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
+        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+    }
+
+    /**
+     * Выполняет preview-сборку profile JSON из zip-набора DTT архивов.
+     *
+     * @param zipBytes zip-архив с файлами .dtt
+     * @param mergeStrategy стратегия merge
+     * @return рассчитанный preview profile JSON и количество типов устройств
+     */
+    public ImportDttSetToProfileResponse previewDttZipToProfile(byte[] zipBytes, MergeStrategy mergeStrategy) {
+        final var profile = facade.previewDttZipToProfile(zipBytes, mergeStrategy);
+        final String profileJson = facade.toProfileJson(profile);
+        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
+        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+    }
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON из zip-набора DTT архивов.
+     *
+     * @param zipBytes zip-архив с файлами .dtt
+     * @param branchIds branch назначения
+     * @param mergeStrategy стратегия merge
+     * @return рассчитанный preview branch equipment JSON и количество отделений
+     */
+    public ImportDttSetToBranchResponse previewDttZipToBranch(byte[] zipBytes,
+                                                              List<String> branchIds,
+                                                              MergeStrategy mergeStrategy) {
+        final var branch = facade.previewDttZipToBranch(zipBytes, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
         return new ImportDttSetToBranchResponse(branchJson, branchesCount);
@@ -176,12 +242,14 @@ public class DttDemoService {
     public ExportAllDttFromBranchResponse exportAllDttFromBranch(BranchEquipment branchEquipment,
                                                                  List<String> branchIds,
                                                                  List<String> deviceTypeIds,
-                                                                 MergeStrategy mergeStrategy) {
+                                                                 MergeStrategy mergeStrategy,
+                                                                 String dttVersion) {
         final var exported = facade.exportDttSetFromBranch(new BranchEquipmentExportRequest(
                 branchEquipment,
                 branchIds,
                 deviceTypeIds,
-                mergeStrategy
+                mergeStrategy,
+                dttVersion
         ));
         final Map<String, String> encoded = exported.archivesByDeviceTypeId().entrySet().stream()
                 .collect(java.util.stream.Collectors.toMap(
@@ -205,17 +273,21 @@ public class DttDemoService {
     public ExportAllDttFromBranchResponse exportAllDttFromBranchJson(String branchJson,
                                                                      List<String> branchIds,
                                                                      List<String> deviceTypeIds,
-                                                                     MergeStrategy mergeStrategy) {
-        return exportAllDttFromBranch(facade.parseBranchJson(branchJson), branchIds, deviceTypeIds, mergeStrategy);
+                                                                     MergeStrategy mergeStrategy,
+                                                                     String dttVersion) {
+        return exportAllDttFromBranch(facade.parseBranchJson(branchJson), branchIds, deviceTypeIds, mergeStrategy, dttVersion);
     }
 
     /**
      * Экспортирует все DTT-архивы из profile JSON в zip-файл (upload-download режим).
      */
-    public byte[] exportProfileToZip(EquipmentProfile profile, String profileJson, List<String> deviceTypeIds) {
+    public byte[] exportProfileToZip(EquipmentProfile profile,
+                                     String profileJson,
+                                     List<String> deviceTypeIds,
+                                     String dttVersion) {
         final var exported = profile != null
-                ? facade.exportDttSetFromProfile(new ProfileExportRequest(profile, deviceTypeIds))
-                : facade.exportDttSetFromProfile(new ProfileExportRequest(facade.parseProfileJson(profileJson), deviceTypeIds));
+                ? facade.exportDttSetFromProfile(new ProfileExportRequest(profile, deviceTypeIds, dttVersion))
+                : facade.exportDttSetFromProfile(new ProfileExportRequest(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion));
         return writeDttZip(exported.archivesByDeviceTypeId());
     }
 
@@ -226,13 +298,15 @@ public class DttDemoService {
                                     String branchJson,
                                     List<String> branchIds,
                                     List<String> deviceTypeIds,
-                                    MergeStrategy mergeStrategy) {
+                                    MergeStrategy mergeStrategy,
+                                    String dttVersion) {
         final BranchEquipment source = branchEquipment != null ? branchEquipment : facade.parseBranchJson(branchJson);
         final var exported = facade.exportDttSetFromBranch(new BranchEquipmentExportRequest(
                 source,
                 branchIds,
                 deviceTypeIds,
-                mergeStrategy
+                mergeStrategy,
+                dttVersion
         ));
         return writeDttZip(exported.archivesByDeviceTypeId());
     }

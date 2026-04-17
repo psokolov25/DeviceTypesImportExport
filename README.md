@@ -14,6 +14,7 @@
 В библиотеке реализованы:
 
 - API `TemplateAssemblyService`;
+- preview API `TemplateAssemblyService` (`previewEquipmentProfile`, `previewBranchEquipment`);
 - DTO сборки профиля (`EquipmentProfileAssemblyRequest`, `EquipmentProfileDeviceTypeRequest`, `TemplateValueOverride`);
 - merge-стратегии:
   - `FAIL_IF_EXISTS`
@@ -95,13 +96,16 @@
 - parse/generate profile/branch JSON.
 - batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`);
 - batch export/import DTT set из branch (`exportDttSetFromBranch` / `importDttSetToBranch`).
+- preview-сценарии на уровне библиотеки:
+  - profile (`previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`);
+  - branch equipment (`previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`).
 - dual-mode передачи DTT на уровне фасада библиотеки:
   - Base64 (`importDttBase64SetToProfile`, `importDttBase64SetToBranch`);
   - upload-download zip (`importDttZipToProfile`, `importDttZipToBranch`, `exportProfileToDttZip`, `exportBranchToDttZip`);
   - zip+Base64 (`exportProfileToDttZipBase64`, `exportBranchToDttZipBase64`).
 - dual-mode JSON на уровне фасада библиотеки:
   - object-model запросы (`ProfileExportRequest`, `BranchEquipmentExportRequest`);
-  - string JSON (`exportDttSetFromProfileJson`, `exportDttSetFromBranchJson`).
+  - string JSON (`exportDttSetFromProfileJson`, `exportDttSetFromBranchJson`) с поддержкой передачи `dttVersion`.
 
 Пример методного использования:
 
@@ -123,14 +127,22 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/validate` (application/octet-stream).
 - `POST /api/dtt/inspect` (application/octet-stream).
 - `POST /api/dtt/import/profile` (application/json, Base64 DTT set -> profile JSON).
+- `POST /api/dtt/preview/profile` (application/json, Base64 DTT set -> preview profile JSON).
 - `POST /api/dtt/import/profile/upload` (application/octet-stream zip с `.dtt` -> profile JSON).
+- `POST /api/dtt/preview/profile/upload` (application/octet-stream zip с `.dtt` -> preview profile JSON).
 - `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
 - `POST /api/dtt/export/profile/all/download` (application/json, profile JSON -> zip с `.dtt`).
 - `POST /api/dtt/import/branch` (application/json, Base64 DTT set + branchIds -> branch equipment JSON).
+- `POST /api/dtt/preview/branch` (application/json, Base64 DTT set + branchIds -> preview branch equipment JSON).
 - `POST /api/dtt/import/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> branch equipment JSON).
+- `POST /api/dtt/preview/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> preview branch equipment JSON).
 - `POST /api/dtt/export/branch/all` (application/json, branch equipment JSON -> Base64 DTT set, поддерживает фильтры `branchIds` и `deviceTypeIds`).
 - `POST /api/dtt/export/branch/all/download` (application/json, branch equipment JSON -> zip с `.dtt`).
 - export endpoint-ы поддерживают **оба варианта входа**: типизированные объектные модели (`profile`, `branchEquipment`) и строковые JSON-поля (`profileJson`, `branchJson`).
+- для export endpoint-ов можно передать `dttVersion`:
+  - версия фиксируется в `manifest.yml` (`deviceTypeVersion`) без изменения версии формата (`formatVersion`);
+  - версия добавляется в конец `description` типа устройства;
+  - `defaultValues` в DTT берутся из фактических значений параметров типа устройства, переданных в profile/branch JSON.
 - `GET /swagger-ui/index.html` (Swagger UI для ручного прогона сценариев).
 - `GET /swagger/device-template-demo.yml` (OpenAPI-спецификация demo-service).
 

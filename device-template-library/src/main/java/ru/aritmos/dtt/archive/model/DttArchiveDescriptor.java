@@ -6,6 +6,9 @@ package ru.aritmos.dtt.archive.model;
  * @param formatName имя формата, ожидается {@code DTT}
  * @param formatVersion версия формата архива
  * @param deviceTypeId идентификатор типа устройства в архиве
+ * @param deviceTypeVersion прикладная версия шаблона типа устройства
  */
-public record DttArchiveDescriptor(String formatName, String formatVersion, String deviceTypeId) {
-}
+public record DttArchiveDescriptor(String formatName,
+                                   String formatVersion,
+                                   String deviceTypeId,
+                                   String deviceTypeVersion) { }

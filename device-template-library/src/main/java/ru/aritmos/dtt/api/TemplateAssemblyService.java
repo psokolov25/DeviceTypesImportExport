@@ -19,11 +19,26 @@ public interface TemplateAssemblyService {
     EquipmentProfile assembleEquipmentProfile(EquipmentProfileAssemblyRequest request);
 
     /**
+     * Выполняет preview-сборку JSON профиля оборудования без сохранения результата.
+     *
+     * @param request параметры сборки, merge-стратегия и override-значения
+     * @return рассчитанный профиль оборудования
+     */
+    EquipmentProfile previewEquipmentProfile(EquipmentProfileAssemblyRequest request);
+
+    /**
      * Собирает branch equipment JSON (карту отделений) из одного или нескольких DTT.
      *
      * @param request параметры сборки отделений
      * @return результирующая модель branch equipment
      */
     BranchEquipment assembleBranchEquipment(BranchEquipmentAssemblyRequest request);
-}
 
+    /**
+     * Выполняет preview-сборку branch equipment JSON без сохранения результата.
+     *
+     * @param request параметры сборки отделений
+     * @return рассчитанная модель branch equipment
+     */
+    BranchEquipment previewBranchEquipment(BranchEquipmentAssemblyRequest request);
+}

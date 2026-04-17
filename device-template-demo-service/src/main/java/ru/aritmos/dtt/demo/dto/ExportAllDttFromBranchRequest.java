@@ -14,6 +14,7 @@ import java.util.List;
  * @param branchIds опциональный список branchId для выборочного экспорта
  * @param deviceTypeIds опциональный список deviceTypeId для выборочного экспорта
  * @param mergeStrategy стратегия разрешения конфликтов deviceTypeId между отделениями
+ * @param dttVersion опциональная версия, которая фиксируется в DTT и добавляется в description типа
  */
 @Schema(description = "Запрос на экспорт набора DTT из branch equipment JSON")
 public record ExportAllDttFromBranchRequest(
@@ -26,6 +27,8 @@ public record ExportAllDttFromBranchRequest(
         @Schema(description = "Опциональный список deviceTypeId для выборочного экспорта", example = "[\"display\"]")
         List<String> deviceTypeIds,
         @Schema(description = "Стратегия merge при повторении deviceTypeId", example = "FAIL_IF_EXISTS")
-        MergeStrategy mergeStrategy
+        MergeStrategy mergeStrategy,
+        @Schema(description = "Версия DTT, которая фиксируется в архиве", example = "2.1.0")
+        String dttVersion
 ) {
 }

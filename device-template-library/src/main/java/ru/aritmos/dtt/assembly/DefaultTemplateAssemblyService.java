@@ -51,6 +51,11 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
     }
 
     @Override
+    public EquipmentProfile previewEquipmentProfile(EquipmentProfileAssemblyRequest request) {
+        return assembleEquipmentProfile(request);
+    }
+
+    @Override
     public BranchEquipment assembleBranchEquipment(BranchEquipmentAssemblyRequest request) {
         Objects.requireNonNull(request, "request is required");
         final MergeStrategy mergeStrategy = request.mergeStrategy() == null
@@ -75,6 +80,11 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
             );
         }
         return new BranchEquipment(branches);
+    }
+
+    @Override
+    public BranchEquipment previewBranchEquipment(BranchEquipmentAssemblyRequest request) {
+        return assembleBranchEquipment(request);
     }
 
     private Map<String, DeviceInstanceTemplate> toDeviceMap(List<DeviceInstanceImportRequest> deviceInstances) {

@@ -38,7 +38,8 @@ public class DefaultDttArchiveReader implements DttArchiveReader {
         final DttArchiveDescriptor descriptor = new DttArchiveDescriptor(
                 Objects.toString(manifest.get("formatName"), "DTT"),
                 Objects.toString(manifest.get("formatVersion"), "1.0"),
-                Objects.toString(manifest.get("deviceTypeId"), Objects.toString(deviceType.get("id"), "unknown"))
+                Objects.toString(manifest.get("deviceTypeId"), Objects.toString(deviceType.get("id"), "unknown")),
+                manifest.get("deviceTypeVersion") == null ? null : Objects.toString(manifest.get("deviceTypeVersion"))
         );
 
         final DeviceTypeMetadata metadata = new DeviceTypeMetadata(

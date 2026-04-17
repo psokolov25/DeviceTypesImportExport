@@ -11,6 +11,7 @@ import java.util.List;
  * @param profile модель profile JSON (карта deviceTypes)
  * @param profileJson строковое представление profile JSON (альтернативно полю profile)
  * @param deviceTypeIds опциональный список deviceTypeId для выборочного экспорта
+ * @param dttVersion опциональная версия, которая фиксируется в DTT и добавляется в description типа
  */
 @Schema(description = "Запрос на экспорт всех DTT из profile JSON")
 public record ExportAllDttFromProfileRequest(
@@ -19,6 +20,8 @@ public record ExportAllDttFromProfileRequest(
         @Schema(description = "Строковое представление profile JSON (альтернативно полю profile)")
         String profileJson,
         @Schema(description = "Опциональный список deviceTypeId для выборочного экспорта", example = "[\"display\",\"cashbox\"]")
-        List<String> deviceTypeIds
+        List<String> deviceTypeIds,
+        @Schema(description = "Версия DTT, которая фиксируется в архиве", example = "2.1.0")
+        String dttVersion
 ) {
 }

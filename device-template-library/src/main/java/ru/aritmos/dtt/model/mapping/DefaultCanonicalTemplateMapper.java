@@ -52,7 +52,7 @@ public class DefaultCanonicalTemplateMapper implements CanonicalTemplateMapper {
         final CanonicalScriptSet scripts = canonicalTemplate.scripts();
 
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", canonicalTemplate.formatVersion(), metadata.id()),
+                new DttArchiveDescriptor("DTT", canonicalTemplate.formatVersion(), metadata.id(), null),
                 new DeviceTypeMetadata(metadata.id(), metadata.name(), metadata.displayName(), metadata.description()),
                 safeMap(canonicalTemplate.deviceTypeParameterSchema()),
                 safeMap(canonicalTemplate.deviceParameterSchema()),

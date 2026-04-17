@@ -25,11 +25,14 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
     @Override
     public void write(DttArchiveTemplate template, OutputStream outputStream) {
         try (ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
-            writeYaml(zipOutputStream, "manifest.yml", Map.of(
-                    "formatName", template.descriptor().formatName(),
-                    "formatVersion", template.descriptor().formatVersion(),
-                    "deviceTypeId", template.descriptor().deviceTypeId()
-            ));
+            final Map<String, Object> manifest = new LinkedHashMap<>();
+            manifest.put("formatName", template.descriptor().formatName());
+            manifest.put("formatVersion", template.descriptor().formatVersion());
+            manifest.put("deviceTypeId", template.descriptor().deviceTypeId());
+            if (template.descriptor().deviceTypeVersion() != null && !template.descriptor().deviceTypeVersion().isBlank()) {
+                manifest.put("deviceTypeVersion", template.descriptor().deviceTypeVersion());
+            }
+            writeYaml(zipOutputStream, "manifest.yml", manifest);
             writeYaml(zipOutputStream, "template/device-type.yml", Map.of(
                     "id", template.metadata().id(),
                     "name", template.metadata().name(),

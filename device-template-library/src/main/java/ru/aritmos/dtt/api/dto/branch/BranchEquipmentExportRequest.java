@@ -12,11 +12,13 @@ import java.util.List;
  * @param branchIds опциональный список branchId для выборочного экспорта; если null/пустой — все branch
  * @param deviceTypeIds опциональный список deviceTypeId для выборочного экспорта; если null/пустой — все типы
  * @param mergeStrategy стратегия разрешения конфликтов deviceTypeId между branch
+ * @param dttVersion опциональная версия шаблона, которая фиксируется в DTT и добавляется в описание типа
  */
 public record BranchEquipmentExportRequest(
         BranchEquipment branchEquipment,
         List<String> branchIds,
         List<String> deviceTypeIds,
-        MergeStrategy mergeStrategy
+        MergeStrategy mergeStrategy,
+        String dttVersion
 ) {
 }

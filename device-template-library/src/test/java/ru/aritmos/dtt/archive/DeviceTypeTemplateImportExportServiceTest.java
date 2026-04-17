@@ -18,7 +18,7 @@ class DeviceTypeTemplateImportExportServiceTest {
     @Test
     void shouldExportAndImportTemplate() {
         final DttArchiveTemplate template = new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "terminal"),
+                new DttArchiveDescriptor("DTT", "1.0", "terminal", null),
                 new DeviceTypeMetadata("terminal", "Terminal", "Терминал", "desc"),
                 Map.of(),
                 Map.of(),
