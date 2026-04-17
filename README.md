@@ -116,6 +116,8 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/inspect` (application/octet-stream).
 - `POST /api/dtt/import/profile` (application/json, Base64 DTT set -> profile JSON).
 - `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
+- `GET /swagger-ui/index.html` (Swagger UI для ручного прогона сценариев).
+- `GET /swagger/device-template-demo.yml` (OpenAPI-спецификация demo-service).
 
 ## Maven-окружение в репозитории
 
@@ -225,10 +227,10 @@ String profileJson = facade.toProfileJson(
 ./mvnw -pl device-template-demo-service -am test
 ./mvnw -pl device-template-demo-service -am install -DskipTests
 ./mvnw -f device-template-demo-service/pom.xml exec:java
-./mvnw -f device-template-demo-service/pom.xml mn:run
 ```
 
-Запуск demo-service в dev-режиме через Micronaut Maven Plugin (`mn:run`) лучше делать через `-f device-template-demo-service/pom.xml`, чтобы Maven корректно разрешил префикс `mn`.
+> Примечание: в текущей конфигурации репозитория запуск через `mn:run` может не резолвиться по plugin-prefix
+> в чистом окружении Maven. Для воспроизводимого старта используйте `exec:java` или запуск shaded-jar.
 
 Сборка fat jar demo-service (shaded jar):
 
@@ -236,6 +238,12 @@ String profileJson = facade.toProfileJson(
 ./mvnw -pl device-template-demo-service -am clean package
 java -jar device-template-demo-service/target/device-template-demo-service-0.1.0-SNAPSHOT-all.jar
 ```
+
+После запуска demo-service:
+
+- health-check: `http://localhost:8080/api/system/health`
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- OpenAPI YAML: `http://localhost:8080/swagger/device-template-demo.yml`
 
 
 > Примечание для PowerShell: если вручную добавлять `-D...` параметры, лучше брать их в кавычки,

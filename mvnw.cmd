@@ -73,7 +73,7 @@ switch -wildcard -casesensitive ( $($distributionUrl -replace '^.*/','') ) {
 # apply MVNW_REPOURL and calculate MAVEN_HOME
 # maven home pattern: ~/.m2/wrapper/dists/{apache-maven-<version>,maven-mvnd-<version>-<platform>}/<hash>
 if ($env:MVNW_REPOURL) {
-  $MVNW_REPO_PATTERN = if ($USE_MVND) { "/org/apache/maven/" } else { "/maven/mvnd/" }
+  $MVNW_REPO_PATTERN = if ($USE_MVND) { "/maven/mvnd/" } else { "/org/apache/maven/" }
   $distributionUrl = "$env:MVNW_REPOURL$MVNW_REPO_PATTERN$($distributionUrl -replace '^.*'+$MVNW_REPO_PATTERN,'')"
 }
 $distributionUrlName = $distributionUrl -replace '^.*/',''
@@ -138,8 +138,18 @@ Rename-Item -Path "$TMP_DOWNLOAD_DIR/$distributionUrlNameMain" -NewName $MAVEN_H
 try {
   Move-Item -Path "$TMP_DOWNLOAD_DIR/$MAVEN_HOME_NAME" -Destination $MAVEN_HOME_PARENT | Out-Null
 } catch {
-  if (! (Test-Path -Path "$MAVEN_HOME" -PathType Container)) {
-    Write-Error "fail to move MAVEN_HOME"
+  if (Test-Path -Path "$MAVEN_HOME" -PathType Container) {
+    Write-Verbose "found existing MAVEN_HOME at $MAVEN_HOME (created concurrently)"
+  } else {
+    Write-Verbose "Move-Item failed, trying Copy-Item fallback"
+    try {
+      Copy-Item -Path "$TMP_DOWNLOAD_DIR/$MAVEN_HOME_NAME" -Destination $MAVEN_HOME_PARENT -Recurse -Force | Out-Null
+      Remove-Item -Path "$TMP_DOWNLOAD_DIR/$MAVEN_HOME_NAME" -Recurse -Force | Out-Null
+    } catch {
+      if (! (Test-Path -Path "$MAVEN_HOME" -PathType Container)) {
+        Write-Error "fail to move MAVEN_HOME"
+      }
+    }
   }
 } finally {
   try { Remove-Item $TMP_DOWNLOAD_DIR -Recurse -Force | Out-Null }
