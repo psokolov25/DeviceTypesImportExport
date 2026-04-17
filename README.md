@@ -129,12 +129,84 @@ String profileJson = facade.toProfileJson(
 
 Это позволяет одинаково запускать команды локально, в CI и в контейнерных окружениях.
 
+
+## Рекомендуемые настройки IntelliJ IDEA 2025 (оптимально для этого проекта)
+
+Ниже — практичный baseline для Windows/Linux/macOS, чтобы избежать проблем с `mvnw` и обеспечить повторяемую multi-module сборку.
+
+### 1) Project SDK и язык
+
+- `File -> Project Structure -> Project`:
+  - `Project SDK`: **Java 17**;
+  - `Project language level`: **17 (SDK default)**.
+- `Modules`: убедитесь, что оба модуля (`device-template-library`, `device-template-demo-service`) используют тот же SDK 17.
+
+### 2) Maven в IDEA (ключевой пункт)
+
+- `Settings -> Build, Execution, Deployment -> Build Tools -> Maven`:
+  - `Maven home`: **Bundled (Maven 3)** или **Wrapper** (предпочтительно Wrapper);
+  - `User settings file`: default;
+  - `Local repository`: оставить default;
+  - для CLI в этом репозитории отдельный `-Dmaven.repo.local` не требуется (он уже задан в `.mvn/maven.config`).
+  - включить `Always update snapshots` только при необходимости.
+- `Runner`:
+  - `JRE`: **Project SDK (17)**;
+  - `VM Options`: `-Dfile.encoding=UTF-8 -Duser.language=ru -Duser.country=RU`;
+  - `Environment variables` (Windows): при необходимости явно задать `JAVA_HOME=<путь к JDK 17>`.
+
+> Если в IDEA на Windows появляется ошибка вида `fail to move MAVEN_HOME`/`Cannot start Maven from wrapper`, обычно помогает переключение `Maven home` на **Bundled Maven** и явный выбор `JRE = JDK 17`.
+
+### 3) Делегирование сборки
+
+- `Settings -> Build Tools -> Maven -> Runner`:
+  - включить `Delegate IDE build/run actions to Maven` для максимальной близости к CI;
+  - либо оставить выключенным для более быстрых локальных инкрементальных сборок (рекомендуется только при понимании отличий от CI).
+
+Для этого репозитория предпочтителен режим с делегированием в Maven.
+
+### 4) Annotation Processing и Micronaut
+
+- `Settings -> Build, Execution, Deployment -> Compiler -> Annotation Processors`:
+  - `Enable annotation processing` = **ON**.
+
+Это важно для стабильной генерации Micronaut метаданных в demo-service.
+
+### 5) Код-стиль и импорты
+
+- `Settings -> Editor -> Code Style -> Java`:
+  - `Tab size = 4`, `Indent = 4`;
+  - `Continuation indent = 8`;
+  - line separator `LF` (если команда не требует иного).
+- `Settings -> Editor -> Code Style -> Java -> Imports`:
+  - использовать `Class count to use import with '*' = 999`;
+  - `Names count to use static import with '*' = 999`.
+
+Это снижает шум в diff и делает ревью предсказуемее.
+
+### 6) Рекомендуемые Run Configuration
+
+Создайте Maven-конфигурации из корня репозитория:
+
+1. `clean test (root)`
+   - Command line: `clean test`
+2. `verify (root)`
+   - Command line: `clean verify`
+3. `demo test with dependencies`
+   - Command line: `-pl device-template-demo-service -am test`
+
+### 7) Что проверить после настройки IDEA
+
+1. Успешный `Reload All Maven Projects`;
+2. Успешный запуск `clean test (root)` из IDEA;
+3. Отсутствие ошибки резолва `device-template-library:0.1.0-SNAPSHOT` в demo-модуле;
+4. Корректная генерация OpenAPI/Micronaut артефактов при сборке.
+
 ## Тесты
 
 Запуск полного набора тестов:
 
 ```bash
-./mvnw -Dmaven.repo.local=.m2/repository clean test
+./mvnw clean test
 ```
 
 ## Как запустить demo-service
@@ -150,10 +222,26 @@ String profileJson = facade.toProfileJson(
 Запуск из корня репозитория:
 
 ```bash
-./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service -am test
-./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service -am install -DskipTests
-./mvnw -Dmaven.repo.local=.m2/repository -f device-template-demo-service/pom.xml exec:java
+./mvnw -pl device-template-demo-service -am test
+./mvnw -pl device-template-demo-service -am install -DskipTests
+./mvnw -f device-template-demo-service/pom.xml exec:java
+./mvnw -f device-template-demo-service/pom.xml mn:run
 ```
+
+Запуск demo-service в dev-режиме через Micronaut Maven Plugin (`mn:run`) лучше делать через `-f device-template-demo-service/pom.xml`, чтобы Maven корректно разрешил префикс `mn`.
+
+Сборка fat jar demo-service (shaded jar):
+
+```bash
+./mvnw -pl device-template-demo-service -am clean package
+java -jar device-template-demo-service/target/device-template-demo-service-0.1.0-SNAPSHOT-all.jar
+```
+
+
+> Примечание для PowerShell: если вручную добавлять `-D...` параметры, лучше брать их в кавычки,
+> например `"-Dmaven.repo.local=.m2/repository"`, иначе в некоторых окружениях PowerShell аргумент
+> может быть разбит некорректно и Maven покажет ошибку `Unknown lifecycle phase ".repo.local=..."`.
+> В этом репозитории отдельный `-Dmaven.repo.local` обычно не нужен, так как он уже задан в `.mvn/maven.config`.
 
 Типовая причина ошибки `Could not find artifact ru.aritmos.dtt:device-template-library:0.1.0-SNAPSHOT` — запуск demo-модуля без `-am` или без предварительной сборки root-проекта.
 
