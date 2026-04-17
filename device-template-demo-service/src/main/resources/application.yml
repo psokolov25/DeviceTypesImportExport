@@ -3,6 +3,8 @@ micronaut:
     name: device-template-demo-service
   server:
     port: 8080
+    netty:
+      compression-threshold: -1
   router:
     static-resources:
       swagger:
