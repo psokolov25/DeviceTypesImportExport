@@ -93,7 +93,15 @@
 - validate DTT bytes/template;
 - assemble profile/branch модели;
 - parse/generate profile/branch JSON.
-- batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`).
+- batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`);
+- batch export/import DTT set из branch (`exportDttSetFromBranch` / `importDttSetToBranch`).
+- dual-mode передачи DTT на уровне фасада библиотеки:
+  - Base64 (`importDttBase64SetToProfile`, `importDttBase64SetToBranch`);
+  - upload-download zip (`importDttZipToProfile`, `importDttZipToBranch`, `exportProfileToDttZip`, `exportBranchToDttZip`);
+  - zip+Base64 (`exportProfileToDttZipBase64`, `exportBranchToDttZipBase64`).
+- dual-mode JSON на уровне фасада библиотеки:
+  - object-model запросы (`ProfileExportRequest`, `BranchEquipmentExportRequest`);
+  - string JSON (`exportDttSetFromProfileJson`, `exportDttSetFromBranchJson`).
 
 Пример методного использования:
 
@@ -115,7 +123,14 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/validate` (application/octet-stream).
 - `POST /api/dtt/inspect` (application/octet-stream).
 - `POST /api/dtt/import/profile` (application/json, Base64 DTT set -> profile JSON).
+- `POST /api/dtt/import/profile/upload` (application/octet-stream zip с `.dtt` -> profile JSON).
 - `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
+- `POST /api/dtt/export/profile/all/download` (application/json, profile JSON -> zip с `.dtt`).
+- `POST /api/dtt/import/branch` (application/json, Base64 DTT set + branchIds -> branch equipment JSON).
+- `POST /api/dtt/import/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> branch equipment JSON).
+- `POST /api/dtt/export/branch/all` (application/json, branch equipment JSON -> Base64 DTT set, поддерживает фильтры `branchIds` и `deviceTypeIds`).
+- `POST /api/dtt/export/branch/all/download` (application/json, branch equipment JSON -> zip с `.dtt`).
+- export endpoint-ы поддерживают **оба варианта входа**: типизированные объектные модели (`profile`, `branchEquipment`) и строковые JSON-поля (`profileJson`, `branchJson`).
 - `GET /swagger-ui/index.html` (Swagger UI для ручного прогона сценариев).
 - `GET /swagger/device-template-demo.yml` (OpenAPI-спецификация demo-service).
 
@@ -269,6 +284,5 @@ java -jar device-template-demo-service/target/device-template-demo-service-0.1.0
 ## Ближайшие шаги
 
 1. Расширить canonical-модель до полного покрытия profile/branch и parameter schema уровней (включая nested структуры).
-2. Добавить экспорт набора `.dtt` из profile JSON и branch equipment JSON.
-3. Расширить demo-service endpoint-ами импорта/экспорта и preview-сценариями.
-4. Расширить валидацию Groovy с проверкой доменных контекстов выполнения (не только синтаксис).
+2. Добавить preview endpoint-ы сборки profile/branch с отображением рассчитанных defaults/overrides без сохранения.
+3. Расширить валидацию Groovy с проверкой доменных контекстов выполнения (не только синтаксис).

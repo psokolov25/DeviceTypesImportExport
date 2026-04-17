@@ -6,16 +6,23 @@ import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Error;
 import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.QueryValue;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.demo.dto.DemoErrorResponse;
 import ru.aritmos.dtt.demo.dto.DttInspectionResponse;
 import ru.aritmos.dtt.demo.dto.DttValidationResponse;
+import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchRequest;
+import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
+import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
+import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
 import ru.aritmos.dtt.demo.service.DttDemoService;
@@ -86,8 +93,70 @@ public class DttController {
             content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 archive at index 0\"}"))
     )
     public ImportDttSetToProfileResponse importToProfile(@Body ImportDttSetToProfileRequest request) {
-        final List<byte[]> archives = decodeArchives(request);
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        final List<byte[]> archives = decodeArchives(request.archivesBase64());
         return demoService.importDttSetToProfile(archives, request.mergeStrategy());
+    }
+
+    /**
+     * Импортирует zip-архив с файлами .dtt в profile JSON (режим upload-download).
+     *
+     * @param zipPayload zip-архив с файлами .dtt
+     * @param mergeStrategy стратегия merge
+     * @return profile JSON и количество типов устройств
+     */
+    @Post(uri = "/import/profile/upload{?mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать zip DTT в profile JSON (upload-download)")
+    public ImportDttSetToProfileResponse importToProfileUpload(@Body byte[] zipPayload,
+                                                               @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+        return demoService.importDttZipToProfile(zipPayload, mergeStrategy);
+    }
+
+    /**
+     * Импортирует один или несколько DTT-архивов в branch equipment JSON.
+     *
+     * @param request запрос с Base64-архивами, branch и merge-стратегией
+     * @return branch JSON и количество branch
+     */
+    @Post(uri = "/import/branch", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать набор DTT в branch equipment JSON")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Собранное оборудование отделений",
+            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":2,\"branchJson\":\"{...}\"}"))
+    )
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка входных данных",
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}"))
+    )
+    public ImportDttSetToBranchResponse importToBranch(@Body ImportDttSetToBranchRequest request) {
+        final List<byte[]> archives = decodeArchives(request.archivesBase64());
+        if (request.branchIds() == null || request.branchIds().isEmpty()) {
+            throw new IllegalArgumentException("branchIds must contain at least one branch id");
+        }
+        return demoService.importDttSetToBranch(archives, request.branchIds(), request.mergeStrategy());
+    }
+
+    /**
+     * Импортирует zip-архив с файлами .dtt в branch equipment JSON (режим upload-download).
+     *
+     * @param zipPayload zip-архив с файлами .dtt
+     * @param branchIds branch-ы назначения
+     * @param mergeStrategy стратегия merge
+     * @return branch JSON и количество branch
+     */
+    @Post(uri = "/import/branch/upload{?branchIds,mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать zip DTT в branch equipment JSON (upload-download)")
+    public ImportDttSetToBranchResponse importToBranchUpload(@Body byte[] zipPayload,
+                                                             @QueryValue List<String> branchIds,
+                                                             @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+        if (branchIds == null || branchIds.isEmpty()) {
+            throw new IllegalArgumentException("branchIds must contain at least one branch id");
+        }
+        return demoService.importDttZipToBranch(zipPayload, branchIds, mergeStrategy);
     }
 
 
@@ -99,17 +168,172 @@ public class DttController {
      */
     @Post(uri = "/export/profile/all", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Экспортировать все DTT из profile JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "objectModel", value = """
+                            {
+                              "profile": {
+                                "deviceTypes": {
+                                  "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                                    "metadata": {
+                                      "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                                      "name": "Terminal",
+                                      "displayName": "Терминал (Киоск)",
+                                      "description": "Терминал (Киоск)"
+                                    },
+                                    "deviceTypeParamValues": {
+                                      "printerServiceURL": "http://192.168.7.20:8084",
+                                      "prefix": "SSS"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                            """),
+                    @ExampleObject(name = "jsonString", value = """
+                            {
+                              "profileJson": "{\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\":{\\"metadata\\":{\\"id\\":\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\",\\"name\\":\\"Terminal\\",\\"displayName\\":\\"Терминал (Киоск)\\",\\"description\\":\\"Терминал (Киоск)\\"},\\"deviceTypeParamValues\\":{\\"prefix\\":\\"SSS\\"}}}",
+                              "deviceTypeIds": [
+                                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                              ]
+                            }
+                            """)
+            })
+    )
     @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Ошибка парсинга profile JSON\"}"))
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either profile or profileJson must be provided\"}"))
     )
     public ExportAllDttFromProfileResponse exportAllFromProfile(@Body ExportAllDttFromProfileRequest request) {
-        if (request == null || request.profileJson() == null || request.profileJson().isBlank()) {
-            throw new IllegalArgumentException("profileJson must not be blank");
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
         }
-        return demoService.exportAllDttFromProfile(request.profileJson());
+        if (request.profile() != null) {
+            return demoService.exportAllDttFromProfile(request.profile(), request.deviceTypeIds());
+        }
+        if (request.profileJson() != null && !request.profileJson().isBlank()) {
+            return demoService.exportAllDttFromProfileJson(request.profileJson(), request.deviceTypeIds());
+        }
+        throw new IllegalArgumentException("Either profile or profileJson must be provided");
+    }
+
+    /**
+     * Экспортирует набор DTT из profile JSON в zip-архив (режим upload-download).
+     */
+    @Post(uri = "/export/profile/all/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
+    @Operation(summary = "Экспортировать все DTT из profile JSON в zip (upload-download)")
+    public HttpResponse<byte[]> exportAllFromProfileDownload(@Body ExportAllDttFromProfileRequest request) {
+        if (request == null || (request.profile() == null && (request.profileJson() == null || request.profileJson().isBlank()))) {
+            throw new IllegalArgumentException("Either profile or profileJson must be provided");
+        }
+        final byte[] payload = demoService.exportProfileToZip(request.profile(), request.profileJson(), request.deviceTypeIds());
+        return HttpResponse.ok(payload)
+                .header("Content-Disposition", "attachment; filename=\"profile-dtt-set.zip\"");
+    }
+
+    /**
+     * Экспортирует все DTT-архивы из branch equipment JSON.
+     *
+     * @param request запрос с branch JSON и merge-стратегией
+     * @return карта Base64-архивов по deviceTypeId
+     */
+    @Post(uri = "/export/branch/all", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Экспортировать все DTT из branch equipment JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "objectModel", value = """
+                            {
+                              "branchEquipment": {
+                                "branches": {
+                                  "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
+                                    "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
+                                    "displayName": "test kate",
+                                    "deviceTypes": {
+                                      "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                                        "template": {
+                                          "metadata": {
+                                            "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                                            "name": "Terminal",
+                                            "displayName": "Терминал (Киоск)",
+                                            "description": "Терминал (Киоск)"
+                                          },
+                                          "deviceTypeParamValues": {
+                                            "prefix": "SSS"
+                                          }
+                                        },
+                                        "devices": {}
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                            """),
+                    @ExampleObject(name = "jsonString", value = """
+                            {
+                              "branchJson": "{\\"branch-1\\":{\\"id\\":\\"branch-1\\",\\"displayName\\":\\"Main\\",\\"deviceTypes\\":{\\"display\\":{\\"template\\":{\\"metadata\\":{\\"id\\":\\"display\\",\\"name\\":\\"Display\\",\\"displayName\\":\\"Display\\",\\"description\\":\\"desc\\"},\\"deviceTypeParamValues\\":{}},\\"devices\\":{}}}}}",
+                              "branchIds": [
+                                "branch-1"
+                              ],
+                              "deviceTypeIds": [
+                                "display"
+                              ],
+                              "mergeStrategy": "FAIL_IF_EXISTS"
+                            }
+                            """)
+            })
+    )
+    @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка валидации входных данных",
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either branchEquipment or branchJson must be provided\"}"))
+    )
+    public ExportAllDttFromBranchResponse exportAllFromBranch(@Body ExportAllDttFromBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.branchEquipment() != null) {
+            return demoService.exportAllDttFromBranch(
+                    request.branchEquipment(),
+                    request.branchIds(),
+                    request.deviceTypeIds(),
+                    request.mergeStrategy()
+            );
+        }
+        if (request.branchJson() != null && !request.branchJson().isBlank()) {
+            return demoService.exportAllDttFromBranchJson(
+                    request.branchJson(),
+                    request.branchIds(),
+                    request.deviceTypeIds(),
+                    request.mergeStrategy()
+            );
+        }
+        throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
+    }
+
+    /**
+     * Экспортирует набор DTT из branch equipment JSON в zip-архив (режим upload-download).
+     */
+    @Post(uri = "/export/branch/all/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
+    @Operation(summary = "Экспортировать все DTT из branch equipment JSON в zip (upload-download)")
+    public HttpResponse<byte[]> exportAllFromBranchDownload(@Body ExportAllDttFromBranchRequest request) {
+        if (request == null || (request.branchEquipment() == null && (request.branchJson() == null || request.branchJson().isBlank()))) {
+            throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
+        }
+        final byte[] payload = demoService.exportBranchToZip(
+                request.branchEquipment(),
+                request.branchJson(),
+                request.branchIds(),
+                request.deviceTypeIds(),
+                request.mergeStrategy()
+        );
+        return HttpResponse.ok(payload)
+                .header("Content-Disposition", "attachment; filename=\"branch-dtt-set.zip\"");
     }
 
     /**
@@ -135,14 +359,14 @@ public class DttController {
         return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
     }
 
-    private List<byte[]> decodeArchives(ImportDttSetToProfileRequest request) {
-        if (request == null || request.archivesBase64() == null || request.archivesBase64().isEmpty()) {
+    private List<byte[]> decodeArchives(List<String> archivesBase64) {
+        if (archivesBase64 == null || archivesBase64.isEmpty()) {
             throw new IllegalArgumentException("archivesBase64 must contain at least one DTT archive");
         }
-        final List<byte[]> decoded = new ArrayList<>(request.archivesBase64().size());
-        for (int index = 0; index < request.archivesBase64().size(); index++) {
+        final List<byte[]> decoded = new ArrayList<>(archivesBase64.size());
+        for (int index = 0; index < archivesBase64.size(); index++) {
             try {
-                decoded.add(Base64.getDecoder().decode(request.archivesBase64().get(index)));
+                decoded.add(Base64.getDecoder().decode(archivesBase64.get(index)));
             } catch (IllegalArgumentException ex) {
                 throw new IllegalArgumentException("Invalid Base64 archive at index " + index, ex);
             }
