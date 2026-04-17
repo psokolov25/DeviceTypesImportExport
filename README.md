@@ -117,6 +117,18 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/import/profile` (application/json, Base64 DTT set -> profile JSON).
 - `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
 
+## Maven-окружение в репозитории
+
+В репозитории размещено полноценное Maven-окружение для воспроизводимой сборки:
+
+- Maven Wrapper (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/maven-wrapper.properties`) для запуска без локальной установки Maven;
+- `.mvn/maven.config` с настройками batch-режима, отключением progress-шума и фиксированным локальным репозиторием `.m2/repository`;
+- `.mvn/jvm.config` с единым `UTF-8` и фиксированной локалью JVM;
+- `maven-enforcer-plugin` в root `pom.xml` для обязательных версий Java 17 и Maven 3.9+;
+- единая фиксация версий базовых Maven plugins в `pluginManagement` для стабильной multi-module сборки.
+
+Это позволяет одинаково запускать команды локально, в CI и в контейнерных окружениях.
+
 ## Тесты
 
 Запуск полного набора тестов:
