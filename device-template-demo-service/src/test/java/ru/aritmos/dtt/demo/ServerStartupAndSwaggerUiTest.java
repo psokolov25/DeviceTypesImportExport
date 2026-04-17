@@ -41,6 +41,16 @@ class ServerStartupAndSwaggerUiTest {
             assertThat(swaggerUiPageResponse.body()).contains("<div id='swagger-ui'></div>");
             assertThat(swaggerUiPageResponse.body()).contains("/swagger-ui/res/swagger-ui-bundle.js");
             assertThat(swaggerUiPageResponse.body()).contains("/swagger/device-template-demo.yml");
+
+            final HttpResponse<byte[]> swaggerUiBundleResponse = sendGetBytes(client,
+                    server.getURL() + "/swagger-ui/res/swagger-ui-bundle.js");
+            assertThat(swaggerUiBundleResponse.statusCode()).isEqualTo(200);
+            assertThat(swaggerUiBundleResponse.body()).hasSizeGreaterThan(1_000_000);
+
+            final HttpResponse<byte[]> swaggerUiCssResponse = sendGetBytes(client,
+                    server.getURL() + "/swagger-ui/res/swagger-ui.css");
+            assertThat(swaggerUiCssResponse.statusCode()).isEqualTo(200);
+            assertThat(swaggerUiCssResponse.body()).hasSizeGreaterThan(100_000);
         }
     }
 
@@ -51,6 +61,15 @@ class ServerStartupAndSwaggerUiTest {
                 .timeout(Duration.ofSeconds(5))
                 .build();
         return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<byte[]> sendGetBytes(HttpClient client, String url) throws IOException, InterruptedException {
+        final HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .GET()
+                .timeout(Duration.ofSeconds(10))
+                .build();
+        return client.send(request, HttpResponse.BodyHandlers.ofByteArray());
     }
 
 }
