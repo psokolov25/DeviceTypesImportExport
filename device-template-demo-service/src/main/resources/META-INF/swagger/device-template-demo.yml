@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: Device Template Demo Service API
+  version: 0.1.0
+  description: |
+    Demo API для проверки сценариев валидации/инспекции/импорта/экспорта DTT.
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/system/health:
+    get:
+      tags: [System]
+      summary: Проверить доступность demo-service
+      responses:
+        '200':
+          description: Сервис доступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/dtt/validate:
+    post:
+      tags: [DTT]
+      summary: Валидировать DTT
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Результат валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DttValidationResponse'
+  /api/dtt/inspect:
+    post:
+      tags: [DTT]
+      summary: Инспектировать DTT
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Краткая информация о DTT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DttInspectionResponse'
+  /api/dtt/import/profile:
+    post:
+      tags: [DTT]
+      summary: Импортировать набор DTT в profile JSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportDttSetToProfileRequest'
+      responses:
+        '200':
+          description: Собранный профиль оборудования
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportDttSetToProfileResponse'
+        '400':
+          description: Ошибка валидации входных данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoErrorResponse'
+  /api/dtt/export/profile/all:
+    post:
+      tags: [DTT]
+      summary: Экспортировать все DTT из profile JSON
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportAllDttFromProfileRequest'
+      responses:
+        '200':
+          description: Набор экспортированных DTT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportAllDttFromProfileResponse'
+        '400':
+          description: Ошибка валидации входных данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoErrorResponse'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    DttValidationIssueResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required: [code, message]
+    DttValidationResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/DttValidationIssueResponse'
+      required: [valid, issues]
+    DttInspectionResponse:
+      type: object
+      properties:
+        deviceTypeId:
+          type: string
+        manifestDeviceTypeName:
+          type: string
+        containsLifecycleScripts:
+          type: boolean
+        containsEventHandlers:
+          type: boolean
+        containsCommands:
+          type: boolean
+      required:
+        [deviceTypeId, manifestDeviceTypeName, containsLifecycleScripts, containsEventHandlers, containsCommands]
+    ImportDttSetToProfileRequest:
+      type: object
+      properties:
+        archivesBase64:
+          type: array
+          items:
+            type: string
+            description: Base64-строка DTT-архива
+        mergeStrategy:
+          type: string
+          enum: [FAIL_IF_EXISTS, REPLACE, MERGE_NON_NULLS, MERGE_PRESERVE_EXISTING, CREATE_COPY_WITH_SUFFIX]
+      required: [archivesBase64]
+    ImportDttSetToProfileResponse:
+      type: object
+      properties:
+        deviceTypesCount:
+          type: integer
+          format: int32
+        profileJson:
+          type: string
+      required: [deviceTypesCount, profileJson]
+    ExportAllDttFromProfileRequest:
+      type: object
+      properties:
+        profileJson:
+          type: string
+      required: [profileJson]
+    ExportAllDttFromProfileResponse:
+      type: object
+      properties:
+        archivesByDeviceTypeId:
+          type: object
+          additionalProperties:
+            type: string
+            description: Base64-строка DTT-архива
+      required: [archivesByDeviceTypeId]
+    DemoErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required: [code, message]
