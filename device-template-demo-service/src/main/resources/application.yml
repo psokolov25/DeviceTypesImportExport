@@ -8,12 +8,9 @@ micronaut:
       swagger:
         mapping: /swagger/**
         paths: classpath:META-INF/swagger
-      swagger-ui:
-        mapping: /swagger-ui/**
-        paths: classpath:META-INF/swagger-ui
-      webjars:
-        mapping: /webjars/**
-        paths: classpath:META-INF/resources/webjars
+      swagger-ui-assets:
+        mapping: /swagger-ui-assets/**
+        paths: classpath:META-INF/resources/webjars/swagger-ui-dist/5.17.14
 
 logger:
   levels:
