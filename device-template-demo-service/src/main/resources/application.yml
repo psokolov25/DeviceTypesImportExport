@@ -11,3 +11,10 @@ micronaut:
       swagger-ui:
         mapping: /swagger-ui/**
         paths: classpath:META-INF/swagger-ui
+      webjars:
+        mapping: /webjars/**
+        paths: classpath:META-INF/resources/webjars
+
+logger:
+  levels:
+    root: INFO

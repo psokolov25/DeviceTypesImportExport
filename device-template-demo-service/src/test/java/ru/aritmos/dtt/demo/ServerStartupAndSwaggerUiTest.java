@@ -11,6 +11,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,7 +41,21 @@ class ServerStartupAndSwaggerUiTest {
             final HttpResponse<String> swaggerUiResponse = sendGet(client, server.getURL() + "/swagger-ui/index.html");
             assertThat(swaggerUiResponse.statusCode()).isEqualTo(200);
             assertThat(swaggerUiResponse.body()).contains("SwaggerUIBundle");
+            assertThat(swaggerUiResponse.body()).contains("/webjars/swagger-ui-dist/");
+
+            final String bundlePath = extractBundlePath(swaggerUiResponse.body());
+
+            final HttpResponse<String> swaggerUiBundleResponse = sendGet(client, server.getURL() + bundlePath);
+            assertThat(swaggerUiBundleResponse.statusCode()).isEqualTo(200);
+            assertThat(swaggerUiBundleResponse.body()).contains("SwaggerUIBundle");
         }
+    }
+
+    private String extractBundlePath(String html) {
+        final Pattern bundlePathPattern = Pattern.compile("<script\\s+src=\\\"([^\\\"]*swagger-ui-bundle\\.js)\\\"");
+        final Matcher matcher = bundlePathPattern.matcher(html);
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
     }
 
     private HttpResponse<String> sendGet(HttpClient client, String url) throws IOException, InterruptedException {
