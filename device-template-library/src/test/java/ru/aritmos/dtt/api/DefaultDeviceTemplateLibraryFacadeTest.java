@@ -57,7 +57,11 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 List.of(new BranchImportRequest(
                         "branch-1",
                         "Main",
-                        List.of(new BranchDeviceTypeImportRequest(new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true), List.of()))
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
                 )),
                 MergeStrategy.FAIL_IF_EXISTS
         ));
@@ -98,7 +102,11 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 List.of(new BranchImportRequest(
                         "branch-1",
                         "Main",
-                        List.of(new BranchDeviceTypeImportRequest(new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true), List.of()))
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
                 )),
                 MergeStrategy.FAIL_IF_EXISTS
         ));
@@ -149,7 +157,11 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 List.of(new BranchImportRequest(
                         "branch-1",
                         "Main",
-                        List.of(new BranchDeviceTypeImportRequest(new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true), List.of()))
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
                 )),
                 MergeStrategy.FAIL_IF_EXISTS
         ));
@@ -212,6 +224,43 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         final var branchFromZip = facade.previewDttZipToBranch(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(branchFromZip.branches()).containsKey("branch-1");
+    }
+
+    @Test
+    void shouldImportDttSetToBranchWithScriptsAndMetadata() {
+        final DttArchiveTemplate source = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(),
+                Map.of(),
+                Map.of(
+                        "deviceTypeKind", "display_kind",
+                        "onStartEvent", Map.of("inputParameters", Map.of("a", "b"), "outputParameters", List.of("x")),
+                        "eventHandlers", Map.of("EVENT", Map.of("inputParameters", Map.of("k", "v"), "outputParameters", List.of()))
+                ),
+                Map.of("ip", "127.0.0.1"),
+                Map.of(),
+                "println 'start'",
+                null,
+                null,
+                null,
+                "println 'functions'",
+                Map.of("EVENT", "println 'event'"),
+                Map.of("CMD", "println 'command'")
+        );
+        final byte[] archive = facade.writeDtt(source);
+
+        final var branch = facade.importDttSetToBranch(List.of(archive), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final var branchType = branch.branches().get("branch-1").deviceTypes().get("display");
+
+        assertThat(branchType.onStartEvent()).isNotNull();
+        assertThat(branchType.onStartEvent().scriptCode()).isEqualTo("println 'start'");
+        assertThat(branchType.onStartEvent().inputParameters()).containsEntry("a", "b");
+        assertThat(branchType.eventHandlers()).containsKey("EVENT");
+        assertThat(branchType.eventHandlers().get("EVENT").inputParameters()).containsEntry("k", "v");
+        assertThat(branchType.commands()).containsKey("CMD");
+        assertThat(branchType.deviceTypeFunctions()).isEqualTo("println 'functions'");
+        assertThat(branchType.kind()).isEqualTo("display_kind");
     }
 
     @Test
@@ -284,9 +333,37 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                         "name": "Display",
                         "displayName": "Display",
                         "description": "desc",
+                        "type": "display_kind",
                         "deviceTypeParamValues": {
                           "ip": "10.0.0.2"
                         },
+                        "onStartEvent": {
+                          "inputParameters": {},
+                          "outputParameters": [],
+                          "scriptCode": "println 'start'"
+                        },
+                        "onStopEvent": null,
+                        "onPublicStartEvent": null,
+                        "onPublicFinishEvent": {
+                          "inputParameters": {},
+                          "outputParameters": [],
+                          "scriptCode": "println 'finish'"
+                        },
+                        "eventHandlers": {
+                          "EVENT": {
+                            "inputParameters": {},
+                            "outputParameters": [],
+                            "scriptCode": "println 'event'"
+                          }
+                        },
+                        "commands": {
+                          "CMD": {
+                            "inputParameters": {},
+                            "outputParameters": [],
+                            "scriptCode": "println 'command'"
+                          }
+                        },
+                        "deviceTypeFunctions": "println 'functions'",
                         "devices": {}
                       }
                     }
@@ -306,6 +383,17 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(restored.descriptor().deviceTypeVersion()).isEqualTo("3.0.2");
         assertThat(restored.defaultValues()).containsEntry("ip", "10.0.0.2");
         assertThat(restored.metadata().description()).endsWith("3.0.2");
+        assertThat(restored.onStartEvent()).isEqualTo("println 'start'");
+        assertThat(restored.onPublicFinishEvent()).isEqualTo("println 'finish'");
+        assertThat(restored.deviceTypeFunctions()).isEqualTo("println 'functions'");
+        assertThat(restored.eventHandlers()).containsEntry("EVENT", "println 'event'");
+        assertThat(restored.commands()).containsEntry("CMD", "println 'command'");
+        assertThat(restored.bindingHints()).containsKeys("deviceTypeKind", "onStartEvent", "onPublicFinishEvent", "eventHandlers", "commands");
+        assertThat(restored.bindingHints()).containsEntry("deviceTypeKind", "display_kind");
+        final Map<String, Object> eventHandlersHint = (Map<String, Object>) restored.bindingHints().get("eventHandlers");
+        assertThat(eventHandlersHint).containsKey("EVENT");
+        final Map<String, Object> eventHint = (Map<String, Object>) eventHandlersHint.get("EVENT");
+        assertThat(eventHint).containsKeys("inputParameters", "outputParameters");
     }
 
     @Test
