@@ -21,6 +21,8 @@ import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.assembly.DefaultTemplateAssemblyService;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
+import ru.aritmos.dtt.json.branch.BranchScript;
+import ru.aritmos.dtt.json.branch.BranchDeviceType;
 import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonGenerator;
 import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonParser;
 import ru.aritmos.dtt.json.branch.DeviceManagerBranchJsonGenerator;
@@ -219,7 +221,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                     return;
                 }
                 final String key = resolveKeyForBranchExport(archives, typeId, branchId, effectiveMergeStrategy);
-                archives.put(key, writeDtt(toArchiveTemplate(key, branchType.template(), request.dttVersion())));
+                archives.put(key, writeDtt(toArchiveTemplate(key, branchType, request.dttVersion())));
                 exportedDeviceTypeIds.add(typeId);
             });
         });
@@ -349,18 +351,15 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         if (branchIds == null || branchIds.isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
-        final List<EquipmentProfileDeviceTypeRequest> deviceTypeRequests = archives.stream()
+        final List<BranchDeviceTypeImportRequest> deviceTypeRequests = archives.stream()
                 .map(this::readDtt)
-                .map(this::toDeviceTypeTemplate)
-                .map(template -> new EquipmentProfileDeviceTypeRequest(template, true))
+                .map(this::toBranchDeviceTypeImportRequest)
                 .toList();
         final List<BranchImportRequest> branches = branchIds.stream()
                 .map(branchId -> new BranchImportRequest(
                         branchId,
                         branchId,
-                        deviceTypeRequests.stream()
-                                .map(request -> new BranchDeviceTypeImportRequest(request, List.of()))
-                                .toList()
+                        deviceTypeRequests
                 ))
                 .toList();
         return new BranchEquipmentAssemblyRequest(branches, mergeStrategy);
@@ -387,6 +386,67 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         );
     }
 
+    private DttArchiveTemplate toArchiveTemplate(String typeId, BranchDeviceType branchDeviceType, String dttVersion) {
+        final DeviceTypeTemplate deviceType = branchDeviceType.template();
+        final String effectiveVersion = normalizeDttVersion(dttVersion);
+        final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
+        return new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", typeId, effectiveVersion),
+                metadata,
+                Map.of(),
+                Map.of(),
+                buildScriptBindingHints(branchDeviceType),
+                extractDefaultValues(deviceType.deviceTypeParamValues()),
+                Map.of(),
+                extractScriptCode(branchDeviceType.onStartEvent()),
+                extractScriptCode(branchDeviceType.onStopEvent()),
+                extractScriptCode(branchDeviceType.onPublicStartEvent()),
+                extractScriptCode(branchDeviceType.onPublicFinishEvent()),
+                branchDeviceType.deviceTypeFunctions(),
+                extractScriptMap(branchDeviceType.eventHandlers()),
+                extractScriptMap(branchDeviceType.commands())
+        );
+    }
+
+    private Map<String, Object> buildScriptBindingHints(BranchDeviceType branchDeviceType) {
+        final Map<String, Object> hints = new LinkedHashMap<>();
+        if (branchDeviceType.kind() != null && !branchDeviceType.kind().isBlank()) {
+            hints.put("deviceTypeKind", branchDeviceType.kind());
+        }
+        putLifecycleHint(hints, "onStartEvent", branchDeviceType.onStartEvent());
+        putLifecycleHint(hints, "onStopEvent", branchDeviceType.onStopEvent());
+        putLifecycleHint(hints, "onPublicStartEvent", branchDeviceType.onPublicStartEvent());
+        putLifecycleHint(hints, "onPublicFinishEvent", branchDeviceType.onPublicFinishEvent());
+
+        if (branchDeviceType.eventHandlers() != null && !branchDeviceType.eventHandlers().isEmpty()) {
+            hints.put("eventHandlers", extractScriptMetadataMap(branchDeviceType.eventHandlers()));
+        }
+        if (branchDeviceType.commands() != null && !branchDeviceType.commands().isEmpty()) {
+            hints.put("commands", extractScriptMetadataMap(branchDeviceType.commands()));
+        }
+        return hints;
+    }
+
+    private void putLifecycleHint(Map<String, Object> hints, String key, BranchScript script) {
+        if (script == null) {
+            return;
+        }
+        hints.put(key, scriptMetadata(script));
+    }
+
+    private Map<String, Object> extractScriptMetadataMap(Map<String, BranchScript> scripts) {
+        final Map<String, Object> metadata = new LinkedHashMap<>();
+        scripts.forEach((name, script) -> metadata.put(name, scriptMetadata(script)));
+        return metadata;
+    }
+
+    private Map<String, Object> scriptMetadata(BranchScript script) {
+        final Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("inputParameters", script.inputParameters() == null ? Map.of() : script.inputParameters());
+        metadata.put("outputParameters", script.outputParameters() == null ? List.of() : script.outputParameters());
+        return metadata;
+    }
+
     private Map<String, Object> extractDefaultValues(Map<String, Object> deviceTypeParamValues) {
         if (deviceTypeParamValues == null || deviceTypeParamValues.isEmpty()) {
             return Map.of();
@@ -394,6 +454,65 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         final Map<String, Object> extracted = new LinkedHashMap<>();
         deviceTypeParamValues.forEach((key, value) -> extracted.put(key, extractCanonicalValue(value)));
         return extracted;
+    }
+
+    private BranchDeviceTypeImportRequest toBranchDeviceTypeImportRequest(DttArchiveTemplate template) {
+        final Map<String, Object> hints = template.bindingHints() == null ? Map.of() : template.bindingHints();
+        final String kind = hints.get("deviceTypeKind") instanceof String kindHint && !kindHint.isBlank()
+                ? kindHint
+                : template.metadata().name();
+        return new BranchDeviceTypeImportRequest(
+                new EquipmentProfileDeviceTypeRequest(
+                        new DeviceTypeTemplate(template.metadata(), template.defaultValues() == null ? Map.of() : template.defaultValues()),
+                        true
+                ),
+                List.of(),
+                kind,
+                toBranchScript(template.onStartEvent(), hints.get("onStartEvent")),
+                toBranchScript(template.onStopEvent(), hints.get("onStopEvent")),
+                toBranchScript(template.onPublicStartEvent(), hints.get("onPublicStartEvent")),
+                toBranchScript(template.onPublicFinishEvent(), hints.get("onPublicFinishEvent")),
+                template.deviceTypeFunctions(),
+                toBranchScriptMap(template.eventHandlers(), hints.get("eventHandlers")),
+                toBranchScriptMap(template.commands(), hints.get("commands"))
+        );
+    }
+
+    private BranchScript toBranchScript(String scriptCode, Object metadataObject) {
+        if (scriptCode == null && metadataObject == null) {
+            return null;
+        }
+        final Map<String, Object> metadata = metadataObject instanceof Map<?, ?> map
+                ? castToStringObjectMap(map)
+                : Map.of();
+        final Map<String, Object> input = metadata.get("inputParameters") instanceof Map<?, ?> inputMap
+                ? castToStringObjectMap(inputMap)
+                : Map.of();
+        final List<Object> output = metadata.get("outputParameters") instanceof List<?> list
+                ? new java.util.ArrayList<>(list)
+                : List.of();
+        return new BranchScript(input, output, scriptCode);
+    }
+
+    private Map<String, BranchScript> toBranchScriptMap(Map<String, String> scripts, Object metadataObject) {
+        if ((scripts == null || scripts.isEmpty()) && !(metadataObject instanceof Map<?, ?>)) {
+            return Map.of();
+        }
+        final Map<String, Object> metadataMap = metadataObject instanceof Map<?, ?> map
+                ? castToStringObjectMap(map)
+                : Map.of();
+        final Map<String, BranchScript> result = new LinkedHashMap<>();
+        if (scripts != null) {
+            scripts.forEach((name, code) -> result.put(name, toBranchScript(code, metadataMap.get(name))));
+        }
+        metadataMap.forEach((name, metadata) -> result.putIfAbsent(name, toBranchScript(null, metadata)));
+        return result;
+    }
+
+    private Map<String, Object> castToStringObjectMap(Map<?, ?> source) {
+        final Map<String, Object> result = new LinkedHashMap<>();
+        source.forEach((key, value) -> result.put(String.valueOf(key), value));
+        return result;
     }
 
     private Object extractCanonicalValue(Object value) {
@@ -415,6 +534,27 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             return extracted;
         }
         return value;
+    }
+
+    private String extractScriptCode(BranchScript scriptSection) {
+        if (scriptSection == null) {
+            return null;
+        }
+        return scriptSection.scriptCode();
+    }
+
+    private Map<String, String> extractScriptMap(Map<String, BranchScript> sections) {
+        if (sections == null || sections.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, String> scripts = new LinkedHashMap<>();
+        sections.forEach((name, value) -> {
+            final String script = extractScriptCode(value);
+            if (script != null) {
+                scripts.put(name, script);
+            }
+        });
+        return scripts;
     }
 
     private String normalizeDttVersion(String dttVersion) {
@@ -454,6 +594,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             case CREATE_COPY_WITH_SUFFIX -> nextCopyKey(result, typeId);
         };
     }
+
 
     private String nextCopyKey(Map<String, byte[]> result, String baseKey) {
         int counter = 1;

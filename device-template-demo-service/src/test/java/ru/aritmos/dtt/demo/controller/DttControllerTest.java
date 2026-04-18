@@ -148,7 +148,15 @@ class DttControllerTest {
                                         "display",
                                         new BranchDeviceType(
                                                 new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of()),
-                                                Map.of("dev-1", new DeviceInstanceTemplate("dev-1", "d1", "d1", "desc", Map.of()))
+                                                Map.of("dev-1", new DeviceInstanceTemplate("dev-1", "d1", "d1", "desc", Map.of())),
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                Map.of(),
+                                                Map.of()
                                         )
                                 )
                         )
@@ -307,7 +315,7 @@ class DttControllerTest {
                 "{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
-                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
                 "}",
@@ -336,7 +344,7 @@ class DttControllerTest {
                 "{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
-                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
                 "}",

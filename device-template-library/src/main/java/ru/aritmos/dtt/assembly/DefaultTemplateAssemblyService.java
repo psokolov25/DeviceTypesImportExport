@@ -14,6 +14,7 @@ import ru.aritmos.dtt.exception.TemplateAssemblyException;
 import ru.aritmos.dtt.json.branch.BranchDeviceType;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.branch.BranchNode;
+import ru.aritmos.dtt.json.branch.BranchScript;
 import ru.aritmos.dtt.json.branch.DeviceInstanceTemplate;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
@@ -67,7 +68,20 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
             for (BranchDeviceTypeImportRequest deviceTypeImport : branchRequest.deviceTypes()) {
                 final DeviceTypeTemplate template = deviceTypeImport.deviceTypeRequest().template();
                 final String typeId = template.metadata().id();
-                final BranchDeviceType incoming = new BranchDeviceType(template, toDeviceMap(deviceTypeImport.deviceInstances()));
+                final BranchDeviceType incoming = new BranchDeviceType(
+                        template,
+                        toDeviceMap(deviceTypeImport.deviceInstances()),
+                        deviceTypeImport.kind() == null || deviceTypeImport.kind().isBlank()
+                                ? template.metadata().name()
+                                : deviceTypeImport.kind(),
+                        deviceTypeImport.onStartEvent(),
+                        deviceTypeImport.onStopEvent(),
+                        deviceTypeImport.onPublicStartEvent(),
+                        deviceTypeImport.onPublicFinishEvent(),
+                        deviceTypeImport.deviceTypeFunctions(),
+                        deviceTypeImport.eventHandlers() == null ? Map.of() : deviceTypeImport.eventHandlers(),
+                        deviceTypeImport.commands() == null ? Map.of() : deviceTypeImport.commands()
+                );
                 if (!deviceTypes.containsKey(typeId)) {
                     deviceTypes.put(typeId, incoming);
                     continue;
@@ -142,15 +156,68 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
             case FAIL_IF_EXISTS -> throw new TemplateAssemblyException(
                     "Тип устройства '%s' уже существует в отделении".formatted(key));
             case REPLACE -> result.put(key, incoming);
-            case MERGE_NON_NULLS, MERGE_PRESERVE_EXISTING -> result.put(key, mergeBranchDevices(result.get(key), incoming));
+            case MERGE_NON_NULLS -> result.put(key, mergeBranchNonNulls(result.get(key), incoming));
+            case MERGE_PRESERVE_EXISTING -> result.put(key, mergeBranchPreserveExisting(result.get(key), incoming));
             case CREATE_COPY_WITH_SUFFIX -> result.put(nextCopyKey(result, key), incoming);
         }
     }
 
-    private BranchDeviceType mergeBranchDevices(BranchDeviceType existing, BranchDeviceType incoming) {
+    private BranchDeviceType mergeBranchNonNulls(BranchDeviceType existing, BranchDeviceType incoming) {
         final Map<String, DeviceInstanceTemplate> merged = new LinkedHashMap<>(existing.devices());
         merged.putAll(incoming.devices());
-        return new BranchDeviceType(existing.template(), merged);
+        return new BranchDeviceType(
+                incoming.template() == null ? existing.template() : incoming.template(),
+                merged,
+                incoming.kind() == null ? existing.kind() : incoming.kind(),
+                incoming.onStartEvent() == null ? existing.onStartEvent() : incoming.onStartEvent(),
+                incoming.onStopEvent() == null ? existing.onStopEvent() : incoming.onStopEvent(),
+                incoming.onPublicStartEvent() == null ? existing.onPublicStartEvent() : incoming.onPublicStartEvent(),
+                incoming.onPublicFinishEvent() == null ? existing.onPublicFinishEvent() : incoming.onPublicFinishEvent(),
+                incoming.deviceTypeFunctions() == null ? existing.deviceTypeFunctions() : incoming.deviceTypeFunctions(),
+                mergeBranchScriptMaps(existing.eventHandlers(), incoming.eventHandlers(), true),
+                mergeBranchScriptMaps(existing.commands(), incoming.commands(), true)
+        );
+    }
+
+    private BranchDeviceType mergeBranchPreserveExisting(BranchDeviceType existing, BranchDeviceType incoming) {
+        final Map<String, DeviceInstanceTemplate> merged = new LinkedHashMap<>(incoming.devices());
+        merged.putAll(existing.devices());
+        return new BranchDeviceType(
+                existing.template() == null ? incoming.template() : existing.template(),
+                merged,
+                existing.kind() == null ? incoming.kind() : existing.kind(),
+                existing.onStartEvent() == null ? incoming.onStartEvent() : existing.onStartEvent(),
+                existing.onStopEvent() == null ? incoming.onStopEvent() : existing.onStopEvent(),
+                existing.onPublicStartEvent() == null ? incoming.onPublicStartEvent() : existing.onPublicStartEvent(),
+                existing.onPublicFinishEvent() == null ? incoming.onPublicFinishEvent() : existing.onPublicFinishEvent(),
+                existing.deviceTypeFunctions() == null ? incoming.deviceTypeFunctions() : existing.deviceTypeFunctions(),
+                mergeBranchScriptMaps(existing.eventHandlers(), incoming.eventHandlers(), false),
+                mergeBranchScriptMaps(existing.commands(), incoming.commands(), false)
+        );
+    }
+
+    private Map<String, BranchScript> mergeBranchScriptMaps(
+            Map<String, BranchScript> existing,
+            Map<String, BranchScript> incoming,
+            boolean incomingWins
+    ) {
+        final Map<String, BranchScript> merged = new LinkedHashMap<>();
+        if (incomingWins) {
+            if (existing != null) {
+                merged.putAll(existing);
+            }
+            if (incoming != null) {
+                merged.putAll(incoming);
+            }
+            return merged;
+        }
+        if (incoming != null) {
+            merged.putAll(incoming);
+        }
+        if (existing != null) {
+            merged.putAll(existing);
+        }
+        return merged;
     }
 
     private DeviceTypeTemplate mergeNonNulls(DeviceTypeTemplate existing, DeviceTypeTemplate incoming) {

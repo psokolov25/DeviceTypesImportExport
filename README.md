@@ -119,6 +119,33 @@ String profileJson = facade.toProfileJson(
 );
 ```
 
+#### Канонический branch JSON (`DeviceManager.json`) и script-секции
+
+Библиотека поддерживает канонические поля branch-уровня для `deviceTypes`:
+
+- `type` (`kind`);
+- lifecycle script-секции:
+  - `onStartEvent`
+  - `onStopEvent`
+  - `onPublicStartEvent`
+  - `onPublicFinishEvent`
+- `eventHandlers`
+- `commands`
+- `deviceTypeFunctions`
+
+Формат script-секций соответствует канону `DeviceManager.json`:
+
+- объект с полями `inputParameters`, `outputParameters`, `scriptCode` (где применимо);
+- для `deviceTypeFunctions` используется строка или `null`.
+
+При `branch JSON -> DTT` библиотека:
+
+- сохраняет Groovy-код в соответствующие script-поля DTT;
+- сохраняет `inputParameters`/`outputParameters` в `binding-hints.yml`;
+- сохраняет `type` как `bindingHints.deviceTypeKind`.
+
+При `DTT -> branch JSON` библиотека восстанавливает эти поля обратно (включая `kind`, lifecycle, handlers, commands и `deviceTypeFunctions`).
+
 ### 4) Demo-service
 
 Добавлен технический endpoint:
