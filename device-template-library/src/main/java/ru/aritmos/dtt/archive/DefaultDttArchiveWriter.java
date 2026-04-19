@@ -28,7 +28,26 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
             final Map<String, Object> manifest = new LinkedHashMap<>();
             manifest.put("formatName", template.descriptor().formatName());
             manifest.put("formatVersion", template.descriptor().formatVersion());
+            manifest.put("createdAt", "1970-01-01T00:00:00Z");
+            manifest.put("createdBy", "device-template-library");
+            manifest.put("libraryVersion", libraryVersion());
             manifest.put("deviceTypeId", template.descriptor().deviceTypeId());
+            manifest.put("deviceTypeName", template.metadata().name());
+            manifest.put("deviceTypeDisplayName", template.metadata().displayName());
+            manifest.put("deviceTypeDescription", template.metadata().description());
+            manifest.put("deviceTypeKind", resolveDeviceTypeKind(template));
+            manifest.put("supportsChildDevices", template.deviceParametersSchema() != null && !template.deviceParametersSchema().isEmpty());
+            manifest.put("containsLifecycleScripts", hasLifecycleScripts(template));
+            manifest.put("containsEventHandlers", template.eventHandlers() != null && !template.eventHandlers().isEmpty());
+            manifest.put("containsCommands", template.commands() != null && !template.commands().isEmpty());
+            manifest.put("containsDeviceTypeFunctions", template.deviceTypeFunctions() != null && !template.deviceTypeFunctions().isBlank());
+            manifest.put("parameterSchemaVersion", "1.0");
+            manifest.put("defaultValuesIncluded", template.defaultValues() != null && !template.defaultValues().isEmpty());
+            manifest.put("exampleValuesIncluded", template.exampleValues() != null && !template.exampleValues().isEmpty());
+            manifest.put("supportsProfileImport", true);
+            manifest.put("supportsBranchImport", true);
+            manifest.put("sourceKind", resolveSourceKind(template));
+            manifest.put("sourceSummary", resolveSourceSummary(template));
             if (template.descriptor().deviceTypeVersion() != null && !template.descriptor().deviceTypeVersion().isBlank()) {
                 manifest.put("deviceTypeVersion", template.descriptor().deviceTypeVersion());
             }
@@ -41,10 +60,13 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
             ));
             writeYaml(zipOutputStream, "template/device-type-parameters.yml", template.deviceTypeParametersSchema());
             writeYaml(zipOutputStream, "template/device-parameters-schema.yml", template.deviceParametersSchema());
-            writeYaml(zipOutputStream, "template/template-origin.yml", Map.of("sourceKind", "UNSPECIFIED"));
+            writeYaml(zipOutputStream, "template/template-origin.yml", defaultTemplateOrigin(template.templateOrigin()));
             writeYaml(zipOutputStream, "template/binding-hints.yml", template.bindingHints());
             writeYaml(zipOutputStream, "template/default-values.yml", template.defaultValues());
             writeYaml(zipOutputStream, "template/example-values.yml", template.exampleValues());
+            writeYaml(zipOutputStream, "examples/profile-values-example.yml", profileValuesExample(template));
+            writeYaml(zipOutputStream, "examples/branch-values-example.yml", branchValuesExample(template));
+            writeText(zipOutputStream, "README-IN-ARCHIVE.md", archiveReadme(template));
 
             writeText(zipOutputStream, "scripts/onStartEvent.groovy", template.onStartEvent());
             writeText(zipOutputStream, "scripts/onStopEvent.groovy", template.onStopEvent());
@@ -89,5 +111,90 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
 
     private Map<String, String> sorted(Map<String, String> source) {
         return source == null ? Map.of() : new TreeMap<>(source);
+    }
+
+    private Map<String, Object> profileValuesExample(DttArchiveTemplate template) {
+        if (template.exampleValues() != null && !template.exampleValues().isEmpty()) {
+            return template.exampleValues();
+        }
+        if (template.defaultValues() != null && !template.defaultValues().isEmpty()) {
+            return template.defaultValues();
+        }
+        return Map.of();
+    }
+
+    private Map<String, Object> branchValuesExample(DttArchiveTemplate template) {
+        return Map.of(
+                "branches", Map.of(
+                        "branch-1", Map.of(
+                                "deviceTypes", Map.of(
+                                        template.descriptor().deviceTypeId(),
+                                        profileValuesExample(template)
+                                )
+                        )
+                )
+        );
+    }
+
+    private String archiveReadme(DttArchiveTemplate template) {
+        return """
+                # DTT Archive
+                                
+                Device type id: %s
+                Format: %s/%s
+                                
+                Files:
+                - template/*.yml: schema/default/example/origin/binding hints
+                - examples/*.yml: sample profile/branch values
+                - scripts/*.groovy: lifecycle handlers, functions, events, commands
+                """.formatted(
+                template.descriptor().deviceTypeId(),
+                template.descriptor().formatName(),
+                template.descriptor().formatVersion()
+        );
+    }
+
+    private Map<String, Object> defaultTemplateOrigin(Map<String, Object> templateOrigin) {
+        if (templateOrigin == null || templateOrigin.isEmpty()) {
+            return Map.of("sourceKind", "UNSPECIFIED");
+        }
+        return templateOrigin;
+    }
+
+    private String resolveDeviceTypeKind(DttArchiveTemplate template) {
+        if (template.bindingHints() != null && template.bindingHints().get("deviceTypeKind") != null) {
+            return String.valueOf(template.bindingHints().get("deviceTypeKind"));
+        }
+        return template.metadata().name();
+    }
+
+    private boolean hasLifecycleScripts(DttArchiveTemplate template) {
+        return hasScript(template.onStartEvent())
+                || hasScript(template.onStopEvent())
+                || hasScript(template.onPublicStartEvent())
+                || hasScript(template.onPublicFinishEvent());
+    }
+
+    private boolean hasScript(String script) {
+        return script != null && !script.isBlank();
+    }
+
+    private String resolveSourceKind(DttArchiveTemplate template) {
+        final Map<String, Object> origin = defaultTemplateOrigin(template.templateOrigin());
+        return String.valueOf(origin.getOrDefault("sourceKind", "UNSPECIFIED"));
+    }
+
+    private String resolveSourceSummary(DttArchiveTemplate template) {
+        final Map<String, Object> origin = defaultTemplateOrigin(template.templateOrigin());
+        final Object value = origin.get("sourceSummary");
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private String libraryVersion() {
+        final Package packageInfo = DefaultDttArchiveWriter.class.getPackage();
+        if (packageInfo == null || packageInfo.getImplementationVersion() == null) {
+            return "unknown";
+        }
+        return packageInfo.getImplementationVersion();
     }
 }

@@ -11,6 +11,7 @@ import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
+import java.util.Map;
 import java.util.List;
 
 /**
@@ -118,6 +119,14 @@ public interface DeviceTemplateLibraryFacade {
     BatchDttExportResult exportDttSetFromProfile(ProfileExportRequest request);
 
     /**
+     * Экспортирует набор DTT-архивов из profile модели в Base64-представлении.
+     *
+     * @param request запрос с profile моделью и фильтром по deviceTypeId
+     * @return архивы по id типа устройства в Base64
+     */
+    Map<String, String> exportDttSetFromProfileBase64(ProfileExportRequest request);
+
+    /**
      * Экспортирует набор DTT-архивов из строкового profile JSON с явной версией шаблона типа устройства.
      *
      * @param profileJson строковое представление карты deviceTypes
@@ -163,6 +172,14 @@ public interface DeviceTemplateLibraryFacade {
     BatchDttExportResult exportDttSetFromBranch(BranchEquipmentExportRequest request);
 
     /**
+     * Экспортирует набор DTT-архивов из branch equipment модели в Base64-представлении.
+     *
+     * @param request запрос с branch моделью и опциональными фильтрами
+     * @return архивы по id типа устройства в Base64
+     */
+    Map<String, String> exportDttSetFromBranchBase64(BranchEquipmentExportRequest request);
+
+    /**
      * Экспортирует набор DTT-архивов из строкового branch equipment JSON с явной версией шаблона типа устройства.
      *
      * @param branchJson строковое представление branch equipment JSON
@@ -187,6 +204,20 @@ public interface DeviceTemplateLibraryFacade {
      * @return собранный branch equipment
      */
     BranchEquipment importDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует набор DTT-архивов в уже существующую branch equipment модель.
+     *
+     * @param archives bytes-архивы DTT
+     * @param existingBranchEquipment существующая модель оборудования отделений
+     * @param branchIds идентификаторы отделений, в которые нужно импортировать типы из архивов
+     * @param mergeStrategy стратегия merge при конфликте deviceTypeId внутри branch
+     * @return объединённая branch equipment модель
+     */
+    BranchEquipment importDttSetToExistingBranch(List<byte[]> archives,
+                                                 BranchEquipment existingBranchEquipment,
+                                                 List<String> branchIds,
+                                                 MergeStrategy mergeStrategy);
 
     /**
      * Выполняет preview-сборку branch equipment из набора DTT-архивов без сохранения результата.
@@ -214,6 +245,14 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment importDttBase64SetToBranch(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует набор DTT-архивов в уже существующую branch equipment модель из Base64-представления.
+     */
+    BranchEquipment importDttBase64SetToExistingBranch(List<String> archivesBase64,
+                                                       BranchEquipment existingBranchEquipment,
+                                                       List<String> branchIds,
+                                                       MergeStrategy mergeStrategy);
+
+    /**
      * Выполняет preview-сборку branch equipment из Base64-представления набора DTT-архивов.
      */
     BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
@@ -232,6 +271,14 @@ public interface DeviceTemplateLibraryFacade {
      * Импортирует zip-архив с .dtt файлами в branch equipment модель.
      */
     BranchEquipment importDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует zip-архив с .dtt файлами в уже существующую branch equipment модель.
+     */
+    BranchEquipment importDttZipToExistingBranch(byte[] zipPayload,
+                                                 BranchEquipment existingBranchEquipment,
+                                                 List<String> branchIds,
+                                                 MergeStrategy mergeStrategy);
 
     /**
      * Выполняет preview-сборку branch equipment из zip-архива с `.dtt` файлами.

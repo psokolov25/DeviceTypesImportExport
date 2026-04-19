@@ -755,6 +755,91 @@ JavaDoc должен быть на русском языке и объяснят
 
 ---
 
+## Чеклист статуса реализации (текущее состояние репозитория)
+
+> Обновляй этот список при каждом существенном изменении архитектуры/публичного API.
+
+### Библиотека (`device-template-library`)
+
+- [x] Базовый DTT archive I/O (`DttArchiveReader`/`DttArchiveWriter`) и YAML-файлы внутри `.dtt`.
+- [x] Deterministic ZIP output для архиватора.
+- [x] Фасад библиотеки (`DeviceTemplateLibraryFacade`) + builder-конфигурация.
+- [x] Сервисы уровня API присутствуют:
+  - [x] `DeviceTypeTemplateExportService`
+  - [x] `DeviceTypeTemplateImportService`
+  - [x] `TemplateAssemblyService`
+  - [x] `TemplateValidationService`
+- [x] Парсинг/генерация profile JSON.
+- [x] Парсинг/генерация branch equipment JSON (канонический root как в `DeviceManager.json`).
+- [x] Поддержаны все merge-стратегии:
+  - [x] `FAIL_IF_EXISTS`
+  - [x] `REPLACE`
+  - [x] `MERGE_NON_NULLS`
+  - [x] `MERGE_PRESERVE_EXISTING`
+  - [x] `CREATE_COPY_WITH_SUFFIX`
+- [x] Поддержан merge-импорт DTT в уже существующий branch equipment JSON.
+- [x] Режимы передачи данных в фасаде:
+  - [x] DTT как `byte[]`
+  - [x] DTT как Base64
+  - [x] DTT set как upload/download zip
+  - [x] export из object JSON
+  - [x] export из string JSON
+- [x] Базовое восстановление метаданных параметров в `deviceTypeParametersSchema` при экспорте profile/branch -> `.dtt`.
+- [x] Базовое формирование `exampleValues` при экспорте profile/branch -> `.dtt` (по `exampleValue` из параметров).
+- [x] Базовое восстановление `items` для параметров типа `Array` при экспорте profile/branch -> `.dtt`.
+- [x] Базовое заполнение `template/template-origin.yml` при экспорте profile/branch -> `.dtt` (`sourceKind` + `sourceSummary`).
+- [x] Базовая запись `examples/profile-values-example.yml`, `examples/branch-values-example.yml` и `README-IN-ARCHIVE.md` при экспорте `.dtt`.
+- [x] Расширена canonical-model прослойка типизированными сущностями для схемы параметров и origin (`CanonicalParameterSchema`, `CanonicalParameterDefinition`, `CanonicalTemplateOrigin`, `CanonicalTemplateValues`) + маппинг archive <-> canonical через них.
+- [x] Добавлены тесты canonical round-trip для nested schema/items/template-origin и обработка `null` value-контейнеров в canonical -> archive mapping.
+- [x] Расширено заполнение `manifest.yml` (createdBy/createdAt/libraryVersion/sourceKind/sourceSummary/support flags/script flags и др. обязательные поля).
+- [x] При импорте `.dtt` в profile/branch восстанавливаются parameter-object значения с metadata из схемы (`displayName`, `description`, `exampleValue`, nested object schema) вместо только scalar default values.
+- [x] При импорте `.dtt` в profile/branch поддержано восстановление metadata для `Array` с object-items (`items.parametersMap` + nested `exampleValue`).
+- [x] В profile round-trip (`dtt -> profile -> dtt`) сохранение явной `items`-схемы массива не затирается inferred-логикой.
+- [x] Добавлен отдельный canonical projection mapper (`CanonicalProjectionMapper`/`DefaultCanonicalProjectionMapper`) и проекции (`CanonicalProfileProjection`, `CanonicalBranchProjection`) для преобразования canonical -> profile/branch.
+- [x] Импортные пути фасада (`dtt -> profile`, `dtt -> branch`) переведены на canonical projection layer вместо ad-hoc восстановления в фасаде.
+- [x] Диагностичные исключения:
+  - [x] `DttFormatException`
+  - [x] `TemplateValidationException`
+  - [x] `TemplateAssemblyException`
+  - [x] `TemplateImportException`
+  - [x] `TemplateExportException`
+
+#### Матрица направлений преобразования
+
+- [x] A. Один `.dtt` -> profile JSON.
+- [x] B. Несколько `.dtt` -> profile JSON.
+- [x] C. Один `.dtt` -> branch equipment JSON.
+- [x] D. Несколько `.dtt` -> branch equipment JSON.
+- [x] E. profile JSON -> набор `.dtt` (batch export).
+- [x] F. branch equipment JSON -> набор `.dtt` (batch export).
+- [x] Round-trip без деградации расширенной мета-схемы параметров во всех направлениях.
+
+#### Не закрыто (критичный остаток)
+
+- [x] Полноценная отдельная canonical model layer (типизированные schema/origin/values + profile/branch projection layer и применение в фасаде).
+- [x] Базовый набор DTO/типов из AGENTS.md (включая `TemplateParameterSchema`, `TemplateParameterDefinition`, `TemplateScriptSet`, `TemplateDefaultValues`, `ExportResult`, `ImportResult`, `DeviceInstanceValueOverride`).
+- [x] Полная детализация YAML внутри `.dtt` по schema/default/example/origin/binding-hints для всех сценариев экспорта.
+- [x] Гарантированное сохранение всей расширенной параметрической мета-информации (`displayName`, `description`, `exampleValue`, nested object/array schema) в полном round-trip.
+
+### Demo-service (`device-template-demo-service`)
+
+- [x] Использование библиотеки через публичный фасад API.
+- [x] DI-интеграция фасада (`DeviceTemplateLibraryFacade`) через конфигурационный бин.
+- [x] Endpoints для validate/inspect/import/export/preview для profile и branch.
+- [x] Endpoint merge-импорта в существующий branch (`/api/dtt/import/branch/merge`).
+- [x] Dual-mode сценарии импорта/экспорта (Base64 + upload/download zip) на API demo-service.
+- [x] Единая структурированная error schema на все endpoint-ы.
+- [x] Полное покрытие OpenAPI примерами для всех dual-mode комбинаций.
+
+### Документация и качество
+
+- [x] README синхронизирован с текущими реализованными endpoint-ами и ключевыми facade-возможностями.
+- [x] AGENTS.md содержит актуальный done/todo чеклист.
+- [x] Тесты на ключевые сценарии импорта/экспорта/merge/preview.
+- [x] Полное покрытие всех пунктов AGENTS.md (архитектурные инварианты, DTO-матрица, canonical depth, полный round-trip matrix).
+
+---
+
 ## Формат отчёта о проделанной работе
 
 Когда завершаешь задачу, в ответе кратко укажи:

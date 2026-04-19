@@ -60,6 +60,7 @@ class DeviceTemplateLibraryFacadeBuilderTest {
                 Map.of(),
                 Map.of(),
                 Map.of(),
+                Map.of(),
                 "println 'ok'",
                 null,
                 null,

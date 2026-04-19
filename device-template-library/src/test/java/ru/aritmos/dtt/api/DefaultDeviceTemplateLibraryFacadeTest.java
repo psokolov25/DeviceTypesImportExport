@@ -1,6 +1,7 @@
 package ru.aritmos.dtt.api;
 
 import org.junit.jupiter.api.Test;
+import ru.aritmos.dtt.api.dto.BatchDttExportResult;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
@@ -12,6 +13,8 @@ import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
+import ru.aritmos.dtt.json.branch.BranchEquipment;
+import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
 import java.util.List;
 import java.util.Map;
@@ -197,6 +200,101 @@ class DefaultDeviceTemplateLibraryFacadeTest {
     }
 
     @Test
+    void shouldExportDttSetsAsBase64FromProfileAndBranch() {
+        final var deviceTypeTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of("ip", "127.0.0.1")
+        );
+        final var profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final Map<String, String> profileExport = facade.exportDttSetFromProfileBase64(
+                new ProfileExportRequest(profile, List.of("display"), null)
+        );
+
+        assertThat(profileExport).containsKey("display");
+        assertThat(java.util.Base64.getDecoder().decode(profileExport.get("display"))).isNotEmpty();
+
+        final var branch = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final Map<String, String> branchExport = facade.exportDttSetFromBranchBase64(
+                new BranchEquipmentExportRequest(branch, List.of("branch-1"), List.of("display"), MergeStrategy.FAIL_IF_EXISTS, null)
+        );
+
+        assertThat(branchExport).containsKey("display");
+        assertThat(java.util.Base64.getDecoder().decode(branchExport.get("display"))).isNotEmpty();
+    }
+
+    @Test
+    void shouldImportDttSetIntoExistingBranchEquipmentWithMergeStrategy() {
+        final var existingType = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "old-desc"),
+                Map.of("ip", "10.0.0.10")
+        );
+        final var existing = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(existingType, true),
+                                List.of(),
+                                "display_kind",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                Map.of("OLD_EVENT", new ru.aritmos.dtt.json.branch.BranchScript(Map.of(), List.of(), "println 'old'")),
+                                Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final DttArchiveTemplate importedTemplate = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "new-desc"),
+                Map.of(),
+                Map.of(),
+                Map.of("deviceTypeKind", "display_kind"),
+                Map.of("ip", "10.0.0.20"),
+                Map.of(),
+                Map.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of("NEW_EVENT", "println 'new'"),
+                Map.of()
+        );
+        final byte[] archive = facade.writeDtt(importedTemplate);
+
+        final BranchEquipment merged = facade.importDttSetToExistingBranch(
+                List.of(archive),
+                existing,
+                List.of("branch-1"),
+                MergeStrategy.MERGE_NON_NULLS
+        );
+
+        final var mergedType = merged.branches().get("branch-1").deviceTypes().get("display");
+        assertThat(mergedType.template().deviceTypeParamValues()).containsEntry("ip", "10.0.0.20");
+        assertThat(mergedType.eventHandlers()).containsKeys("OLD_EVENT", "NEW_EVENT");
+    }
+
+    @Test
     void shouldSupportPreviewModesInFacade() {
         final DttArchiveTemplate template = template();
         final byte[] archiveBytes = facade.writeDtt(template);
@@ -239,6 +337,7 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                         "eventHandlers", Map.of("EVENT", Map.of("inputParameters", Map.of("k", "v"), "outputParameters", List.of()))
                 ),
                 Map.of("ip", "127.0.0.1"),
+                Map.of(),
                 Map.of(),
                 "println 'start'",
                 null,
@@ -318,6 +417,82 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(restored.descriptor().deviceTypeVersion()).isEqualTo("3.0.1");
         assertThat(restored.defaultValues()).containsEntry("ip", "10.0.0.1");
         assertThat(restored.metadata().description()).endsWith("3.0.1");
+    }
+
+    @Test
+    void shouldPreserveParameterMetadataInExportedDeviceTypeSchema() {
+        final String profileJson = """
+                {
+                  "display": {
+                    "id": "display",
+                    "name": "Display",
+                    "displayName": "Display",
+                    "description": "desc",
+                    "deviceTypeParamValues": {
+                      "ip": {
+                        "value": "10.0.0.1",
+                        "name": "ip",
+                        "displayName": "IP address",
+                        "type": "String",
+                        "description": "Printer host",
+                        "exampleValue": "192.168.1.100"
+                      },
+	                      "zones": {
+	                        "value": {
+	                          "main": {
+	                            "value": 1,
+	                            "name": "main",
+	                            "type": "Number"
+	                          }
+	                        },
+	                        "name": "zones",
+	                        "type": "Object"
+	                      },
+	                      "sensors": {
+	                        "value": [
+	                          {
+	                            "value": "A1",
+	                            "name": "channelId",
+	                            "type": "String",
+	                            "exampleValue": "CH-1"
+	                          }
+	                        ],
+	                        "name": "sensors",
+	                        "type": "Array"
+	                      }
+	                    }
+	                  }
+	                }
+	                """;
+
+        final var exported = facade.exportDttSetFromProfileJson(profileJson, List.of("display"), "3.1.0");
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+
+	        assertThat(restored.deviceTypeParametersSchema()).containsKeys("ip", "zones", "sensors");
+	        final Map<String, Object> ipSchema = castToMap(restored.deviceTypeParametersSchema().get("ip"));
+	        assertThat(ipSchema).containsEntry("displayName", "IP address");
+	        assertThat(ipSchema).containsEntry("type", "String");
+	        assertThat(ipSchema).containsEntry("description", "Printer host");
+	        final Map<String, Object> zonesSchema = castToMap(restored.deviceTypeParametersSchema().get("zones"));
+	        assertThat(zonesSchema).containsEntry("type", "Object");
+	        assertThat(zonesSchema).containsKey("parametersMap");
+	        final Map<String, Object> sensorsSchema = castToMap(restored.deviceTypeParametersSchema().get("sensors"));
+	        assertThat(sensorsSchema).containsEntry("type", "Array");
+	        final Map<String, Object> sensorsItems = castToMap(sensorsSchema.get("items"));
+	        assertThat(sensorsItems).containsEntry("type", "String");
+	        assertThat(sensorsItems).containsEntry("exampleValue", "CH-1");
+	        assertThat(restored.exampleValues()).containsEntry("ip", "192.168.1.100");
+	        final Map<String, Object> zonesExamples = castToMap(restored.exampleValues().get("zones"));
+	        assertThat(zonesExamples).containsEntry("main", 1);
+	        assertThat(restored.exampleValues()).containsEntry("sensors", List.of("CH-1"));
+            assertThat(restored.templateOrigin())
+                    .containsEntry("sourceKind", "PROFILE_JSON")
+                    .containsEntry("sourceSummary", "export profile->dtt");
+	    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> castToMap(Object value) {
+        return (Map<String, Object>) value;
     }
 
     @Test
@@ -438,10 +613,344 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 .containsEntry("text", "CLOSED");
     }
 
+    @Test
+    void shouldRestoreSchemaMetadataWhenImportingDttToProfile() {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "ip", Map.of(
+                                "name", "ip",
+                                "type", "String",
+                                "displayName", "IP Address",
+                                "description", "Terminal IP"
+                        ),
+                        "zones", Map.of(
+                                "name", "zones",
+                                "type", "Object",
+                                "parametersMap", Map.of(
+                                        "main", Map.of(
+                                                "name", "main",
+                                                "type", "Number",
+                                                "description", "Main zone"
+                                        )
+                                )
+                        )
+                ),
+                Map.of(),
+                Map.of(),
+                Map.of("ip", "10.0.0.1", "zones", Map.of("main", 1)),
+                Map.of("ip", "192.168.0.1", "zones", Map.of("main", 7)),
+                Map.of("sourceKind", "PROFILE_JSON"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+        final byte[] archive = facade.writeDtt(template);
+
+        final EquipmentProfile profile = facade.importDttSetToProfile(List.of(archive), MergeStrategy.FAIL_IF_EXISTS);
+        final Object ipValue = profile.deviceTypes().get("display").deviceTypeParamValues().get("ip");
+        final Map<String, Object> ip = castToMap(ipValue);
+        assertThat(ip).containsEntry("displayName", "IP Address");
+        assertThat(ip).containsEntry("description", "Terminal IP");
+        assertThat(ip).containsEntry("value", "10.0.0.1");
+        assertThat(ip).containsEntry("exampleValue", "192.168.0.1");
+
+        final Map<String, Object> zones = castToMap(profile.deviceTypes().get("display").deviceTypeParamValues().get("zones"));
+        final Map<String, Object> zonesValue = castToMap(zones.get("value"));
+        final Map<String, Object> main = castToMap(zonesValue.get("main"));
+        assertThat(main).containsEntry("description", "Main zone");
+        assertThat(main).containsEntry("value", 1);
+        assertThat(main).containsEntry("exampleValue", 7);
+    }
+
+    @Test
+    void shouldRestoreArrayItemSchemaMetadataWhenImportingDttToProfile() {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "sensors", Map.of(
+                                "name", "sensors",
+                                "type", "Array",
+                                "displayName", "Sensors",
+                                "items", Map.of(
+                                        "name", "sensor",
+                                        "type", "Object",
+                                        "parametersMap", Map.of(
+                                                "id", Map.of(
+                                                        "name", "id",
+                                                        "type", "String",
+                                                        "description", "Sensor id"
+                                                )
+                                        )
+                                )
+                        )
+                ),
+                Map.of(),
+                Map.of(),
+                Map.of("sensors", List.of(Map.of("id", "A1"))),
+                Map.of("sensors", List.of(Map.of("id", "B1"))),
+                Map.of("sourceKind", "PROFILE_JSON"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+        final byte[] archive = facade.writeDtt(template);
+
+        final EquipmentProfile profile = facade.importDttSetToProfile(List.of(archive), MergeStrategy.FAIL_IF_EXISTS);
+        final Map<String, Object> sensors = castToMap(profile.deviceTypes().get("display").deviceTypeParamValues().get("sensors"));
+        assertThat(sensors).containsEntry("displayName", "Sensors");
+        final List<?> restoredValues = (List<?>) sensors.get("value");
+        final Map<String, Object> firstItem = castToMap(restoredValues.get(0));
+        final Map<String, Object> itemValue = castToMap(firstItem.get("value"));
+        final Map<String, Object> id = castToMap(itemValue.get("id"));
+        assertThat(id).containsEntry("description", "Sensor id");
+        assertThat(id).containsEntry("value", "A1");
+        assertThat(id).containsEntry("exampleValue", "B1");
+    }
+
+    @Test
+    void shouldRestoreArrayItemSchemaMetadataWhenImportingDttToBranch() {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "sensors", Map.of(
+                                "name", "sensors",
+                                "type", "Array",
+                                "displayName", "Sensors",
+                                "items", Map.of(
+                                        "name", "sensor",
+                                        "type", "Object",
+                                        "parametersMap", Map.of(
+                                                "id", Map.of(
+                                                        "name", "id",
+                                                        "type", "String",
+                                                        "description", "Sensor id"
+                                                )
+                                        )
+                                )
+                        )
+                ),
+                Map.of(),
+                Map.of("deviceTypeKind", "display_kind"),
+                Map.of("sensors", List.of(Map.of("id", "A1"))),
+                Map.of("sensors", List.of(Map.of("id", "B1"))),
+                Map.of("sourceKind", "BRANCH_EQUIPMENT_JSON"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+        final byte[] archive = facade.writeDtt(template);
+
+        final BranchEquipment branch = facade.importDttSetToBranch(
+                List.of(archive),
+                List.of("branch-1"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+        final Map<String, Object> sensors = castToMap(
+                branch.branches().get("branch-1").deviceTypes().get("display").template().deviceTypeParamValues().get("sensors")
+        );
+        assertThat(sensors).containsEntry("displayName", "Sensors");
+        final List<?> restoredValues = (List<?>) sensors.get("value");
+        final Map<String, Object> firstItem = castToMap(restoredValues.get(0));
+        final Map<String, Object> itemValue = castToMap(firstItem.get("value"));
+        final Map<String, Object> id = castToMap(itemValue.get("id"));
+        assertThat(id).containsEntry("description", "Sensor id");
+        assertThat(id).containsEntry("value", "A1");
+        assertThat(id).containsEntry("exampleValue", "B1");
+    }
+
+    @Test
+    void shouldKeepExplicitArrayItemsSchemaAfterDttToProfileToDttRoundTrip() {
+        final DttArchiveTemplate source = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "sensors", Map.of(
+                                "name", "sensors",
+                                "type", "Array",
+                                "items", Map.of(
+                                        "name", "sensor",
+                                        "type", "Object",
+                                        "parametersMap", Map.of(
+                                                "id", Map.of(
+                                                        "name", "id",
+                                                        "type", "String",
+                                                        "description", "Sensor id from schema"
+                                                )
+                                        )
+                                )
+                        )
+                ),
+                Map.of(),
+                Map.of(),
+                Map.of("sensors", List.of(Map.of("id", "A1"))),
+                Map.of("sensors", List.of(Map.of("id", "B1"))),
+                Map.of("sourceKind", "PROFILE_JSON"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+        final byte[] archive = facade.writeDtt(source);
+        final EquipmentProfile profile = facade.importDttSetToProfile(List.of(archive), MergeStrategy.FAIL_IF_EXISTS);
+
+        final BatchDttExportResult exported = facade.exportDttSetFromProfile(
+                new ProfileExportRequest(profile, List.of("display"), "1.0.1")
+        );
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+
+        final Map<String, Object> sensorsSchema = castToMap(restored.deviceTypeParametersSchema().get("sensors"));
+        final Map<String, Object> items = castToMap(sensorsSchema.get("items"));
+        final Map<String, Object> nested = castToMap(items.get("parametersMap"));
+        final Map<String, Object> id = castToMap(nested.get("id"));
+        assertThat(id).containsEntry("description", "Sensor id from schema");
+    }
+
+    @Test
+    void shouldKeepExtendedMetadataInProfileRoundTrip() {
+        final String profileJson = """
+                {
+                  "display": {
+                    "id": "display",
+                    "name": "Display",
+                    "displayName": "Display",
+                    "description": "desc",
+                    "deviceTypeParamValues": {
+                      "ip": {
+                        "value": "10.0.0.1",
+                        "name": "ip",
+                        "displayName": "IP address",
+                        "type": "String",
+                        "description": "Terminal IP",
+                        "exampleValue": "192.168.0.1"
+                      },
+                      "sensors": {
+                        "value": [
+                          {
+                            "id": {
+                              "value": "A1",
+                              "name": "id",
+                              "type": "String",
+                              "description": "Sensor id",
+                              "exampleValue": "B1"
+                            }
+                          }
+                        ],
+                        "name": "sensors",
+                        "type": "Array",
+                        "items": {
+                          "name": "sensor",
+                          "type": "Object",
+                          "parametersMap": {
+                            "id": {
+                              "name": "id",
+                              "type": "String",
+                              "description": "Sensor id"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+
+        final BatchDttExportResult exported = facade.exportDttSetFromProfileJson(profileJson, List.of("display"), "2.0.0");
+        final EquipmentProfile importedProfile = facade.importDttSetToProfile(
+                List.of(exported.archivesByDeviceTypeId().get("display")),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+        final BatchDttExportResult exportedAgain = facade.exportDttSetFromProfile(
+                new ProfileExportRequest(importedProfile, List.of("display"), "2.0.1")
+        );
+        final DttArchiveTemplate restored = facade.readDtt(exportedAgain.archivesByDeviceTypeId().get("display"));
+        final Map<String, Object> sensors = castToMap(restored.deviceTypeParametersSchema().get("sensors"));
+        final Map<String, Object> items = castToMap(sensors.get("items"));
+        final Map<String, Object> nested = castToMap(items.get("parametersMap"));
+        final Map<String, Object> id = castToMap(nested.get("id"));
+        assertThat(id).containsEntry("description", "Sensor id");
+        assertThat(restored.exampleValues()).containsEntry("ip", "192.168.0.1");
+    }
+
+    @Test
+    void shouldKeepExtendedMetadataInBranchRoundTrip() {
+        final String branchJson = """
+                {
+                  "branch-1": {
+                    "id": "branch-1",
+                    "displayName": "Main",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display",
+                        "description": "desc",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": {
+                            "value": "10.0.0.2",
+                            "name": "ip",
+                            "displayName": "IP address",
+                            "type": "String",
+                            "description": "Terminal IP",
+                            "exampleValue": "192.168.0.2"
+                          }
+                        },
+                        "onStartEvent": { "scriptCode": "println 'start'" },
+                        "eventHandlers": {
+                          "E1": { "scriptCode": "println 'event'" }
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+        final BatchDttExportResult exported = facade.exportDttSetFromBranchJson(
+                branchJson,
+                List.of("branch-1"),
+                List.of("display"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                "2.0.0"
+        );
+        final BranchEquipment importedBranch = facade.importDttSetToBranch(
+                List.of(exported.archivesByDeviceTypeId().get("display")),
+                List.of("branch-1"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+        final BatchDttExportResult exportedAgain = facade.exportDttSetFromBranch(
+                new BranchEquipmentExportRequest(importedBranch, List.of("branch-1"), List.of("display"), MergeStrategy.FAIL_IF_EXISTS, "2.0.1")
+        );
+        final DttArchiveTemplate restored = facade.readDtt(exportedAgain.archivesByDeviceTypeId().get("display"));
+        final Map<String, Object> ip = castToMap(restored.deviceTypeParametersSchema().get("ip"));
+        assertThat(ip).containsEntry("displayName", "IP address");
+        assertThat(ip).containsEntry("description", "Terminal IP");
+        assertThat(restored.bindingHints()).containsEntry("deviceTypeKind", "display_kind");
+        assertThat(restored.eventHandlers()).containsKey("E1");
+    }
+
     private DttArchiveTemplate template() {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(),
                 Map.of(),
                 Map.of(),
                 Map.of(),

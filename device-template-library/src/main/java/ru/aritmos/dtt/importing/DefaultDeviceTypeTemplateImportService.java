@@ -2,6 +2,7 @@ package ru.aritmos.dtt.importing;
 
 import ru.aritmos.dtt.archive.DttArchiveReader;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
+import ru.aritmos.dtt.exception.TemplateImportException;
 
 import java.io.InputStream;
 import java.util.Objects;
@@ -22,6 +23,10 @@ public class DefaultDeviceTypeTemplateImportService implements DeviceTypeTemplat
 
     @Override
     public DttArchiveTemplate importOne(InputStream inputStream) {
-        return archiveReader.read(inputStream);
+        try {
+            return archiveReader.read(inputStream);
+        } catch (RuntimeException exception) {
+            throw new TemplateImportException("Ошибка импорта DTT-шаблона", exception);
+        }
     }
 }

@@ -13,6 +13,9 @@ import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.assembly.DefaultTemplateAssemblyService;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
 import ru.aritmos.dtt.json.branch.BranchScript;
+import ru.aritmos.dtt.json.branch.BranchEquipment;
+import ru.aritmos.dtt.json.branch.BranchNode;
+import ru.aritmos.dtt.json.branch.BranchDeviceType;
 
 import java.util.List;
 import java.util.Map;
@@ -186,6 +189,66 @@ class BranchAssemblyServiceTest {
         assertThat(preserveType.onStartEvent().scriptCode()).isEqualTo("println 'first'");
         assertThat(preserveType.deviceTypeFunctions()).isEqualTo("println 'fn-first'");
         assertThat(preserveType.eventHandlers().get("EVENT").scriptCode()).isEqualTo("println 'event-first'");
+    }
+
+    @Test
+    void shouldMergeIntoExistingBranchEquipmentInAssemblyService() {
+        final DeviceTypeTemplate existingTemplate = type("type-1");
+        final BranchEquipment existing = new BranchEquipment(Map.of(
+                "branch-1",
+                new BranchNode(
+                        "branch-1",
+                        "Main",
+                        Map.of(
+                                "type-1",
+                                new BranchDeviceType(
+                                        existingTemplate,
+                                        Map.of(),
+                                        "kind-a",
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        Map.of("OLD", new BranchScript(Map.of(), List.of(), "println 'old'")),
+                                        Map.of()
+                                )
+                        )
+                )
+        ));
+        final DeviceTypeTemplate incomingTemplate = new DeviceTypeTemplate(
+                new DeviceTypeMetadata("type-1", "type-1", "type-1", "new"),
+                Map.of("a", "new")
+        );
+        final BranchEquipment incoming = new BranchEquipment(Map.of(
+                "branch-1",
+                new BranchNode(
+                        "branch-1",
+                        "Main",
+                        Map.of(
+                                "type-1",
+                                new BranchDeviceType(
+                                        incomingTemplate,
+                                        Map.of(),
+                                        "kind-b",
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        Map.of("NEW", new BranchScript(Map.of(), List.of(), "println 'new'")),
+                                        Map.of()
+                                )
+                        )
+                )
+        ));
+
+        final BranchEquipment merged = service.mergeBranchEquipment(existing, incoming, MergeStrategy.MERGE_NON_NULLS);
+        final BranchDeviceType mergedType = merged.branches().get("branch-1").deviceTypes().get("type-1");
+
+        assertThat(mergedType.kind()).isEqualTo("kind-b");
+        assertThat(mergedType.template().deviceTypeParamValues()).containsEntry("a", "new");
+        assertThat(mergedType.eventHandlers()).containsKeys("OLD", "NEW");
     }
 
     private DeviceTypeTemplate type(String id) {

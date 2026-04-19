@@ -2,6 +2,7 @@ package ru.aritmos.dtt.export;
 
 import ru.aritmos.dtt.archive.DttArchiveWriter;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
+import ru.aritmos.dtt.exception.TemplateExportException;
 
 import java.io.OutputStream;
 import java.util.Objects;
@@ -22,6 +23,10 @@ public class DefaultDeviceTypeTemplateExportService implements DeviceTypeTemplat
 
     @Override
     public void exportOne(DttArchiveTemplate template, OutputStream outputStream) {
-        archiveWriter.write(template, outputStream);
+        try {
+            archiveWriter.write(template, outputStream);
+        } catch (RuntimeException exception) {
+            throw new TemplateExportException("Ошибка экспорта DTT-шаблона", exception);
+        }
     }
 }

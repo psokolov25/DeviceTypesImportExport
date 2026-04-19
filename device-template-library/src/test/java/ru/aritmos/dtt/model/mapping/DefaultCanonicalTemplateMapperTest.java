@@ -4,6 +4,11 @@ import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
+import ru.aritmos.dtt.model.canonical.CanonicalDeviceTypeMetadata;
+import ru.aritmos.dtt.model.canonical.CanonicalDeviceTypeTemplate;
+import ru.aritmos.dtt.model.canonical.CanonicalParameterSchema;
+import ru.aritmos.dtt.model.canonical.CanonicalScriptSet;
+import ru.aritmos.dtt.model.canonical.CanonicalTemplateOrigin;
 
 import java.util.Map;
 
@@ -23,6 +28,7 @@ class DefaultCanonicalTemplateMapperTest {
                 Map.of("h", "v"),
                 Map.of("a", "1"),
                 Map.of("a", "2"),
+                Map.of("sourceKind", "PROFILE_JSON"),
                 "println 'start'",
                 "println 'stop'",
                 "println 'publicStart'",
@@ -35,10 +41,104 @@ class DefaultCanonicalTemplateMapperTest {
         final var canonical = mapper.toCanonical(archive);
         final var restored = mapper.toArchive(canonical);
 
+        assertThat(canonical.templateOrigin().sourceKind()).isEqualTo("PROFILE_JSON");
+        assertThat(canonical.deviceTypeParameterSchema().parameters()).containsKey("p");
         assertThat(restored.metadata().id()).isEqualTo("display");
         assertThat(restored.descriptor().formatVersion()).isEqualTo("1.2");
         assertThat(restored.onStartEvent()).isEqualTo("println 'start'");
         assertThat(restored.eventHandlers()).containsEntry("VISIT", "println 'visit'");
         assertThat(restored.commands()).containsEntry("RESET", "println 'reset'");
+        assertThat(restored.templateOrigin()).containsEntry("sourceKind", "PROFILE_JSON");
+    }
+
+    @Test
+    void shouldPreserveNestedSchemaAndMetadataOnRoundTrip() {
+        final DttArchiveTemplate archive = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "2.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "zones", Map.of(
+                                "name", "zones",
+                                "type", "Object",
+                                "displayName", "Zones",
+                                "parametersMap", Map.of(
+                                        "main", Map.of(
+                                                "name", "main",
+                                                "type", "Number",
+                                                "description", "Main zone number",
+                                                "exampleValue", 1
+                                        )
+                                )
+                        ),
+                        "sensors", Map.of(
+                                "name", "sensors",
+                                "type", "Array",
+                                "items", Map.of(
+                                        "name", "sensorItem",
+                                        "type", "String",
+                                        "displayName", "Sensor code",
+                                        "exampleValue", "A1"
+                                )
+                        )
+                ),
+                Map.of(),
+                Map.of("hint", "value"),
+                Map.of("ip", "127.0.0.1"),
+                Map.of("ip", "192.168.1.10"),
+                Map.of("sourceKind", "PROFILE_JSON", "sourceSummary", "profile-export", "sourceId", "profile-1"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+
+        final var canonical = mapper.toCanonical(archive);
+        final var restored = mapper.toArchive(canonical);
+
+        assertThat(canonical.deviceTypeParameterSchema().parameters()).containsKeys("zones", "sensors");
+        final Map<String, Object> zones = castToMap(restored.deviceTypeParametersSchema().get("zones"));
+        final Map<String, Object> zonesNested = castToMap(zones.get("parametersMap"));
+        final Map<String, Object> main = castToMap(zonesNested.get("main"));
+        assertThat(main)
+                .containsEntry("description", "Main zone number")
+                .containsEntry("exampleValue", 1);
+
+        final Map<String, Object> sensors = castToMap(restored.deviceTypeParametersSchema().get("sensors"));
+        final Map<String, Object> items = castToMap(sensors.get("items"));
+        assertThat(items)
+                .containsEntry("displayName", "Sensor code")
+                .containsEntry("exampleValue", "A1");
+        assertThat(restored.templateOrigin())
+                .containsEntry("sourceKind", "PROFILE_JSON")
+                .containsEntry("sourceSummary", "profile-export")
+                .containsEntry("sourceId", "profile-1");
+    }
+
+    @Test
+    void shouldHandleNullCanonicalValueContainersWhenConvertingToArchive() {
+        final CanonicalDeviceTypeTemplate canonical = new CanonicalDeviceTypeTemplate(
+                "1.0",
+                new CanonicalDeviceTypeMetadata("display", "Display", "Display", "desc"),
+                new CanonicalParameterSchema(Map.of()),
+                new CanonicalParameterSchema(Map.of()),
+                null,
+                null,
+                null,
+                new CanonicalTemplateOrigin("UNSPECIFIED", "", Map.of()),
+                new CanonicalScriptSet(null, null, null, null, null, Map.of(), Map.of())
+        );
+
+        final DttArchiveTemplate archive = mapper.toArchive(canonical);
+        assertThat(archive.bindingHints()).isEmpty();
+        assertThat(archive.defaultValues()).isEmpty();
+        assertThat(archive.exampleValues()).isEmpty();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> castToMap(Object value) {
+        return (Map<String, Object>) value;
     }
 }

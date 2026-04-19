@@ -32,6 +32,12 @@ import ru.aritmos.dtt.json.profile.DefaultEquipmentProfileJsonParser;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 import ru.aritmos.dtt.json.profile.EquipmentProfileJsonGenerator;
 import ru.aritmos.dtt.json.profile.EquipmentProfileJsonParser;
+import ru.aritmos.dtt.model.canonical.CanonicalBranchProjection;
+import ru.aritmos.dtt.model.canonical.CanonicalProfileProjection;
+import ru.aritmos.dtt.model.mapping.CanonicalProjectionMapper;
+import ru.aritmos.dtt.model.mapping.CanonicalTemplateMapper;
+import ru.aritmos.dtt.model.mapping.DefaultCanonicalProjectionMapper;
+import ru.aritmos.dtt.model.mapping.DefaultCanonicalTemplateMapper;
 import ru.aritmos.dtt.validation.DefaultTemplateValidationService;
 
 import java.io.ByteArrayInputStream;
@@ -61,6 +67,8 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     private final EquipmentProfileJsonGenerator profileJsonGenerator;
     private final DeviceManagerBranchJsonParser branchJsonParser;
     private final DeviceManagerBranchJsonGenerator branchJsonGenerator;
+    private final CanonicalTemplateMapper canonicalTemplateMapper = new DefaultCanonicalTemplateMapper();
+    private final CanonicalProjectionMapper canonicalProjectionMapper = new DefaultCanonicalProjectionMapper();
 
     /**
      * Создаёт фасад со стандартными реализациями сервисов библиотеки.
@@ -183,6 +191,11 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public Map<String, String> exportDttSetFromProfileBase64(ProfileExportRequest request) {
+        return encodeArchives(exportDttSetFromProfile(request).archivesByDeviceTypeId());
+    }
+
+    @Override
     public BatchDttExportResult exportDttSetFromProfileJson(String profileJson, List<String> deviceTypeIds, String dttVersion) {
         return exportDttSetFromProfile(new ProfileExportRequest(parseProfileJson(profileJson), deviceTypeIds, dttVersion));
     }
@@ -221,7 +234,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                     return;
                 }
                 final String key = resolveKeyForBranchExport(archives, typeId, branchId, effectiveMergeStrategy);
-                archives.put(key, writeDtt(toArchiveTemplate(key, branchType, request.dttVersion())));
+                archives.put(key, writeDtt(toArchiveTemplate(key, branchType, branchId, request.dttVersion())));
                 exportedDeviceTypeIds.add(typeId);
             });
         });
@@ -233,6 +246,11 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         }
 
         return new BatchDttExportResult(archives);
+    }
+
+    @Override
+    public Map<String, String> exportDttSetFromBranchBase64(BranchEquipmentExportRequest request) {
+        return encodeArchives(exportDttSetFromBranch(request).archivesByDeviceTypeId());
     }
 
     @Override
@@ -253,6 +271,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public BranchEquipment importDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
         return assembleBranch(toBranchAssemblyRequest(archives, branchIds, mergeStrategy));
+    }
+
+    @Override
+    public BranchEquipment importDttSetToExistingBranch(List<byte[]> archives,
+                                                        BranchEquipment existingBranchEquipment,
+                                                        List<String> branchIds,
+                                                        MergeStrategy mergeStrategy) {
+        Objects.requireNonNull(existingBranchEquipment, "existingBranchEquipment is required");
+        final BranchEquipment imported = importDttSetToBranch(archives, branchIds, mergeStrategy);
+        return assemblyService.mergeBranchEquipment(existingBranchEquipment, imported, mergeStrategy);
     }
 
     @Override
@@ -278,6 +306,19 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchEquipment importDttBase64SetToExistingBranch(List<String> archivesBase64,
+                                                              BranchEquipment existingBranchEquipment,
+                                                              List<String> branchIds,
+                                                              MergeStrategy mergeStrategy) {
+        return importDttSetToExistingBranch(
+                decodeBase64Archives(archivesBase64),
+                existingBranchEquipment,
+                branchIds,
+                mergeStrategy
+        );
+    }
+
+    @Override
     public BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64,
                                                        List<String> branchIds,
                                                        MergeStrategy mergeStrategy) {
@@ -297,6 +338,14 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public BranchEquipment importDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy) {
         return importDttSetToBranch(readDttFilesFromZip(zipPayload), branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchEquipment importDttZipToExistingBranch(byte[] zipPayload,
+                                                        BranchEquipment existingBranchEquipment,
+                                                        List<String> branchIds,
+                                                        MergeStrategy mergeStrategy) {
+        return importDttSetToExistingBranch(readDttFilesFromZip(zipPayload), existingBranchEquipment, branchIds, mergeStrategy);
     }
 
     @Override
@@ -325,7 +374,9 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     private DeviceTypeTemplate toDeviceTypeTemplate(DttArchiveTemplate template) {
-        return new DeviceTypeTemplate(template.metadata(), template.defaultValues() == null ? Map.of() : template.defaultValues());
+        final CanonicalProfileProjection profileProjection =
+                canonicalProjectionMapper.toProfileProjection(canonicalTemplateMapper.toCanonical(template));
+        return new DeviceTypeTemplate(template.metadata(), profileProjection.deviceTypeParamValues());
     }
 
     private EquipmentProfileAssemblyRequest toProfileAssemblyRequest(List<byte[]> archives, MergeStrategy mergeStrategy) {
@@ -368,14 +419,17 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     private DttArchiveTemplate toArchiveTemplate(String typeId, DeviceTypeTemplate deviceType, String dttVersion) {
         final String effectiveVersion = normalizeDttVersion(dttVersion);
         final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
+        final Map<String, Object> deviceTypeSchema = buildDeviceTypeParameterSchema(deviceType.deviceTypeParamValues());
+        final Map<String, Object> exampleValues = extractExampleValues(deviceType.deviceTypeParamValues());
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", typeId, effectiveVersion),
                 metadata,
-                Map.of(),
+                deviceTypeSchema,
                 Map.of(),
                 Map.of(),
                 extractDefaultValues(deviceType.deviceTypeParamValues()),
-                Map.of(),
+                exampleValues,
+                buildTemplateOrigin("PROFILE_JSON", "export profile->dtt"),
                 null,
                 null,
                 null,
@@ -386,18 +440,24 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         );
     }
 
-    private DttArchiveTemplate toArchiveTemplate(String typeId, BranchDeviceType branchDeviceType, String dttVersion) {
+    private DttArchiveTemplate toArchiveTemplate(String typeId,
+                                                 BranchDeviceType branchDeviceType,
+                                                 String branchId,
+                                                 String dttVersion) {
         final DeviceTypeTemplate deviceType = branchDeviceType.template();
         final String effectiveVersion = normalizeDttVersion(dttVersion);
         final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
+        final Map<String, Object> deviceTypeSchema = buildDeviceTypeParameterSchema(deviceType.deviceTypeParamValues());
+        final Map<String, Object> exampleValues = extractExampleValues(deviceType.deviceTypeParamValues());
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", typeId, effectiveVersion),
                 metadata,
-                Map.of(),
+                deviceTypeSchema,
                 Map.of(),
                 buildScriptBindingHints(branchDeviceType),
                 extractDefaultValues(deviceType.deviceTypeParamValues()),
-                Map.of(),
+                exampleValues,
+                buildTemplateOrigin("BRANCH_EQUIPMENT_JSON", "export branch->dtt branchId=" + branchId),
                 extractScriptCode(branchDeviceType.onStartEvent()),
                 extractScriptCode(branchDeviceType.onStopEvent()),
                 extractScriptCode(branchDeviceType.onPublicStartEvent()),
@@ -456,18 +516,78 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         return extracted;
     }
 
+    private Map<String, Object> extractExampleValues(Map<String, Object> deviceTypeParamValues) {
+        if (deviceTypeParamValues == null || deviceTypeParamValues.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, Object> examples = new LinkedHashMap<>();
+        deviceTypeParamValues.forEach((key, value) -> {
+            final Object extracted = extractExampleValue(value);
+            if (extracted != null) {
+                examples.put(key, extracted);
+            }
+        });
+        return examples;
+    }
+
+    private Object extractExampleValue(Object value) {
+        if (value instanceof Map<?, ?> mapValue) {
+            if (mapValue.containsKey("exampleValue")) {
+                return mapValue.get("exampleValue");
+            }
+            if (mapValue.containsKey("value")) {
+                final Object nestedValue = extractExampleValue(mapValue.get("value"));
+                if (nestedValue != null) {
+                    return nestedValue;
+                }
+                if (looksLikeParameterDescriptor(mapValue)) {
+                    return mapValue.get("value");
+                }
+                return null;
+            }
+            final Map<String, Object> nested = new LinkedHashMap<>();
+            mapValue.forEach((nestedKey, nestedValue) -> {
+                final Object extractedNested = extractExampleValue(nestedValue);
+                if (extractedNested != null) {
+                    nested.put(String.valueOf(nestedKey), extractedNested);
+                }
+            });
+            return nested.isEmpty() ? null : nested;
+        }
+        if (value instanceof List<?> listValue) {
+            final List<Object> extracted = new java.util.ArrayList<>();
+            for (Object entry : listValue) {
+                final Object nested = extractExampleValue(entry);
+                if (nested != null) {
+                    extracted.add(nested);
+                }
+            }
+            return extracted.isEmpty() ? null : extracted;
+        }
+        return null;
+    }
+
+    private boolean looksLikeParameterDescriptor(Map<?, ?> mapValue) {
+        return mapValue.containsKey("name")
+                || mapValue.containsKey("type")
+                || mapValue.containsKey("displayName")
+                || mapValue.containsKey("description");
+    }
+
     private BranchDeviceTypeImportRequest toBranchDeviceTypeImportRequest(DttArchiveTemplate template) {
         final Map<String, Object> hints = template.bindingHints() == null ? Map.of() : template.bindingHints();
         final String kind = hints.get("deviceTypeKind") instanceof String kindHint && !kindHint.isBlank()
                 ? kindHint
                 : template.metadata().name();
+        final CanonicalBranchProjection branchProjection =
+                canonicalProjectionMapper.toBranchProjection(canonicalTemplateMapper.toCanonical(template), kind);
         return new BranchDeviceTypeImportRequest(
                 new EquipmentProfileDeviceTypeRequest(
-                        new DeviceTypeTemplate(template.metadata(), template.defaultValues() == null ? Map.of() : template.defaultValues()),
+                        new DeviceTypeTemplate(template.metadata(), branchProjection.deviceTypeParamValues()),
                         true
                 ),
                 List.of(),
-                kind,
+                branchProjection.kind(),
                 toBranchScript(template.onStartEvent(), hints.get("onStartEvent")),
                 toBranchScript(template.onStopEvent(), hints.get("onStopEvent")),
                 toBranchScript(template.onPublicStartEvent(), hints.get("onPublicStartEvent")),
@@ -564,6 +684,85 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         return dttVersion.trim();
     }
 
+    private Map<String, Object> buildTemplateOrigin(String sourceKind, String sourceSummary) {
+        final Map<String, Object> origin = new LinkedHashMap<>();
+        origin.put("sourceKind", sourceKind);
+        origin.put("sourceSummary", sourceSummary);
+        return origin;
+    }
+
+    private Map<String, Object> buildDeviceTypeParameterSchema(Map<String, Object> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, Object> schema = new LinkedHashMap<>();
+        values.forEach((key, value) -> schema.put(key, buildParameterDefinition(key, value)));
+        return schema;
+    }
+
+    private Map<String, Object> buildParameterDefinition(String key, Object value) {
+        final Map<String, Object> definition = new LinkedHashMap<>();
+        definition.put("name", key);
+        if (value instanceof Map<?, ?> mapValue) {
+            mapValue.forEach((entryKey, entryValue) -> {
+                final String stringKey = String.valueOf(entryKey);
+                if (!"value".equals(stringKey)) {
+                    definition.put(stringKey, entryValue);
+                }
+            });
+            final Object rawValue = mapValue.get("value");
+            if (!definition.containsKey("type")) {
+                definition.put("type", inferType(rawValue));
+            }
+            if (rawValue instanceof Map<?, ?> nestedMap) {
+                final Map<String, Object> nestedSchema = new LinkedHashMap<>();
+                nestedMap.forEach((nestedKey, nestedValue) ->
+                        nestedSchema.put(String.valueOf(nestedKey), buildParameterDefinition(String.valueOf(nestedKey), nestedValue))
+                );
+                definition.put("parametersMap", nestedSchema);
+            }
+            if (rawValue instanceof List<?> listValue && !listValue.isEmpty() && !definition.containsKey("items")) {
+                definition.put("items", buildArrayItemDefinition(listValue));
+            }
+            return definition;
+        }
+
+        definition.put("type", inferType(value));
+        return definition;
+    }
+
+    private Map<String, Object> buildArrayItemDefinition(List<?> listValue) {
+        final Object firstNotNull = listValue.stream()
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        if (firstNotNull == null) {
+            return Map.of("type", "nullable");
+        }
+        final Map<String, Object> itemDefinition = buildParameterDefinition("item", firstNotNull);
+        itemDefinition.remove("name");
+        return itemDefinition;
+    }
+
+    private String inferType(Object value) {
+        if (value == null) {
+            return "nullable";
+        }
+        if (value instanceof Boolean) {
+            return "Boolean";
+        }
+        if (value instanceof Number) {
+            return "Number";
+        }
+        if (value instanceof List<?>) {
+            return "Array";
+        }
+        if (value instanceof Map<?, ?>) {
+            return "Object";
+        }
+        return "String";
+    }
+
     private DeviceTypeMetadata appendVersionToDescription(DeviceTypeMetadata metadata, String dttVersion) {
         final String description = metadata.description() == null ? "" : metadata.description();
         final String versionSuffix = " " + dttVersion;
@@ -596,7 +795,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
 
-    private String nextCopyKey(Map<String, byte[]> result, String baseKey) {
+    private <T> String nextCopyKey(Map<String, T> result, String baseKey) {
         int counter = 1;
         String candidate = baseKey + "_copy" + counter;
         while (result.containsKey(candidate)) {
@@ -625,13 +824,15 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         if (archivesBase64.isEmpty()) {
             throw new IllegalArgumentException("archivesBase64 must contain at least one archive");
         }
-        return archivesBase64.stream().map(value -> {
+        final List<byte[]> decoded = new java.util.ArrayList<>(archivesBase64.size());
+        for (int index = 0; index < archivesBase64.size(); index++) {
             try {
-                return Base64.getDecoder().decode(value);
+                decoded.add(Base64.getDecoder().decode(archivesBase64.get(index)));
             } catch (IllegalArgumentException exception) {
-                throw new IllegalArgumentException("Invalid Base64 DTT archive payload", exception);
+                throw new IllegalArgumentException("Invalid Base64 DTT archive payload at index " + index, exception);
             }
-        }).toList();
+        }
+        return decoded;
     }
 
     private List<byte[]> readDttFilesFromZip(byte[] zipPayload) {
@@ -668,4 +869,13 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             throw new IllegalStateException("Failed to build zip payload with DTT archives", exception);
         }
     }
+
+    private Map<String, String> encodeArchives(Map<String, byte[]> archivesByDeviceTypeId) {
+        final Map<String, String> encoded = new LinkedHashMap<>();
+        archivesByDeviceTypeId.forEach((deviceTypeId, archive) ->
+                encoded.put(deviceTypeId, Base64.getEncoder().encodeToString(archive))
+        );
+        return encoded;
+    }
+
 }

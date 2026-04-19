@@ -44,6 +44,7 @@ class DefaultTemplateValidationServiceTest {
                 Map.of(),
                 Map.of(),
                 Map.of(),
+                Map.of(),
                 "println 'ok'",
                 null,
                 null,
@@ -65,6 +66,7 @@ class DefaultTemplateValidationServiceTest {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
+                Map.of(),
                 Map.of(),
                 Map.of(),
                 Map.of(),

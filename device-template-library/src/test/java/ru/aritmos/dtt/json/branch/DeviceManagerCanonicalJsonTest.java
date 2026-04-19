@@ -67,4 +67,62 @@ class DeviceManagerCanonicalJsonTest {
 
         assertThat(hasLifecycleScript || hasHandlerScripts || hasCommandScripts).isTrue();
     }
+
+    @Test
+    void shouldPreserveCanonicalDeviceTypeKindAndScriptsAfterBranchRoundTripViaDttSet() throws Exception {
+        final String json = Files.readString(Path.of("..", "DeviceManager.json"));
+        final var facade = DeviceTemplateLibrary.createDefaultFacade();
+        final BranchEquipment source = facade.parseBranchJson(json);
+
+        final String branchId = source.branches().keySet().iterator().next();
+        final BranchDeviceType sourceType = source.branches().get(branchId).deviceTypes().entrySet().stream()
+                .map(java.util.Map.Entry::getValue)
+                .filter(deviceType -> deviceType.kind() != null && !deviceType.kind().isBlank())
+                .filter(deviceType -> (deviceType.eventHandlers() != null && !deviceType.eventHandlers().isEmpty())
+                        || (deviceType.commands() != null && !deviceType.commands().isEmpty()))
+                .findFirst()
+                .orElseThrow();
+        final String sourceTypeId = sourceType.template().metadata().id();
+
+        final var exported = facade.exportDttSetFromBranch(
+                source,
+                MergeStrategy.MERGE_PRESERVE_EXISTING
+        );
+        final BranchEquipment restored = facade.importDttSetToBranch(
+                List.copyOf(exported.archivesByDeviceTypeId().values()),
+                List.of(branchId),
+                MergeStrategy.REPLACE
+        );
+
+        final BranchDeviceType restoredType = restored.branches().get(branchId).deviceTypes().get(sourceTypeId);
+        assertThat(restoredType).isNotNull();
+        assertThat(restoredType.kind()).isEqualTo(sourceType.kind());
+        assertThat(restoredType.eventHandlers().keySet()).containsAll(sourceType.eventHandlers().keySet());
+        assertThat(restoredType.commands().keySet()).containsAll(sourceType.commands().keySet());
+    }
+
+    @Test
+    void shouldMergeDttIntoExistingCanonicalDeviceManagerJsonWithCopyStrategy() throws Exception {
+        final String json = Files.readString(Path.of("..", "DeviceManager.json"));
+        final var facade = DeviceTemplateLibrary.createDefaultFacade();
+        final BranchEquipment source = facade.parseBranchJson(json);
+
+        final String branchId = source.branches().keySet().iterator().next();
+        final String deviceTypeId = source.branches().get(branchId).deviceTypes().keySet().iterator().next();
+        final byte[] archive = facade.exportDttSetFromBranch(
+                source,
+                MergeStrategy.MERGE_PRESERVE_EXISTING
+        ).archivesByDeviceTypeId().get(deviceTypeId);
+
+        final BranchEquipment merged = facade.importDttSetToExistingBranch(
+                List.of(archive),
+                source,
+                List.of(branchId),
+                MergeStrategy.CREATE_COPY_WITH_SUFFIX
+        );
+
+        final var mergedTypes = merged.branches().get(branchId).deviceTypes();
+        assertThat(mergedTypes).containsKey(deviceTypeId);
+        assertThat(mergedTypes.keySet().stream().anyMatch(key -> key.startsWith(deviceTypeId + "_copy_"))).isTrue();
+    }
 }
