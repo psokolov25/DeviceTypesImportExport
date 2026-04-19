@@ -67,6 +67,81 @@ class DefaultDttArchiveReaderWriterTest {
     }
 
     @Test
+    void shouldMarkHandlersAndCommandsAsAbsentWhenScriptsBlank() throws Exception {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display-type", null),
+                new DeviceTypeMetadata("display-type", "Display", "Дисплей", "Табло"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of("sourceKind", "PROFILE_JSON"),
+                "",
+                "",
+                "",
+                "",
+                "",
+                Map.of("VISIT_CALLED", " "),
+                Map.of("RESET", "\n")
+        );
+
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        writer.write(template, output);
+
+        final Map<String, String> zipEntries = readZipEntries(output.toByteArray());
+        final String manifest = zipEntries.get("manifest.yml");
+        assertThat(manifest)
+                .contains("containsEventHandlers: false")
+                .contains("containsCommands: false");
+        assertThat(zipEntries)
+                .containsKeys(
+                        "scripts/event-handlers/VISIT_CALLED.groovy",
+                        "scripts/commands/RESET.groovy"
+                );
+        assertThat(zipEntries.get("scripts/event-handlers/VISIT_CALLED.groovy")).isEqualTo(" ");
+        assertThat(zipEntries.get("scripts/commands/RESET.groovy")).isEqualTo("\n");
+    }
+
+    @Test
+    void shouldPreserveBlankAndNonBlankHandlerAndCommandScripts() throws Exception {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display-type", null),
+                new DeviceTypeMetadata("display-type", "Display", "Дисплей", "Табло"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of("sourceKind", "PROFILE_JSON"),
+                "",
+                "",
+                "",
+                "",
+                "",
+                Map.of("VISIT_CALLED", " ", "VISIT_FINISHED", "println 'done'"),
+                Map.of("RESET", "\n", "PING", "println 'pong'")
+        );
+
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        writer.write(template, output);
+        final Map<String, String> zipEntries = readZipEntries(output.toByteArray());
+
+        assertThat(zipEntries)
+                .containsKey("scripts/event-handlers/VISIT_FINISHED.groovy")
+                .containsKey("scripts/commands/PING.groovy")
+                .containsKeys(
+                        "scripts/event-handlers/VISIT_CALLED.groovy",
+                        "scripts/commands/RESET.groovy"
+                );
+        assertThat(zipEntries.get("scripts/event-handlers/VISIT_CALLED.groovy")).isEqualTo(" ");
+        assertThat(zipEntries.get("scripts/commands/RESET.groovy")).isEqualTo("\n");
+        assertThat(zipEntries.get("manifest.yml"))
+                .contains("containsEventHandlers: true")
+                .contains("containsCommands: true");
+    }
+
+    @Test
     void shouldProduceDeterministicArchiveBytes() {
         final DttArchiveTemplate template = sampleTemplate();
 
@@ -110,6 +185,54 @@ class DefaultDttArchiveReaderWriterTest {
                 .hasMessageContaining("Некорректный YAML");
     }
 
+    @Test
+    void shouldFailWhenEventHandlerNameBlank() {
+        final DttArchiveTemplate template = templateWithScriptNames(
+                Map.of(" ", "println 'invalid'"),
+                Map.of()
+        );
+
+        assertThatThrownBy(() -> writer.write(template, new ByteArrayOutputStream()))
+                .isInstanceOf(DttFormatException.class)
+                .hasMessageContaining("event handler");
+    }
+
+    @Test
+    void shouldFailWhenCommandNameBlank() {
+        final DttArchiveTemplate template = templateWithScriptNames(
+                Map.of(),
+                Map.of("", "println 'invalid'")
+        );
+
+        assertThatThrownBy(() -> writer.write(template, new ByteArrayOutputStream()))
+                .isInstanceOf(DttFormatException.class)
+                .hasMessageContaining("command");
+    }
+
+    @Test
+    void shouldFailWhenEventHandlerNameContainsPathSeparator() {
+        final DttArchiveTemplate template = templateWithScriptNames(
+                Map.of("folder/HANDLER", "println 'invalid'"),
+                Map.of()
+        );
+
+        assertThatThrownBy(() -> writer.write(template, new ByteArrayOutputStream()))
+                .isInstanceOf(DttFormatException.class)
+                .hasMessageContaining("event handler");
+    }
+
+    @Test
+    void shouldFailWhenCommandNameContainsPathTraversal() {
+        final DttArchiveTemplate template = templateWithScriptNames(
+                Map.of(),
+                Map.of("../RESET", "println 'invalid'")
+        );
+
+        assertThatThrownBy(() -> writer.write(template, new ByteArrayOutputStream()))
+                .isInstanceOf(DttFormatException.class)
+                .hasMessageContaining("command");
+    }
+
     private DttArchiveTemplate sampleTemplate() {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display-type", null),
@@ -127,6 +250,26 @@ class DefaultDttArchiveReaderWriterTest {
                 "def f() { 1 }",
                 Map.of("VISIT_CALLED", "println 'called'"),
                 Map.of("RESET", "println 'reset'")
+        );
+    }
+
+    private DttArchiveTemplate templateWithScriptNames(Map<String, String> eventHandlers, Map<String, String> commands) {
+        return new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display-type", null),
+                new DeviceTypeMetadata("display-type", "Display", "Дисплей", "Табло"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of("sourceKind", "PROFILE_JSON"),
+                "",
+                "",
+                "",
+                "",
+                "",
+                eventHandlers,
+                commands
         );
     }
 
