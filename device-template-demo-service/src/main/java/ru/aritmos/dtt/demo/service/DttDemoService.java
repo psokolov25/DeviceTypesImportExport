@@ -1,7 +1,6 @@
 package ru.aritmos.dtt.demo.service;
 
 import jakarta.inject.Singleton;
-import ru.aritmos.dtt.api.DeviceTemplateLibrary;
 import ru.aritmos.dtt.api.DeviceTemplateLibraryFacade;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
@@ -17,16 +16,8 @@ import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 /**
  * Сервис demo-модуля для валидации и инспекции DTT-архивов.
@@ -35,13 +26,6 @@ import java.util.zip.ZipOutputStream;
 public class DttDemoService {
 
     private final DeviceTemplateLibraryFacade facade;
-
-    /**
-     * Создаёт demo-сервис с дефолтной конфигурацией фасада библиотеки.
-     */
-    public DttDemoService() {
-        this(DeviceTemplateLibrary.createDefaultFacade());
-    }
 
     /**
      * Создаёт demo-сервис с явно переданным фасадом библиотеки.
@@ -94,6 +78,20 @@ public class DttDemoService {
         return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
     }
 
+    /**
+     * Импортирует набор DTT-архивов в profile JSON из Base64-представления.
+     *
+     * @param archivesBase64 список DTT-архивов в Base64
+     * @param mergeStrategy стратегия разрешения конфликтов
+     * @return результат импорта с JSON и фактическим количеством device types
+     */
+    public ImportDttSetToProfileResponse importDttSetToProfileBase64(List<String> archivesBase64, MergeStrategy mergeStrategy) {
+        final var profile = facade.importDttBase64SetToProfile(archivesBase64, mergeStrategy);
+        final String profileJson = facade.toProfileJson(profile);
+        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
+        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+    }
+
 
     /**
      * Экспортирует все DTT-архивы из profile JSON.
@@ -104,14 +102,9 @@ public class DttDemoService {
     public ExportAllDttFromProfileResponse exportAllDttFromProfile(EquipmentProfile profile,
                                                                    List<String> deviceTypeIds,
                                                                    String dttVersion) {
-        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, deviceTypeIds, dttVersion));
-        final Map<String, String> encoded = exported.archivesByDeviceTypeId().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> Base64.getEncoder().encodeToString(entry.getValue()),
-                        (left, right) -> right,
-                        java.util.LinkedHashMap::new
-                ));
+        final Map<String, String> encoded = facade.exportDttSetFromProfileBase64(
+                new ProfileExportRequest(profile, deviceTypeIds, dttVersion)
+        );
         return new ExportAllDttFromProfileResponse(encoded, encoded.size());
     }
 
@@ -146,6 +139,38 @@ public class DttDemoService {
     }
 
     /**
+     * Импортирует набор DTT-архивов в branch equipment JSON из Base64-представления.
+     */
+    public ImportDttSetToBranchResponse importDttSetToBranchBase64(List<String> archivesBase64,
+                                                                   List<String> branchIds,
+                                                                   MergeStrategy mergeStrategy) {
+        final var branch = facade.importDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy);
+        final String branchJson = facade.toBranchJson(branch);
+        final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
+        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+    }
+
+    /**
+     * Импортирует набор DTT-архивов в уже существующий branch equipment JSON из Base64-представления.
+     *
+     * @param archivesBase64 список DTT-архивов в Base64
+     * @param existingBranchJson исходный branch equipment JSON
+     * @param branchIds branch назначения
+     * @param mergeStrategy стратегия merge
+     * @return branch JSON после merge-импорта и количество branch
+     */
+    public ImportDttSetToBranchResponse importDttSetToExistingBranchBase64(List<String> archivesBase64,
+                                                                            String existingBranchJson,
+                                                                            List<String> branchIds,
+                                                                            MergeStrategy mergeStrategy) {
+        final BranchEquipment existing = facade.parseBranchJson(existingBranchJson);
+        final var branch = facade.importDttBase64SetToExistingBranch(archivesBase64, existing, branchIds, mergeStrategy);
+        final String branchJson = facade.toBranchJson(branch);
+        final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
+        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+    }
+
+    /**
      * Выполняет preview-сборку profile JSON из набора DTT-архивов без сохранения результата.
      *
      * @param archives список DTT-архивов
@@ -154,6 +179,16 @@ public class DttDemoService {
      */
     public ImportDttSetToProfileResponse previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
         final var profile = facade.previewDttSetToProfile(archives, mergeStrategy);
+        final String profileJson = facade.toProfileJson(profile);
+        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
+        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+    }
+
+    /**
+     * Выполняет preview-сборку profile JSON из Base64-представления набора DTT-архивов.
+     */
+    public ImportDttSetToProfileResponse previewDttSetToProfileBase64(List<String> archivesBase64, MergeStrategy mergeStrategy) {
+        final var profile = facade.previewDttBase64SetToProfile(archivesBase64, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
         return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
@@ -171,6 +206,18 @@ public class DttDemoService {
                                                               List<String> branchIds,
                                                               MergeStrategy mergeStrategy) {
         final var branch = facade.previewDttSetToBranch(archives, branchIds, mergeStrategy);
+        final String branchJson = facade.toBranchJson(branch);
+        final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
+        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+    }
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON из Base64-представления набора DTT-архивов.
+     */
+    public ImportDttSetToBranchResponse previewDttSetToBranchBase64(List<String> archivesBase64,
+                                                                    List<String> branchIds,
+                                                                    MergeStrategy mergeStrategy) {
+        final var branch = facade.previewDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
         return new ImportDttSetToBranchResponse(branchJson, branchesCount);
@@ -215,7 +262,10 @@ public class DttDemoService {
      * @return результат импорта профиля
      */
     public ImportDttSetToProfileResponse importDttZipToProfile(byte[] zipBytes, MergeStrategy mergeStrategy) {
-        return importDttSetToProfile(readDttFilesFromZip(zipBytes), mergeStrategy);
+        final var profile = facade.importDttZipToProfile(zipBytes, mergeStrategy);
+        final String profileJson = facade.toProfileJson(profile);
+        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
+        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
     }
 
     /**
@@ -229,7 +279,10 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse importDttZipToBranch(byte[] zipBytes,
                                                              List<String> branchIds,
                                                              MergeStrategy mergeStrategy) {
-        return importDttSetToBranch(readDttFilesFromZip(zipBytes), branchIds, mergeStrategy);
+        final var branch = facade.importDttZipToBranch(zipBytes, branchIds, mergeStrategy);
+        final String branchJson = facade.toBranchJson(branch);
+        final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
+        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
     }
 
     /**
@@ -244,20 +297,13 @@ public class DttDemoService {
                                                                  List<String> deviceTypeIds,
                                                                  MergeStrategy mergeStrategy,
                                                                  String dttVersion) {
-        final var exported = facade.exportDttSetFromBranch(new BranchEquipmentExportRequest(
+        final Map<String, String> encoded = facade.exportDttSetFromBranchBase64(new BranchEquipmentExportRequest(
                 branchEquipment,
                 branchIds,
                 deviceTypeIds,
                 mergeStrategy,
                 dttVersion
         ));
-        final Map<String, String> encoded = exported.archivesByDeviceTypeId().entrySet().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> Base64.getEncoder().encodeToString(entry.getValue()),
-                        (left, right) -> right,
-                        java.util.LinkedHashMap::new
-                ));
         return new ExportAllDttFromBranchResponse(encoded, encoded.size());
     }
 
@@ -286,9 +332,9 @@ public class DttDemoService {
                                      List<String> deviceTypeIds,
                                      String dttVersion) {
         final var exported = profile != null
-                ? facade.exportDttSetFromProfile(new ProfileExportRequest(profile, deviceTypeIds, dttVersion))
-                : facade.exportDttSetFromProfile(new ProfileExportRequest(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion));
-        return writeDttZip(exported.archivesByDeviceTypeId());
+                ? facade.exportProfileToDttZip(new ProfileExportRequest(profile, deviceTypeIds, dttVersion))
+                : facade.exportProfileToDttZip(new ProfileExportRequest(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion));
+        return exported;
     }
 
     /**
@@ -301,48 +347,12 @@ public class DttDemoService {
                                     MergeStrategy mergeStrategy,
                                     String dttVersion) {
         final BranchEquipment source = branchEquipment != null ? branchEquipment : facade.parseBranchJson(branchJson);
-        final var exported = facade.exportDttSetFromBranch(new BranchEquipmentExportRequest(
+        return facade.exportBranchToDttZip(new BranchEquipmentExportRequest(
                 source,
                 branchIds,
                 deviceTypeIds,
                 mergeStrategy,
                 dttVersion
         ));
-        return writeDttZip(exported.archivesByDeviceTypeId());
-    }
-
-    private List<byte[]> readDttFilesFromZip(byte[] zipBytes) {
-        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-            final List<byte[]> result = new java.util.ArrayList<>();
-            ZipEntry entry;
-            while ((entry = input.getNextEntry()) != null) {
-                if (entry.isDirectory() || !entry.getName().endsWith(".dtt")) {
-                    continue;
-                }
-                result.add(input.readAllBytes());
-            }
-            if (result.isEmpty()) {
-                throw new IllegalArgumentException("Zip must contain at least one .dtt file");
-            }
-            return result;
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("Invalid DTT zip payload", exception);
-        }
-    }
-
-    private byte[] writeDttZip(Map<String, byte[]> archivesByDeviceTypeId) {
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
-             ZipOutputStream zipOutput = new ZipOutputStream(output)) {
-            final Map<String, byte[]> ordered = new LinkedHashMap<>(archivesByDeviceTypeId);
-            for (Map.Entry<String, byte[]> entry : ordered.entrySet()) {
-                zipOutput.putNextEntry(new ZipEntry(entry.getKey() + ".dtt"));
-                zipOutput.write(entry.getValue());
-                zipOutput.closeEntry();
-            }
-            zipOutput.finish();
-            return output.toByteArray();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to build DTT zip payload", exception);
-        }
     }
 }

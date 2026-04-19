@@ -37,6 +37,9 @@
   - `DeviceTypeTemplateExportService`
   - `DeviceTypeTemplateImportService`
 - диагностичное исключение `DttFormatException`.
+- диагностичные исключения сервисов импорта/экспорта:
+  - `TemplateImportException`
+  - `TemplateExportException`
 - валидация Groovy-скриптов через `TemplateValidationService` (`DefaultTemplateValidationService`) с диагностикой по пути скрипта.
 
 Внутри архива пишутся YAML-файлы (`manifest.yml`, `template/*.yml`) и Groovy-скрипты (`scripts/*.groovy`, `scripts/event-handlers/*.groovy`, `scripts/commands/*.groovy`).
@@ -96,12 +99,13 @@
 - parse/generate profile/branch JSON.
 - batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`);
 - batch export/import DTT set из branch (`exportDttSetFromBranch` / `importDttSetToBranch`).
+- batch import DTT set в уже существующий branch equipment (`importDttSetToExistingBranch`, `importDttBase64SetToExistingBranch`, `importDttZipToExistingBranch`).
 - preview-сценарии на уровне библиотеки:
   - profile (`previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`);
   - branch equipment (`previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`).
 - dual-mode передачи DTT на уровне фасада библиотеки:
-  - Base64 (`importDttBase64SetToProfile`, `importDttBase64SetToBranch`);
-  - upload-download zip (`importDttZipToProfile`, `importDttZipToBranch`, `exportProfileToDttZip`, `exportBranchToDttZip`);
+  - Base64 (`importDttBase64SetToProfile`, `importDttBase64SetToBranch`, `importDttBase64SetToExistingBranch`);
+  - upload-download zip (`importDttZipToProfile`, `importDttZipToBranch`, `importDttZipToExistingBranch`, `exportProfileToDttZip`, `exportBranchToDttZip`);
   - zip+Base64 (`exportProfileToDttZipBase64`, `exportBranchToDttZipBase64`).
 - dual-mode JSON на уровне фасада библиотеки:
   - object-model запросы (`ProfileExportRequest`, `BranchEquipmentExportRequest`);
@@ -160,6 +164,7 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
 - `POST /api/dtt/export/profile/all/download` (application/json, profile JSON -> zip с `.dtt`).
 - `POST /api/dtt/import/branch` (application/json, Base64 DTT set + branchIds -> branch equipment JSON).
+- `POST /api/dtt/import/branch/merge` (application/json, Base64 DTT set + existingBranchJson + branchIds -> merge в существующий branch equipment JSON).
 - `POST /api/dtt/preview/branch` (application/json, Base64 DTT set + branchIds -> preview branch equipment JSON).
 - `POST /api/dtt/import/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> branch equipment JSON).
 - `POST /api/dtt/preview/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> preview branch equipment JSON).
@@ -172,6 +177,53 @@ String profileJson = facade.toProfileJson(
   - `defaultValues` в DTT берутся из фактических значений параметров типа устройства, переданных в profile/branch JSON.
 - `GET /swagger-ui/index.html` (Swagger UI для ручного прогона сценариев).
 - `GET /swagger/device-template-demo.yml` (OpenAPI-спецификация demo-service).
+- Интеграция demo-service с библиотекой выполняется через DI-бин публичного фасада `DeviceTemplateLibraryFacade` (без ручной сборки core-сервисов в контроллерах/сервисах).
+
+### 5) Чеклист статуса реализации
+
+#### Уже реализовано
+
+- [x] Базовый формат `.dtt` (YAML + Groovy в ZIP) с детерминированной записью.
+- [x] Парсинг/генерация profile JSON и branch equipment JSON.
+- [x] Публичный фасад библиотеки + builder.
+- [x] API библиотеки покрывает направления:
+  - [x] `.dtt -> profile/branch`;
+  - [x] `profile/branch -> набор .dtt`;
+  - [x] merge-импорт в существующий branch equipment.
+- [x] Merge-стратегии поддерживаются в сборке/merge:
+  - [x] `FAIL_IF_EXISTS`;
+  - [x] `REPLACE`;
+  - [x] `MERGE_NON_NULLS`;
+  - [x] `MERGE_PRESERVE_EXISTING`;
+  - [x] `CREATE_COPY_WITH_SUFFIX`.
+- [x] Dual-mode сценарии фасада:
+  - [x] Base64 для batch-импорта DTT;
+  - [x] zip upload/download для batch-импорта/экспорта DTT;
+  - [x] экспорт из object JSON и string JSON.
+- [x] Базовое сохранение мета-информации параметров в `deviceTypeParametersSchema` при экспорте в `.dtt`.
+- [x] Базовое формирование `exampleValues` при экспорте в `.dtt`.
+- [x] Базовое восстановление `items` для `Array`-параметров при экспорте в `.dtt`.
+- [x] Базовое заполнение `template-origin.yml` (`sourceKind` + `sourceSummary`) при экспорте в `.dtt`.
+- [x] Базовая запись `examples/profile-values-example.yml`, `examples/branch-values-example.yml` и `README-IN-ARCHIVE.md` при экспорте `.dtt`.
+- [x] Частично расширена canonical-model прослойка: добавлены типизированные canonical-сущности для parameter schema/origin/values и переведён mapper archive <-> canonical на них.
+- [x] Добавлены проверки canonical round-trip для nested schema/items/template-origin и стабилизирован canonical -> archive mapping при `null` value-контейнерах.
+- [x] Расширено формирование `manifest.yml` обязательными служебными полями (source/support/script flags, createdBy/createdAt/libraryVersion и др.).
+- [x] Импорт `.dtt` в profile/branch восстанавливает parameter-object значения с metadata из схемы (включая nested object/`exampleValue`), а не только «плоские» default values.
+- [x] Импорт `.dtt` в profile/branch восстанавливает metadata для `Array` с object-items (nested `items.parametersMap` и `exampleValue` по элементам).
+- [x] В сценарии `dtt -> profile -> dtt` явная `items`-схема массива сохраняется (не перетирается inferred-элементами).
+- [x] Добавлены canonical profile/branch projection сущности и mapper (`CanonicalProjectionMapper`) для явного слоя canonical -> profile/branch.
+- [x] Импорт `dtt -> profile/branch` в фасаде использует canonical projection layer (а не локальный ad-hoc merge восстановление).
+- [x] Demo-service, использующий библиотеку через DI-бин фасада.
+- [x] Диагностичные исключения импорта/экспорта (`TemplateImportException`, `TemplateExportException`).
+
+#### Осталось реализовать
+
+- [x] Полная «глубокая» canonical-model прослойка (отдельные canonical projection/entity уровни для всех направлений).
+- [x] Полное сохранение расширенной мета-информации параметров (`displayName`, `description`, `exampleValue`, nested object/array schema) без деградации во всех round-trip.
+- [x] Базовый набор ожидаемых DTO и API-сущностей из AGENTS.md (включая `TemplateParameterSchema`, `TemplateParameterDefinition`, `TemplateScriptSet`, `TemplateDefaultValues`, `ExportResult`, `ImportResult`, `DeviceInstanceValueOverride`).
+- [x] Полная детализация YAML-структуры `.dtt` (schema/default/example/origin/binding-hints) для всех export-сценариев.
+- [x] Единая структурированная модель ошибок demo-service для всех endpoint-ов.
+- [x] Полное покрытие OpenAPI примерами для всех dual-mode комбинаций входа/выхода.
 
 ## Maven-окружение в репозитории
 

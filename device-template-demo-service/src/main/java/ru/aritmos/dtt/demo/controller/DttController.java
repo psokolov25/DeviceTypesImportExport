@@ -23,13 +23,16 @@ import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
+import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
 import ru.aritmos.dtt.demo.service.DttDemoService;
 import ru.aritmos.dtt.exception.DttFormatException;
+import ru.aritmos.dtt.exception.TemplateAssemblyException;
+import ru.aritmos.dtt.exception.TemplateExportException;
+import ru.aritmos.dtt.exception.TemplateImportException;
+import ru.aritmos.dtt.exception.TemplateValidationException;
 
-import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 /**
@@ -82,6 +85,17 @@ public class DttController {
      */
     @Post(uri = "/import/profile", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Импортировать набор DTT в profile JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = @ExampleObject(value = """
+                    {
+                      "archivesBase64": [
+                        "UEsDB..."
+                      ],
+                      "mergeStrategy": "FAIL_IF_EXISTS"
+                    }
+                    """))
+    )
     @ApiResponse(
             responseCode = "200",
             description = "Собранный профиль оборудования",
@@ -90,14 +104,13 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 archive at index 0\"}"))
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}"))
     )
     public ImportDttSetToProfileResponse importToProfile(@Body ImportDttSetToProfileRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
-        final List<byte[]> archives = decodeArchives(request.archivesBase64());
-        return demoService.importDttSetToProfile(archives, request.mergeStrategy());
+        return demoService.importDttSetToProfileBase64(request.archivesBase64(), request.mergeStrategy());
     }
 
     /**
@@ -108,18 +121,28 @@ public class DttController {
      */
     @Post(uri = "/preview/profile", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Preview сборки profile JSON из набора DTT")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = @ExampleObject(value = """
+                    {
+                      "archivesBase64": [
+                        "UEsDB..."
+                      ],
+                      "mergeStrategy": "MERGE_PRESERVE_EXISTING"
+                    }
+                    """))
+    )
     @ApiResponse(responseCode = "200", description = "Preview profile JSON")
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 archive at index 0\"}"))
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}"))
     )
     public ImportDttSetToProfileResponse previewProfile(@Body ImportDttSetToProfileRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
-        final List<byte[]> archives = decodeArchives(request.archivesBase64());
-        return demoService.previewDttSetToProfile(archives, request.mergeStrategy());
+        return demoService.previewDttSetToProfileBase64(request.archivesBase64(), request.mergeStrategy());
     }
 
     /**
@@ -158,6 +181,21 @@ public class DttController {
      */
     @Post(uri = "/import/branch", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Импортировать набор DTT в branch equipment JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = @ExampleObject(value = """
+                    {
+                      "archivesBase64": [
+                        "UEsDB..."
+                      ],
+                      "branchIds": [
+                        "branch-1",
+                        "branch-2"
+                      ],
+                      "mergeStrategy": "FAIL_IF_EXISTS"
+                    }
+                    """))
+    )
     @ApiResponse(
             responseCode = "200",
             description = "Собранное оборудование отделений",
@@ -169,11 +207,60 @@ public class DttController {
             content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}"))
     )
     public ImportDttSetToBranchResponse importToBranch(@Body ImportDttSetToBranchRequest request) {
-        final List<byte[]> archives = decodeArchives(request.archivesBase64());
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
         if (request.branchIds() == null || request.branchIds().isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
-        return demoService.importDttSetToBranch(archives, request.branchIds(), request.mergeStrategy());
+        return demoService.importDttSetToBranchBase64(request.archivesBase64(), request.branchIds(), request.mergeStrategy());
+    }
+
+    /**
+     * Импортирует один или несколько DTT-архивов в уже существующий branch equipment JSON.
+     *
+     * @param request запрос с исходным branch JSON, Base64-архивами, branch и merge-стратегией
+     * @return branch JSON после merge-импорта и количество branch
+     */
+    @Post(uri = "/import/branch/merge", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать набор DTT в существующий branch equipment JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = @ExampleObject(value = """
+                    {
+                      "existingBranchJson": "{\"branch-1\":{\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{}}}",
+                      "archivesBase64": [
+                        "UEsDB..."
+                      ],
+                      "branchIds": [
+                        "branch-1"
+                      ],
+                      "mergeStrategy": "CREATE_COPY_WITH_SUFFIX"
+                    }
+                    """))
+    )
+    @ApiResponse(responseCode = "200", description = "Обновлённое оборудование отделений")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка входных данных",
+            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"existingBranchJson must not be blank\"}"))
+    )
+    public ImportDttSetToBranchResponse importToExistingBranch(@Body ImportDttSetToExistingBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.existingBranchJson() == null || request.existingBranchJson().isBlank()) {
+            throw new IllegalArgumentException("existingBranchJson must not be blank");
+        }
+        if (request.branchIds() == null || request.branchIds().isEmpty()) {
+            throw new IllegalArgumentException("branchIds must contain at least one branch id");
+        }
+        return demoService.importDttSetToExistingBranchBase64(
+                request.archivesBase64(),
+                request.existingBranchJson(),
+                request.branchIds(),
+                request.mergeStrategy()
+        );
     }
 
     /**
@@ -184,6 +271,20 @@ public class DttController {
      */
     @Post(uri = "/preview/branch", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Preview сборки branch equipment JSON из набора DTT")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = @ExampleObject(value = """
+                    {
+                      "archivesBase64": [
+                        "UEsDB..."
+                      ],
+                      "branchIds": [
+                        "branch-1"
+                      ],
+                      "mergeStrategy": "MERGE_NON_NULLS"
+                    }
+                    """))
+    )
     @ApiResponse(responseCode = "200", description = "Preview branch equipment JSON")
     @ApiResponse(
             responseCode = "400",
@@ -194,11 +295,10 @@ public class DttController {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
-        final List<byte[]> archives = decodeArchives(request.archivesBase64());
         if (request.branchIds() == null || request.branchIds().isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
-        return demoService.previewDttSetToBranch(archives, request.branchIds(), request.mergeStrategy());
+        return demoService.previewDttSetToBranchBase64(request.archivesBase64(), request.branchIds(), request.mergeStrategy());
     }
 
     /**
@@ -447,18 +547,44 @@ public class DttController {
         return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
     }
 
-    private List<byte[]> decodeArchives(List<String> archivesBase64) {
-        if (archivesBase64 == null || archivesBase64.isEmpty()) {
-            throw new IllegalArgumentException("archivesBase64 must contain at least one DTT archive");
-        }
-        final List<byte[]> decoded = new ArrayList<>(archivesBase64.size());
-        for (int index = 0; index < archivesBase64.size(); index++) {
-            try {
-                decoded.add(Base64.getDecoder().decode(archivesBase64.get(index)));
-            } catch (IllegalArgumentException ex) {
-                throw new IllegalArgumentException("Invalid Base64 archive at index " + index, ex);
-            }
-        }
-        return decoded;
+    /**
+     * Возвращает структурированную ошибку для проблем валидации шаблона.
+     */
+    @Error(exception = TemplateValidationException.class)
+    public HttpResponse<DemoErrorResponse> handleValidationError(TemplateValidationException exception) {
+        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
     }
+
+    /**
+     * Возвращает структурированную ошибку для проблем импорта шаблона.
+     */
+    @Error(exception = TemplateImportException.class)
+    public HttpResponse<DemoErrorResponse> handleImportError(TemplateImportException exception) {
+        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+    }
+
+    /**
+     * Возвращает структурированную ошибку для проблем экспорта шаблона.
+     */
+    @Error(exception = TemplateExportException.class)
+    public HttpResponse<DemoErrorResponse> handleExportError(TemplateExportException exception) {
+        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+    }
+
+    /**
+     * Возвращает структурированную ошибку для проблем merge/assembly сценариев.
+     */
+    @Error(exception = TemplateAssemblyException.class)
+    public HttpResponse<DemoErrorResponse> handleAssemblyError(TemplateAssemblyException exception) {
+        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+    }
+
+    /**
+     * Возвращает структурированную ошибку по умолчанию для неожиданных исключений.
+     */
+    @Error(exception = Throwable.class)
+    public HttpResponse<DemoErrorResponse> handleUnexpectedError(Throwable exception) {
+        return HttpResponse.serverError(new DemoErrorResponse("INTERNAL_ERROR", exception.getMessage()));
+    }
+
 }

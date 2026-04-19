@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
+import ru.aritmos.dtt.exception.TemplateExportException;
+import ru.aritmos.dtt.exception.TemplateImportException;
 import ru.aritmos.dtt.export.DefaultDeviceTypeTemplateExportService;
 import ru.aritmos.dtt.importing.DefaultDeviceTypeTemplateImportService;
 
@@ -12,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DeviceTypeTemplateImportExportServiceTest {
 
@@ -20,6 +23,7 @@ class DeviceTypeTemplateImportExportServiceTest {
         final DttArchiveTemplate template = new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "terminal", null),
                 new DeviceTypeMetadata("terminal", "Terminal", "Терминал", "desc"),
+                Map.of(),
                 Map.of(),
                 Map.of(),
                 Map.of(),
@@ -46,5 +50,49 @@ class DeviceTypeTemplateImportExportServiceTest {
 
         assertThat(restored.metadata().id()).isEqualTo("terminal");
         assertThat(restored.onStartEvent()).isEqualTo("println 's'");
+    }
+
+    @Test
+    void shouldWrapImportErrorsIntoTemplateImportException() {
+        final DefaultDeviceTypeTemplateImportService importService =
+                new DefaultDeviceTypeTemplateImportService(input -> {
+                    throw new IllegalStateException("broken archive");
+                });
+
+        assertThatThrownBy(() -> importService.importOne(new ByteArrayInputStream(new byte[0])))
+                .isInstanceOf(TemplateImportException.class)
+                .hasMessageContaining("Ошибка импорта DTT-шаблона");
+    }
+
+    @Test
+    void shouldWrapExportErrorsIntoTemplateExportException() {
+        final DefaultDeviceTypeTemplateExportService exportService =
+                new DefaultDeviceTypeTemplateExportService((template, output) -> {
+                    throw new IllegalStateException("cannot write");
+                });
+
+        assertThatThrownBy(() -> exportService.exportOne(sampleTemplate(), new ByteArrayOutputStream()))
+                .isInstanceOf(TemplateExportException.class)
+                .hasMessageContaining("Ошибка экспорта DTT-шаблона");
+    }
+
+    private DttArchiveTemplate sampleTemplate() {
+        return new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "terminal", null),
+                new DeviceTypeMetadata("terminal", "Terminal", "Терминал", "desc"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                "println 's'",
+                "println 'e'",
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
     }
 }

@@ -9,8 +9,10 @@ import ru.aritmos.dtt.exception.DttFormatException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +38,32 @@ class DefaultDttArchiveReaderWriterTest {
         assertThat(restored.commands()).containsEntry("RESET", "println 'reset'");
         assertThat(restored.onStartEvent()).isEqualTo("println 'start'");
         assertThat(restored.defaultValues()).containsEntry("ip", "127.0.0.1");
+        assertThat(restored.templateOrigin()).containsEntry("sourceKind", "PROFILE_JSON");
+    }
+
+    @Test
+    void shouldWriteArchiveExamplesAndReadmeFiles() throws Exception {
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        writer.write(sampleTemplate(), output);
+
+        final Map<String, String> zipEntries = readZipEntries(output.toByteArray());
+
+        assertThat(zipEntries).containsKeys(
+                "examples/profile-values-example.yml",
+                "examples/branch-values-example.yml",
+                "README-IN-ARCHIVE.md"
+        );
+        assertThat(zipEntries.get("examples/profile-values-example.yml")).contains("ip: \"192.168.0.10\"");
+        assertThat(zipEntries.get("examples/branch-values-example.yml")).contains("display-type");
+        assertThat(zipEntries.get("README-IN-ARCHIVE.md")).contains("Device type id: display-type");
+        assertThat(zipEntries.get("manifest.yml"))
+                .contains("createdAt: \"1970-01-01T00:00:00Z\"")
+                .contains("createdBy: \"device-template-library\"")
+                .contains("sourceKind: \"PROFILE_JSON\"")
+                .contains("supportsProfileImport: true")
+                .contains("supportsBranchImport: true")
+                .contains("containsEventHandlers: true")
+                .contains("containsCommands: true");
     }
 
     @Test
@@ -91,6 +119,7 @@ class DefaultDttArchiveReaderWriterTest {
                 Map.of("hint", "value"),
                 Map.of("ip", "127.0.0.1"),
                 Map.of("ip", "192.168.0.10"),
+                Map.of("sourceKind", "PROFILE_JSON"),
                 "println 'start'",
                 "println 'stop'",
                 "println 'publicStart'",
@@ -99,5 +128,18 @@ class DefaultDttArchiveReaderWriterTest {
                 Map.of("VISIT_CALLED", "println 'called'"),
                 Map.of("RESET", "println 'reset'")
         );
+    }
+
+    private Map<String, String> readZipEntries(byte[] archiveBytes) throws Exception {
+        final Map<String, String> result = new HashMap<>();
+        try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(archiveBytes), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            while ((entry = zipInputStream.getNextEntry()) != null) {
+                if (!entry.isDirectory()) {
+                    result.put(entry.getName(), new String(zipInputStream.readAllBytes(), StandardCharsets.UTF_8));
+                }
+            }
+        }
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
+import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
@@ -41,4 +42,17 @@ public interface TemplateAssemblyService {
      * @return рассчитанная модель branch equipment
      */
     BranchEquipment previewBranchEquipment(BranchEquipmentAssemblyRequest request);
+
+    /**
+     * Объединяет существующую branch equipment модель с новой моделью по merge-стратегии.
+     *
+     * <p>Метод применяется для сценариев patch/merge в уже существующий JSON уровня
+     * {@code DeviceManager.json}, когда в целевые branch импортируется набор DTT.</p>
+     *
+     * @param existing существующая branch equipment модель
+     * @param incoming новая branch equipment модель, собранная из DTT
+     * @param mergeStrategy стратегия merge для конфликтов по {@code deviceTypeId}
+     * @return объединённая модель branch equipment
+     */
+    BranchEquipment mergeBranchEquipment(BranchEquipment existing, BranchEquipment incoming, MergeStrategy mergeStrategy);
 }

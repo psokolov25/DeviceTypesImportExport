@@ -1,7 +1,5 @@
 package ru.aritmos.dtt.model.canonical;
 
-import java.util.Map;
-
 /**
  * Каноническая внутренняя модель одного шаблона типа устройства.
  *
@@ -12,16 +10,18 @@ import java.util.Map;
  * @param bindingHints подсказки биндинга
  * @param defaultValues значения по умолчанию
  * @param exampleValues примерные значения
+ * @param templateOrigin происхождение шаблона
  * @param scripts набор Groovy-скриптов
  */
 public record CanonicalDeviceTypeTemplate(
         String formatVersion,
         CanonicalDeviceTypeMetadata metadata,
-        Map<String, Object> deviceTypeParameterSchema,
-        Map<String, Object> deviceParameterSchema,
-        Map<String, Object> bindingHints,
-        Map<String, Object> defaultValues,
-        Map<String, Object> exampleValues,
+        CanonicalParameterSchema deviceTypeParameterSchema,
+        CanonicalParameterSchema deviceParameterSchema,
+        CanonicalTemplateValues bindingHints,
+        CanonicalTemplateValues defaultValues,
+        CanonicalTemplateValues exampleValues,
+        CanonicalTemplateOrigin templateOrigin,
         CanonicalScriptSet scripts
 ) {
 }

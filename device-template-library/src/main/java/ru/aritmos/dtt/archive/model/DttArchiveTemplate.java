@@ -14,6 +14,7 @@ import java.util.Map;
  * @param bindingHints подсказки для биндинга значений
  * @param defaultValues значения по умолчанию
  * @param exampleValues примерные значения
+ * @param templateOrigin метаданные происхождения шаблона
  * @param onStartEvent скрипт жизненного цикла запуска
  * @param onStopEvent скрипт жизненного цикла остановки
  * @param onPublicStartEvent публичный скрипт старта
@@ -30,6 +31,7 @@ public record DttArchiveTemplate(
         Map<String, Object> bindingHints,
         Map<String, Object> defaultValues,
         Map<String, Object> exampleValues,
+        Map<String, Object> templateOrigin,
         String onStartEvent,
         String onStopEvent,
         String onPublicStartEvent,

@@ -1,6 +1,7 @@
 package ru.aritmos.dtt.demo.controller;
 
 import org.junit.jupiter.api.Test;
+import ru.aritmos.dtt.api.DeviceTemplateLibrary;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
@@ -10,9 +11,14 @@ import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
+import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.service.DttDemoService;
 import ru.aritmos.dtt.exception.DttFormatException;
+import ru.aritmos.dtt.exception.TemplateAssemblyException;
+import ru.aritmos.dtt.exception.TemplateExportException;
+import ru.aritmos.dtt.exception.TemplateImportException;
+import ru.aritmos.dtt.exception.TemplateValidationException;
 import ru.aritmos.dtt.json.branch.BranchDeviceType;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.branch.BranchNode;
@@ -34,7 +40,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DttControllerTest {
 
-    private final DttController controller = new DttController(new DttDemoService());
+    private final DttController controller =
+            new DttController(new DttDemoService(DeviceTemplateLibrary.createDefaultFacade()));
 
     @Test
     void shouldValidateArchive() {
@@ -137,6 +144,32 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldImportDttSetIntoExistingBranchJson() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final String existingBranchJson = """
+                {
+                  "branch-1": {
+                    "id": "branch-1",
+                    "displayName": "Main",
+                    "deviceTypes": {}
+                  }
+                }
+                """;
+        final ImportDttSetToExistingBranchRequest request = new ImportDttSetToExistingBranchRequest(
+                existingBranchJson,
+                List.of(Base64.getEncoder().encodeToString(bytes)),
+                List.of("branch-1"),
+                MergeStrategy.REPLACE
+        );
+
+        final var response = controller.importToExistingBranch(request);
+
+        assertThat(response.branchesCount()).isEqualTo(1);
+        assertThat(response.branchJson()).contains("branch-1");
+        assertThat(response.branchJson()).contains("display");
+    }
+
+    @Test
     void shouldExportAllDttFromBranchJson() {
         final ExportAllDttFromBranchRequest request = new ExportAllDttFromBranchRequest(
                 new BranchEquipment(Map.of(
@@ -201,7 +234,7 @@ class DttControllerTest {
 
         assertThatThrownBy(() -> controller.importToProfile(request))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid Base64 archive at index 0");
+                .hasMessageContaining("Invalid Base64 DTT archive payload at index 0");
     }
 
     @Test
@@ -209,6 +242,30 @@ class DttControllerTest {
         assertThatThrownBy(() -> controller.exportAllFromProfile(new ExportAllDttFromProfileRequest(null, null, List.of(), null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either profile or profileJson must be provided");
+    }
+
+    @Test
+    void shouldReturnStructuredErrorForAllKnownExceptionTypes() {
+        assertThat(controller.handleBadRequest(new IllegalArgumentException("bad")).body())
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "bad"));
+        assertThat(controller.handleFormatError(new DttFormatException("format")).body())
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "format"));
+        assertThat(controller.handleValidationError(new TemplateValidationException("validation")).body())
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "validation"));
+        assertThat(controller.handleImportError(new TemplateImportException("import")).body())
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "import"));
+        assertThat(controller.handleExportError(new TemplateExportException("export")).body())
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "export"));
+        assertThat(controller.handleAssemblyError(new TemplateAssemblyException("assembly")).body())
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "assembly"));
+    }
+
+    @Test
+    void shouldReturnStructuredInternalErrorForUnexpectedException() {
+        final var response = controller.handleUnexpectedError(new RuntimeException("boom"));
+
+        assertThat(response.code()).isEqualTo(500);
+        assertThat(response.body()).isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("INTERNAL_ERROR", "boom"));
     }
 
     @Test
@@ -384,6 +441,7 @@ class DttControllerTest {
         final DttArchiveTemplate template = new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", deviceTypeId, null),
                 new DeviceTypeMetadata(deviceTypeId, "Display", "Display", "desc"),
+                Map.of(),
                 Map.of(),
                 Map.of(),
                 Map.of(),

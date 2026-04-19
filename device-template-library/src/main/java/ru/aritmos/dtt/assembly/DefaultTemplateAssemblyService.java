@@ -101,6 +101,33 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
         return assembleBranchEquipment(request);
     }
 
+    @Override
+    public BranchEquipment mergeBranchEquipment(BranchEquipment existing, BranchEquipment incoming, MergeStrategy mergeStrategy) {
+        Objects.requireNonNull(existing, "existing is required");
+        Objects.requireNonNull(incoming, "incoming is required");
+        final MergeStrategy effectiveMergeStrategy = mergeStrategy == null ? MergeStrategy.FAIL_IF_EXISTS : mergeStrategy;
+        final Map<String, BranchNode> mergedBranches = new LinkedHashMap<>(existing.branches());
+
+        incoming.branches().forEach((branchId, incomingBranch) -> {
+            final BranchNode existingBranch = mergedBranches.get(branchId);
+            if (existingBranch == null) {
+                mergedBranches.put(branchId, incomingBranch);
+                return;
+            }
+            final Map<String, BranchDeviceType> deviceTypes = new LinkedHashMap<>(existingBranch.deviceTypes());
+            incomingBranch.deviceTypes().forEach((typeId, incomingType) -> {
+                if (!deviceTypes.containsKey(typeId)) {
+                    deviceTypes.put(typeId, incomingType);
+                    return;
+                }
+                mergeBranchConflict(deviceTypes, typeId, incomingType, effectiveMergeStrategy);
+            });
+            mergedBranches.put(branchId, new BranchNode(existingBranch.id(), existingBranch.displayName(), deviceTypes));
+        });
+
+        return new BranchEquipment(mergedBranches);
+    }
+
     private Map<String, DeviceInstanceTemplate> toDeviceMap(List<DeviceInstanceImportRequest> deviceInstances) {
         final Map<String, DeviceInstanceTemplate> devices = new LinkedHashMap<>();
         if (deviceInstances == null) {

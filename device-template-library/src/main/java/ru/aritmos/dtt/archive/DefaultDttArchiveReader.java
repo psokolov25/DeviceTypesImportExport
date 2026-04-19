@@ -57,6 +57,7 @@ public class DefaultDttArchiveReader implements DttArchiveReader {
                 readOptionalYaml(entries, "template/binding-hints.yml"),
                 readOptionalYaml(entries, "template/default-values.yml"),
                 readOptionalYaml(entries, "template/example-values.yml"),
+                readOptionalYaml(entries, "template/template-origin.yml"),
                 readText(entries, "scripts/onStartEvent.groovy"),
                 readText(entries, "scripts/onStopEvent.groovy"),
                 readText(entries, "scripts/onPublicStartEvent.groovy"),
