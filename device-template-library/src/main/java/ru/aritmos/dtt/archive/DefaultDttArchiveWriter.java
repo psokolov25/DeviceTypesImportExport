@@ -21,6 +21,8 @@ import java.util.zip.ZipOutputStream;
 public class DefaultDttArchiveWriter implements DttArchiveWriter {
 
     private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
+    private static final String EVENT_HANDLER_GROUP = "event handler";
+    private static final String COMMAND_GROUP = "command";
 
     @Override
     public void write(DttArchiveTemplate template, OutputStream outputStream) {
@@ -38,8 +40,8 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
             manifest.put("deviceTypeKind", resolveDeviceTypeKind(template));
             manifest.put("supportsChildDevices", template.deviceParametersSchema() != null && !template.deviceParametersSchema().isEmpty());
             manifest.put("containsLifecycleScripts", hasLifecycleScripts(template));
-            manifest.put("containsEventHandlers", template.eventHandlers() != null && !template.eventHandlers().isEmpty());
-            manifest.put("containsCommands", template.commands() != null && !template.commands().isEmpty());
+            manifest.put("containsEventHandlers", hasAnyScript(template.eventHandlers()));
+            manifest.put("containsCommands", hasAnyScript(template.commands()));
             manifest.put("containsDeviceTypeFunctions", template.deviceTypeFunctions() != null && !template.deviceTypeFunctions().isBlank());
             manifest.put("parameterSchemaVersion", "1.0");
             manifest.put("defaultValuesIncluded", template.defaultValues() != null && !template.defaultValues().isEmpty());
@@ -75,9 +77,11 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
             writeText(zipOutputStream, "scripts/deviceTypeFunctions.groovy", template.deviceTypeFunctions());
 
             for (Map.Entry<String, String> entry : sorted(template.eventHandlers()).entrySet()) {
+                validateScriptEntryName(EVENT_HANDLER_GROUP, entry.getKey());
                 writeText(zipOutputStream, "scripts/event-handlers/" + entry.getKey() + ".groovy", entry.getValue());
             }
             for (Map.Entry<String, String> entry : sorted(template.commands()).entrySet()) {
+                validateScriptEntryName(COMMAND_GROUP, entry.getKey());
                 writeText(zipOutputStream, "scripts/commands/" + entry.getKey() + ".groovy", entry.getValue());
             }
         } catch (IOException exception) {
@@ -179,6 +183,18 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
         return script != null && !script.isBlank();
     }
 
+    private boolean hasAnyScript(Map<String, String> scripts) {
+        if (scripts == null || scripts.isEmpty()) {
+            return false;
+        }
+        for (String script : scripts.values()) {
+            if (hasScript(script)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private String resolveSourceKind(DttArchiveTemplate template) {
         final Map<String, Object> origin = defaultTemplateOrigin(template.templateOrigin());
         return String.valueOf(origin.getOrDefault("sourceKind", "UNSPECIFIED"));
@@ -196,5 +212,14 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
             return "unknown";
         }
         return packageInfo.getImplementationVersion();
+    }
+
+    private void validateScriptEntryName(String scriptGroup, String scriptName) {
+        if (scriptName == null || scriptName.isBlank()) {
+            throw new DttFormatException("Некорректное имя %s в DTT-архиве".formatted(scriptGroup));
+        }
+        if (scriptName.contains("/") || scriptName.contains("\\") || scriptName.contains("..")) {
+            throw new DttFormatException("Недопустимое имя %s в DTT-архиве: %s".formatted(scriptGroup, scriptName));
+        }
     }
 }
