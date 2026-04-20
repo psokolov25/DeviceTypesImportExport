@@ -141,7 +141,7 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
                             instance.name(),
                             instance.displayName(),
                             instance.description(),
-                            instance.deviceParamValues() == null ? Map.of() : instance.deviceParamValues()
+                            instance.deviceParamValues()
                     )
             );
         }

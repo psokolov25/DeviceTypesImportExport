@@ -12,6 +12,7 @@ import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
+import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
 import ru.aritmos.dtt.archive.DttArchiveReader;
@@ -23,6 +24,7 @@ import ru.aritmos.dtt.exception.TemplateAssemblyException;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.branch.BranchScript;
 import ru.aritmos.dtt.json.branch.BranchDeviceType;
+import ru.aritmos.dtt.json.branch.DeviceInstanceTemplate;
 import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonGenerator;
 import ru.aritmos.dtt.json.branch.DefaultDeviceManagerBranchJsonParser;
 import ru.aritmos.dtt.json.branch.DeviceManagerBranchJsonGenerator;
@@ -234,7 +236,19 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                     return;
                 }
                 final String key = resolveKeyForBranchExport(archives, typeId, branchId, effectiveMergeStrategy);
-                archives.put(key, writeDtt(toArchiveTemplate(key, branchType, branchId, request.dttVersion())));
+                final DttArchiveTemplate incomingTemplate = toArchiveTemplate(key, branchType, branchId, request.dttVersion());
+                if (archives.containsKey(key) && (effectiveMergeStrategy == MergeStrategy.MERGE_NON_NULLS
+                        || effectiveMergeStrategy == MergeStrategy.MERGE_PRESERVE_EXISTING)) {
+                    final DttArchiveTemplate existingTemplate = readDtt(archives.get(key));
+                    final DttArchiveTemplate mergedTemplate = mergeTemplatesForBranchExport(
+                            existingTemplate,
+                            incomingTemplate,
+                            effectiveMergeStrategy
+                    );
+                    archives.put(key, writeDtt(mergedTemplate));
+                } else {
+                    archives.put(key, writeDtt(incomingTemplate));
+                }
                 exportedDeviceTypeIds.add(typeId);
             });
         });
@@ -270,7 +284,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
 
     @Override
     public BranchEquipment importDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
-        return assembleBranch(toBranchAssemblyRequest(archives, branchIds, mergeStrategy));
+        return assembleBranch(toBranchAssemblyRequest(archives, branchIds, mergeStrategy, false));
     }
 
     @Override
@@ -279,13 +293,13 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                                                         List<String> branchIds,
                                                         MergeStrategy mergeStrategy) {
         Objects.requireNonNull(existingBranchEquipment, "existingBranchEquipment is required");
-        final BranchEquipment imported = importDttSetToBranch(archives, branchIds, mergeStrategy);
+        final BranchEquipment imported = assembleBranch(toBranchAssemblyRequest(archives, branchIds, mergeStrategy, true));
         return assemblyService.mergeBranchEquipment(existingBranchEquipment, imported, mergeStrategy);
     }
 
     @Override
     public BranchEquipment previewDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
-        return assemblyService.previewBranchEquipment(toBranchAssemblyRequest(archives, branchIds, mergeStrategy));
+        return assemblyService.previewBranchEquipment(toBranchAssemblyRequest(archives, branchIds, mergeStrategy, false));
     }
 
     @Override
@@ -395,6 +409,13 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     private BranchEquipmentAssemblyRequest toBranchAssemblyRequest(List<byte[]> archives,
                                                                    List<String> branchIds,
                                                                    MergeStrategy mergeStrategy) {
+        return toBranchAssemblyRequest(archives, branchIds, mergeStrategy, false);
+    }
+
+    private BranchEquipmentAssemblyRequest toBranchAssemblyRequest(List<byte[]> archives,
+                                                                   List<String> branchIds,
+                                                                   MergeStrategy mergeStrategy,
+                                                                   boolean strictBranchTopology) {
         Objects.requireNonNull(archives, "archives is required");
         if (archives.isEmpty()) {
             throw new IllegalArgumentException("archives must contain at least one DTT archive");
@@ -402,15 +423,15 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         if (branchIds == null || branchIds.isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
-        final List<BranchDeviceTypeImportRequest> deviceTypeRequests = archives.stream()
-                .map(this::readDtt)
-                .map(this::toBranchDeviceTypeImportRequest)
-                .toList();
         final List<BranchImportRequest> branches = branchIds.stream()
                 .map(branchId -> new BranchImportRequest(
                         branchId,
                         branchId,
-                        deviceTypeRequests
+                        archives.stream()
+                                .map(this::readDtt)
+                                .map(template -> toBranchDeviceTypeImportRequest(template, branchId, strictBranchTopology))
+                                .filter(Objects::nonNull)
+                                .toList()
                 ))
                 .toList();
         return new BranchEquipmentAssemblyRequest(branches, mergeStrategy);
@@ -449,6 +470,8 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
         final Map<String, Object> deviceTypeSchema = buildDeviceTypeParameterSchema(deviceType.deviceTypeParamValues());
         final Map<String, Object> exampleValues = extractExampleValues(deviceType.deviceTypeParamValues());
+        final Map<String, Object> templateOrigin = buildTemplateOrigin("BRANCH_EQUIPMENT_JSON", "export branch->dtt branchId=" + branchId);
+        templateOrigin.put("branchTopologyByBranchId", Map.of(branchId, toBranchSnapshot(branchDeviceType)));
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", typeId, effectiveVersion),
                 metadata,
@@ -457,7 +480,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 buildScriptBindingHints(branchDeviceType),
                 extractDefaultValues(deviceType.deviceTypeParamValues()),
                 exampleValues,
-                buildTemplateOrigin("BRANCH_EQUIPMENT_JSON", "export branch->dtt branchId=" + branchId),
+                templateOrigin,
                 extractScriptCode(branchDeviceType.onStartEvent()),
                 extractScriptCode(branchDeviceType.onStopEvent()),
                 extractScriptCode(branchDeviceType.onPublicStartEvent()),
@@ -574,7 +597,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 || mapValue.containsKey("description");
     }
 
-    private BranchDeviceTypeImportRequest toBranchDeviceTypeImportRequest(DttArchiveTemplate template) {
+    private BranchDeviceTypeImportRequest toBranchDeviceTypeImportRequest(DttArchiveTemplate template,
+                                                                          String branchId,
+                                                                          boolean strictBranchTopology) {
+        final BranchDeviceTypeImportRequest branchSpecificImport = toBranchSpecificImportRequest(template, branchId);
+        if (branchSpecificImport != null) {
+            return branchSpecificImport;
+        }
+        if (strictBranchTopology && hasBranchTopology(template)) {
+            return null;
+        }
         final Map<String, Object> hints = template.bindingHints() == null ? Map.of() : template.bindingHints();
         final String kind = hints.get("deviceTypeKind") instanceof String kindHint && !kindHint.isBlank()
                 ? kindHint
@@ -596,6 +628,37 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 toBranchScriptMap(template.eventHandlers(), hints.get("eventHandlers")),
                 toBranchScriptMap(template.commands(), hints.get("commands"))
         );
+    }
+
+    private BranchDeviceTypeImportRequest toBranchSpecificImportRequest(DttArchiveTemplate template, String branchId) {
+        final Map<String, Object> origin = template.templateOrigin() == null ? Map.of() : template.templateOrigin();
+        if (!(origin.get("branchTopologyByBranchId") instanceof Map<?, ?> topologyByBranchRaw)) {
+            return null;
+        }
+        final Map<String, Object> topologyByBranch = castToStringObjectMap(topologyByBranchRaw);
+        if (!(topologyByBranch.get(branchId) instanceof Map<?, ?> branchTopologyRaw)) {
+            return null;
+        }
+        final Map<String, Object> branchTopology = castToStringObjectMap(branchTopologyRaw);
+        final DeviceTypeMetadata metadata = toMetadataFromSnapshot(template.metadata(), branchTopology.get("metadata"));
+        final Map<String, Object> paramValues = toSnapshotValues(branchTopology.get("deviceTypeParamValues"));
+        return new BranchDeviceTypeImportRequest(
+                new EquipmentProfileDeviceTypeRequest(new DeviceTypeTemplate(metadata, paramValues), true),
+                toDeviceImportRequests(branchTopology.get("devices")),
+                toNullableString(branchTopology.get("kind")),
+                toBranchScriptFromSnapshot(branchTopology.get("onStartEvent")),
+                toBranchScriptFromSnapshot(branchTopology.get("onStopEvent")),
+                toBranchScriptFromSnapshot(branchTopology.get("onPublicStartEvent")),
+                toBranchScriptFromSnapshot(branchTopology.get("onPublicFinishEvent")),
+                toNullableString(branchTopology.get("deviceTypeFunctions")),
+                toBranchScriptMapFromSnapshot(branchTopology.get("eventHandlers")),
+                toBranchScriptMapFromSnapshot(branchTopology.get("commands"))
+        );
+    }
+
+    private boolean hasBranchTopology(DttArchiveTemplate template) {
+        final Map<String, Object> origin = template.templateOrigin() == null ? Map.of() : template.templateOrigin();
+        return origin.get("branchTopologyByBranchId") instanceof Map<?, ?>;
     }
 
     private BranchScript toBranchScript(String scriptCode, Object metadataObject) {
@@ -689,6 +752,235 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         origin.put("sourceKind", sourceKind);
         origin.put("sourceSummary", sourceSummary);
         return origin;
+    }
+
+    private DttArchiveTemplate mergeTemplatesForBranchExport(DttArchiveTemplate existing,
+                                                             DttArchiveTemplate incoming,
+                                                             MergeStrategy mergeStrategy) {
+        final boolean incomingWins = mergeStrategy == MergeStrategy.MERGE_NON_NULLS;
+        final Map<String, Object> mergedOrigin = mergeTemplateOrigin(existing.templateOrigin(), incoming.templateOrigin());
+        return new DttArchiveTemplate(
+                existing.descriptor(),
+                incomingWins ? incoming.metadata() : existing.metadata(),
+                mergeMap(existing.deviceTypeParametersSchema(), incoming.deviceTypeParametersSchema(), incomingWins),
+                mergeMap(existing.deviceParametersSchema(), incoming.deviceParametersSchema(), incomingWins),
+                mergeMap(existing.bindingHints(), incoming.bindingHints(), incomingWins),
+                mergeMap(existing.defaultValues(), incoming.defaultValues(), incomingWins),
+                mergeMap(existing.exampleValues(), incoming.exampleValues(), incomingWins),
+                mergedOrigin,
+                incomingWins ? firstNonNull(incoming.onStartEvent(), existing.onStartEvent()) : firstNonNull(existing.onStartEvent(), incoming.onStartEvent()),
+                incomingWins ? firstNonNull(incoming.onStopEvent(), existing.onStopEvent()) : firstNonNull(existing.onStopEvent(), incoming.onStopEvent()),
+                incomingWins ? firstNonNull(incoming.onPublicStartEvent(), existing.onPublicStartEvent()) : firstNonNull(existing.onPublicStartEvent(), incoming.onPublicStartEvent()),
+                incomingWins ? firstNonNull(incoming.onPublicFinishEvent(), existing.onPublicFinishEvent()) : firstNonNull(existing.onPublicFinishEvent(), incoming.onPublicFinishEvent()),
+                incomingWins ? firstNonNull(incoming.deviceTypeFunctions(), existing.deviceTypeFunctions()) : firstNonNull(existing.deviceTypeFunctions(), incoming.deviceTypeFunctions()),
+                mergeStringMap(existing.eventHandlers(), incoming.eventHandlers(), incomingWins),
+                mergeStringMap(existing.commands(), incoming.commands(), incomingWins)
+        );
+    }
+
+    private Map<String, Object> mergeTemplateOrigin(Map<String, Object> existing, Map<String, Object> incoming) {
+        final Map<String, Object> merged = new LinkedHashMap<>();
+        if (existing != null) {
+            merged.putAll(existing);
+        }
+        if (incoming != null) {
+            incoming.forEach((key, value) -> {
+                if (!"branchTopologyByBranchId".equals(key)) {
+                    merged.put(key, value);
+                }
+            });
+        }
+        final Map<String, Object> topology = new LinkedHashMap<>();
+        if (existing != null && existing.get("branchTopologyByBranchId") instanceof Map<?, ?> existingTopologyRaw) {
+            topology.putAll(castToStringObjectMap(existingTopologyRaw));
+        }
+        if (incoming != null && incoming.get("branchTopologyByBranchId") instanceof Map<?, ?> incomingTopologyRaw) {
+            topology.putAll(castToStringObjectMap(incomingTopologyRaw));
+        }
+        if (!topology.isEmpty()) {
+            merged.put("branchTopologyByBranchId", topology);
+        }
+        return merged;
+    }
+
+    private Map<String, Object> toBranchSnapshot(BranchDeviceType branchDeviceType) {
+        final Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("metadata", metadataToMap(branchDeviceType.template().metadata()));
+        snapshot.put("deviceTypeParamValues", branchDeviceType.template().deviceTypeParamValues());
+        snapshot.put("devices", toDeviceSnapshotMap(branchDeviceType.devices()));
+        snapshot.put("kind", branchDeviceType.kind());
+        snapshot.put("onStartEvent", toScriptSnapshot(branchDeviceType.onStartEvent()));
+        snapshot.put("onStopEvent", toScriptSnapshot(branchDeviceType.onStopEvent()));
+        snapshot.put("onPublicStartEvent", toScriptSnapshot(branchDeviceType.onPublicStartEvent()));
+        snapshot.put("onPublicFinishEvent", toScriptSnapshot(branchDeviceType.onPublicFinishEvent()));
+        snapshot.put("deviceTypeFunctions", branchDeviceType.deviceTypeFunctions());
+        snapshot.put("eventHandlers", toScriptSnapshotMap(branchDeviceType.eventHandlers()));
+        snapshot.put("commands", toScriptSnapshotMap(branchDeviceType.commands()));
+        return snapshot;
+    }
+
+    private Map<String, Object> metadataToMap(DeviceTypeMetadata metadata) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", metadata.id());
+        map.put("name", metadata.name());
+        map.put("displayName", metadata.displayName());
+        map.put("description", metadata.description());
+        return map;
+    }
+
+    private Map<String, Object> toDeviceSnapshotMap(Map<String, DeviceInstanceTemplate> devices) {
+        if (devices == null || devices.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, Object> result = new LinkedHashMap<>();
+        devices.forEach((deviceId, device) -> {
+            final Map<String, Object> deviceMap = new LinkedHashMap<>();
+            deviceMap.put("id", device.id());
+            deviceMap.put("name", device.name());
+            deviceMap.put("displayName", device.displayName());
+            deviceMap.put("description", device.description());
+            deviceMap.put("deviceParamValues", device.deviceParamValues());
+            result.put(deviceId, deviceMap);
+        });
+        return result;
+    }
+
+    private Object toScriptSnapshot(BranchScript script) {
+        if (script == null) {
+            return null;
+        }
+        final Map<String, Object> map = new LinkedHashMap<>();
+        map.put("scriptCode", script.scriptCode());
+        map.put("inputParameters", script.inputParameters() == null ? Map.of() : script.inputParameters());
+        map.put("outputParameters", script.outputParameters() == null ? List.of() : script.outputParameters());
+        return map;
+    }
+
+    private Map<String, Object> toScriptSnapshotMap(Map<String, BranchScript> scripts) {
+        if (scripts == null || scripts.isEmpty()) {
+            return Map.of();
+        }
+        final Map<String, Object> result = new LinkedHashMap<>();
+        scripts.forEach((name, script) -> result.put(name, toScriptSnapshot(script)));
+        return result;
+    }
+
+    private DeviceTypeMetadata toMetadataFromSnapshot(DeviceTypeMetadata fallback, Object metadataRaw) {
+        if (!(metadataRaw instanceof Map<?, ?> metadataMapRaw)) {
+            return fallback;
+        }
+        final Map<String, Object> metadata = castToStringObjectMap(metadataMapRaw);
+        return new DeviceTypeMetadata(
+                firstNonNull(toNullableString(metadata.get("id")), fallback.id()),
+                firstNonNull(toNullableString(metadata.get("name")), fallback.name()),
+                firstNonNull(toNullableString(metadata.get("displayName")), fallback.displayName()),
+                firstNonNull(toNullableString(metadata.get("description")), fallback.description())
+        );
+    }
+
+    private Map<String, Object> toSnapshotValues(Object valuesRaw) {
+        if (!(valuesRaw instanceof Map<?, ?> map)) {
+            return Map.of();
+        }
+        return castToStringObjectMap(map);
+    }
+
+    private List<DeviceInstanceImportRequest> toDeviceImportRequests(Object devicesRaw) {
+        if (!(devicesRaw instanceof Map<?, ?> devicesMapRaw)) {
+            return List.of();
+        }
+        final Map<String, Object> devicesMap = castToStringObjectMap(devicesMapRaw);
+        final List<DeviceInstanceImportRequest> result = new java.util.ArrayList<>();
+        devicesMap.forEach((deviceId, deviceRaw) -> {
+            if (!(deviceRaw instanceof Map<?, ?> deviceMapRaw)) {
+                return;
+            }
+            final Map<String, Object> deviceMap = castToStringObjectMap(deviceMapRaw);
+            final Map<String, Object> params = deviceMap.get("deviceParamValues") == null
+                    ? null
+                    : toSnapshotValues(deviceMap.get("deviceParamValues"));
+            result.add(new DeviceInstanceImportRequest(
+                    toNullableString(deviceMap.getOrDefault("id", deviceId)),
+                    toNullableString(deviceMap.get("name")),
+                    toNullableString(deviceMap.get("displayName")),
+                    toNullableString(deviceMap.get("description")),
+                    params
+            ));
+        });
+        return result;
+    }
+
+    private BranchScript toBranchScriptFromSnapshot(Object scriptRaw) {
+        if (!(scriptRaw instanceof Map<?, ?> scriptMapRaw)) {
+            return null;
+        }
+        final Map<String, Object> scriptMap = castToStringObjectMap(scriptMapRaw);
+        final Map<String, Object> input = scriptMap.get("inputParameters") instanceof Map<?, ?> inputMapRaw
+                ? castToStringObjectMap(inputMapRaw)
+                : Map.of();
+        final List<Object> output = scriptMap.get("outputParameters") instanceof List<?> outputList
+                ? new java.util.ArrayList<>(outputList)
+                : List.of();
+        return new BranchScript(input, output, toNullableString(scriptMap.get("scriptCode")));
+    }
+
+    private Map<String, BranchScript> toBranchScriptMapFromSnapshot(Object scriptsRaw) {
+        if (!(scriptsRaw instanceof Map<?, ?> scriptsMapRaw)) {
+            return Map.of();
+        }
+        final Map<String, Object> scriptsMap = castToStringObjectMap(scriptsMapRaw);
+        final Map<String, BranchScript> result = new LinkedHashMap<>();
+        scriptsMap.forEach((name, scriptRaw) -> result.put(name, toBranchScriptFromSnapshot(scriptRaw)));
+        result.values().removeIf(Objects::isNull);
+        return result;
+    }
+
+    private String toNullableString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private <T> T firstNonNull(T preferred, T fallback) {
+        return preferred != null ? preferred : fallback;
+    }
+
+    private Map<String, Object> mergeMap(Map<String, Object> existing, Map<String, Object> incoming, boolean incomingWins) {
+        final Map<String, Object> merged = new LinkedHashMap<>();
+        if (incomingWins) {
+            if (existing != null) {
+                merged.putAll(existing);
+            }
+            if (incoming != null) {
+                merged.putAll(incoming);
+            }
+            return merged;
+        }
+        if (incoming != null) {
+            merged.putAll(incoming);
+        }
+        if (existing != null) {
+            merged.putAll(existing);
+        }
+        return merged;
+    }
+
+    private Map<String, String> mergeStringMap(Map<String, String> existing, Map<String, String> incoming, boolean incomingWins) {
+        final Map<String, String> merged = new LinkedHashMap<>();
+        if (incomingWins) {
+            if (existing != null) {
+                merged.putAll(existing);
+            }
+            if (incoming != null) {
+                merged.putAll(incoming);
+            }
+            return merged;
+        }
+        if (incoming != null) {
+            merged.putAll(incoming);
+        }
+        if (existing != null) {
+            merged.putAll(existing);
+        }
+        return merged;
     }
 
     private Map<String, Object> buildDeviceTypeParameterSchema(Map<String, Object> values) {

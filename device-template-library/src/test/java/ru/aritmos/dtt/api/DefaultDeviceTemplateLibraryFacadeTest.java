@@ -946,6 +946,96 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(restored.eventHandlers()).containsKey("E1");
     }
 
+    @Test
+    void shouldExportUniqueDttSetFromDeviceManagerAndRebuildOriginalBranchJson() {
+        final String sourceBranchJson = """
+                {
+                  "branch-1": {
+                    "id": "branch-1",
+                    "displayName": "Main",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display",
+                        "description": "Display device type",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": { "value": "10.10.0.1", "name": "ip", "type": "String" }
+                        },
+                        "onStartEvent": { "scriptCode": "println 'start display'" },
+                        "onStopEvent": { "scriptCode": "" },
+                        "onPublicStartEvent": { "scriptCode": "" },
+                        "onPublicFinishEvent": { "scriptCode": "" },
+                        "deviceTypeFunctions": ""
+                      }
+                    }
+                  },
+                  "branch-2": {
+                    "id": "branch-2",
+                    "displayName": "Backup",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display",
+                        "description": "Display device type",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": { "value": "10.10.0.1", "name": "ip", "type": "String" }
+                        },
+                        "onStartEvent": { "scriptCode": "println 'start display'" },
+                        "onStopEvent": { "scriptCode": "" },
+                        "onPublicStartEvent": { "scriptCode": "" },
+                        "onPublicFinishEvent": { "scriptCode": "" },
+                        "deviceTypeFunctions": ""
+                      }
+                    }
+                  }
+                }
+                """;
+        final BatchDttExportResult exported = facade.exportDttSetFromBranchJson(
+                sourceBranchJson,
+                List.of("branch-1", "branch-2"),
+                null,
+                MergeStrategy.MERGE_NON_NULLS,
+                null
+        );
+
+        assertThat(exported.archivesByDeviceTypeId()).containsOnlyKeys("display");
+
+        final BranchEquipment rebuilt = facade.importDttSetToExistingBranch(
+                List.copyOf(exported.archivesByDeviceTypeId().values()),
+                facade.parseBranchJson("""
+                        {
+                          "branch-1": { "id": "branch-1", "displayName": "Main", "deviceTypes": {} },
+                          "branch-2": { "id": "branch-2", "displayName": "Backup", "deviceTypes": {} }
+                        }
+                        """),
+                List.of("branch-1", "branch-2"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        assertThat(rebuilt.branches()).containsKeys("branch-1", "branch-2");
+        assertThat(rebuilt.branches().get("branch-1").deviceTypes()).containsOnlyKeys("display");
+        assertThat(rebuilt.branches().get("branch-2").deviceTypes()).containsOnlyKeys("display");
+
+        final var firstType = rebuilt.branches().get("branch-1").deviceTypes().get("display");
+        final var secondType = rebuilt.branches().get("branch-2").deviceTypes().get("display");
+        assertThat(firstType.template().metadata().id()).isEqualTo("display");
+        assertThat(secondType.template().metadata().id()).isEqualTo("display");
+        assertThat(castToMap(firstType.template().deviceTypeParamValues().get("ip")))
+                .containsEntry("name", "ip")
+                .containsEntry("type", "String")
+                .containsEntry("value", "10.10.0.1");
+        assertThat(castToMap(secondType.template().deviceTypeParamValues().get("ip")))
+                .containsEntry("name", "ip")
+                .containsEntry("type", "String")
+                .containsEntry("value", "10.10.0.1");
+        assertThat(firstType.onStartEvent().scriptCode()).isEqualTo("println 'start display'");
+        assertThat(secondType.onStartEvent().scriptCode()).isEqualTo("println 'start display'");
+    }
+
     private DttArchiveTemplate template() {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
