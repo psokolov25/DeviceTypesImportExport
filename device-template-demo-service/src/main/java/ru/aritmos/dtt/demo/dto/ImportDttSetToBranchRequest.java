@@ -8,17 +8,23 @@ import java.util.List;
 /**
  * Запрос на импорт одного или нескольких DTT-архивов в branch equipment JSON.
  *
- * @param archivesBase64 список DTT-архивов в Base64
+ * @param archivesBase64 список DTT-архивов в Base64 в legacy-формате
  * @param branchIds идентификаторы отделений, в которые будут импортированы все шаблоны
  * @param mergeStrategy стратегия merge при совпадении deviceTypeId
+ * @param branches структурированные запросы по отделениям с override-значениями параметров типа устройства и устройств
  */
 @Schema(description = "Запрос на импорт набора DTT в branch equipment JSON")
 public record ImportDttSetToBranchRequest(
-        @Schema(description = "Список DTT-архивов в Base64", example = "[\"UEsDB...\"]")
+        @Schema(description = "Список DTT-архивов в Base64 (legacy-формат без override-значений)", example = "[\"UEsDB...\"]")
         List<String> archivesBase64,
-        @Schema(description = "Список идентификаторов отделений", example = "[\"branch-1\",\"branch-2\"]")
+        @Schema(description = "Список идентификаторов отделений для legacy-формата", example = "[\"branch-1\",\"branch-2\"]")
         List<String> branchIds,
         @Schema(description = "Стратегия merge", example = "FAIL_IF_EXISTS")
-        MergeStrategy mergeStrategy
+        MergeStrategy mergeStrategy,
+        @Schema(description = "Структурированные запросы по отделениям с override-значениями")
+        List<ImportBranchRequest> branches
 ) {
+    public ImportDttSetToBranchRequest(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy) {
+        this(archivesBase64, branchIds, mergeStrategy, List.of());
+    }
 }

@@ -122,6 +122,9 @@ public class DttController {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
+        if (request.deviceTypes() != null && !request.deviceTypes().isEmpty()) {
+            return demoService.importDttSetToProfile(request);
+        }
         return demoService.importDttSetToProfileBase64(request.archivesBase64(), request.mergeStrategy());
     }
 
@@ -156,6 +159,9 @@ public class DttController {
     public ImportDttSetToProfileResponse previewProfile(@Body ImportDttSetToProfileRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypes() != null && !request.deviceTypes().isEmpty()) {
+            return demoService.previewDttSetToProfile(request);
         }
         return demoService.previewDttSetToProfileBase64(request.archivesBase64(), request.mergeStrategy());
     }
@@ -220,6 +226,9 @@ public class DttController {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
+        if (request.branches() != null && !request.branches().isEmpty()) {
+            return demoService.importDttSetToBranch(request);
+        }
         if (request.branchIds() == null || request.branchIds().isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
@@ -257,6 +266,9 @@ public class DttController {
         }
         if (request.existingBranchJson() == null || request.existingBranchJson().isBlank()) {
             throw new IllegalArgumentException("existingBranchJson must not be blank");
+        }
+        if (request.branches() != null && !request.branches().isEmpty()) {
+            return demoService.importDttSetToExistingBranch(request);
         }
         if (request.branchIds() == null || request.branchIds().isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
@@ -300,6 +312,9 @@ public class DttController {
     public ImportDttSetToBranchResponse previewBranch(@Body ImportDttSetToBranchRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.branches() != null && !request.branches().isEmpty()) {
+            return demoService.previewDttSetToBranch(request);
         }
         if (request.branchIds() == null || request.branchIds().isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");

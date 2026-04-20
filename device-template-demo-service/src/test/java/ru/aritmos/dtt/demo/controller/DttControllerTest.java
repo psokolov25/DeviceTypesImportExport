@@ -12,9 +12,13 @@ import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchRequest;
 import ru.aritmos.dtt.demo.dto.ExportSingleDttFromBranchRequest;
 import ru.aritmos.dtt.demo.dto.ExportSingleDttFromProfileRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchDeviceRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
+import ru.aritmos.dtt.demo.dto.ImportProfileDeviceTypeRequest;
 import ru.aritmos.dtt.demo.service.DttDemoService;
 import ru.aritmos.dtt.exception.DttFormatException;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
@@ -612,6 +616,60 @@ class DttControllerTest {
         assertThat(response.body()).isNotNull();
         assertThat(response.body().code()).isEqualTo("BAD_REQUEST");
         assertThat(response.body().message()).contains("Ошибка парсинга profile JSON");
+    }
+
+    @Test
+    void shouldImportDttSetToProfileWithDeviceTypeParamOverrides() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportDttSetToProfileRequest request = new ImportDttSetToProfileRequest(
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ImportProfileDeviceTypeRequest(
+                        Base64.getEncoder().encodeToString(bytes),
+                        Map.of("printerServiceURL", "http://override.local:8084", "prefix", "OVR")
+                ))
+        );
+
+        final var response = controller.importToProfile(request);
+
+        assertThat(response.deviceTypesCount()).isEqualTo(1);
+        assertThat(response.profileJson()).contains("printerServiceURL");
+        assertThat(response.profileJson()).contains("http://override.local:8084");
+        assertThat(response.profileJson()).contains("OVR");
+    }
+
+    @Test
+    void shouldImportDttSetToBranchWithDeviceAndDeviceTypeOverrides() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportDttSetToBranchRequest request = new ImportDttSetToBranchRequest(
+                List.of(),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ImportBranchRequest(
+                        "branch-custom",
+                        "Отделение custom",
+                        List.of(new ImportBranchDeviceTypeRequest(
+                                Base64.getEncoder().encodeToString(bytes),
+                                Map.of("TicketZone", "9"),
+                                List.of(new ImportBranchDeviceRequest(
+                                        "display-1",
+                                        "display-1",
+                                        "Display 1",
+                                        "Demo display",
+                                        Map.of("IP", "10.10.10.10", "Port", 22224)
+                                )),
+                                "display"
+                        ))
+                ))
+        );
+
+        final var response = controller.importToBranch(request);
+
+        assertThat(response.branchesCount()).isEqualTo(1);
+        assertThat(response.branchJson()).contains("branch-custom");
+        assertThat(response.branchJson()).contains("TicketZone");
+        assertThat(response.branchJson()).contains("10.10.10.10");
+        assertThat(response.branchJson()).contains("display-1");
     }
 
     private byte[] createArchiveBytes(String deviceTypeId, String onStart) {
