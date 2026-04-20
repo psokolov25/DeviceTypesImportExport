@@ -81,7 +81,7 @@ class DttControllerTest {
         final var response = controller.importToProfile(request);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("display");
+        assertThat(response.profileJson().toString()).contains("display");
     }
 
     @Test
@@ -95,7 +95,7 @@ class DttControllerTest {
         final var response = controller.previewProfile(request);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("display");
+        assertThat(response.profileJson().toString()).contains("display");
     }
 
     @Test
@@ -189,8 +189,8 @@ class DttControllerTest {
         final var response = controller.importToBranch(request);
 
         assertThat(response.branchesCount()).isEqualTo(2);
-        assertThat(response.branchJson()).contains("branch-1");
-        assertThat(response.branchJson()).contains("display");
+        assertThat(response.branchJson().toString()).contains("branch-1");
+        assertThat(response.branchJson().toString()).contains("display");
     }
 
     @Test
@@ -205,8 +205,8 @@ class DttControllerTest {
         final var response = controller.previewBranch(request);
 
         assertThat(response.branchesCount()).isEqualTo(2);
-        assertThat(response.branchJson()).contains("branch-1");
-        assertThat(response.branchJson()).contains("display");
+        assertThat(response.branchJson().toString()).contains("branch-1");
+        assertThat(response.branchJson().toString()).contains("display");
     }
 
     @Test
@@ -231,8 +231,8 @@ class DttControllerTest {
         final var response = controller.importToExistingBranch(request);
 
         assertThat(response.branchesCount()).isEqualTo(1);
-        assertThat(response.branchJson()).contains("branch-1");
-        assertThat(response.branchJson()).contains("display");
+        assertThat(response.branchJson().toString()).contains("branch-1");
+        assertThat(response.branchJson().toString()).contains("display");
     }
 
     @Test
@@ -383,7 +383,7 @@ class DttControllerTest {
         final var response = controller.importToProfile(request);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("display");
+        assertThat(response.profileJson().toString()).contains("display");
     }
 
     @Test
@@ -485,7 +485,7 @@ class DttControllerTest {
         final var response = controller.importToProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("display");
+        assertThat(response.profileJson().toString()).contains("display");
     }
 
     @Test
@@ -495,7 +495,7 @@ class DttControllerTest {
         final var response = controller.previewProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("display");
+        assertThat(response.profileJson().toString()).contains("display");
     }
 
     @Test
@@ -505,8 +505,8 @@ class DttControllerTest {
         final var response = controller.importToBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
 
         assertThat(response.branchesCount()).isEqualTo(1);
-        assertThat(response.branchJson()).contains("branch-1");
-        assertThat(response.branchJson()).contains("display");
+        assertThat(response.branchJson().toString()).contains("branch-1");
+        assertThat(response.branchJson().toString()).contains("display");
     }
 
     @Test
@@ -516,8 +516,8 @@ class DttControllerTest {
         final var response = controller.previewBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
 
         assertThat(response.branchesCount()).isEqualTo(1);
-        assertThat(response.branchJson()).contains("branch-1");
-        assertThat(response.branchJson()).contains("display");
+        assertThat(response.branchJson().toString()).contains("branch-1");
+        assertThat(response.branchJson().toString()).contains("display");
     }
 
     @Test
@@ -633,9 +633,9 @@ class DttControllerTest {
         final var response = controller.importToProfile(request);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("printerServiceURL");
-        assertThat(response.profileJson()).contains("http://override.local:8084");
-        assertThat(response.profileJson()).contains("OVR");
+        assertThat(response.profileJson().toString()).contains("printerServiceURL");
+        assertThat(response.profileJson().toString()).contains("http://override.local:8084");
+        assertThat(response.profileJson().toString()).contains("OVR");
     }
 
     @Test
@@ -666,10 +666,10 @@ class DttControllerTest {
         final var response = controller.importToBranch(request);
 
         assertThat(response.branchesCount()).isEqualTo(1);
-        assertThat(response.branchJson()).contains("branch-custom");
-        assertThat(response.branchJson()).contains("TicketZone");
-        assertThat(response.branchJson()).contains("10.10.10.10");
-        assertThat(response.branchJson()).contains("display-1");
+        assertThat(response.branchJson().toString()).contains("branch-custom");
+        assertThat(response.branchJson().toString()).contains("TicketZone");
+        assertThat(response.branchJson().toString()).contains("10.10.10.10");
+        assertThat(response.branchJson().toString()).contains("display-1");
     }
 
 
@@ -696,8 +696,8 @@ class DttControllerTest {
         final var response = controller.importToProfileUploadMultipart(zipBytes, metadataJson);
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
-        assertThat(response.profileJson()).contains("OVR");
-        assertThat(response.profileJson()).contains("http://10.10.10.10:8084");
+        assertThat(response.profileJson().toString()).contains("OVR");
+        assertThat(response.profileJson().toString()).contains("http://10.10.10.10:8084");
     }
 
     @Test
@@ -747,10 +747,10 @@ class DttControllerTest {
         final var response = controller.importToBranchUploadMultipart(zipBytes, metadataJson);
 
         assertThat(response.branchesCount()).isEqualTo(1);
-        assertThat(response.branchJson()).contains("branch-custom");
-        assertThat(response.branchJson()).contains("10.10.10.10");
-        assertThat(response.branchJson()).contains("TicketZone");
-        assertThat(response.branchJson()).contains("OVR");
+        assertThat(response.branchJson().toString()).contains("branch-custom");
+        assertThat(response.branchJson().toString()).contains("10.10.10.10");
+        assertThat(response.branchJson().toString()).contains("TicketZone");
+        assertThat(response.branchJson().toString()).contains("OVR");
     }
 
     private byte[] createArchiveBytes(String deviceTypeId, String onStart) {

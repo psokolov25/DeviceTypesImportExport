@@ -47,6 +47,7 @@ import ru.aritmos.dtt.exception.TemplateValidationException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +113,7 @@ public class DttController {
     @ApiResponse(
             responseCode = "200",
             description = "Собранный профиль оборудования",
-            content = @Content(examples = @ExampleObject(value = "{\"deviceTypesCount\":1,\"profileJson\":\"{...}\"}"))
+            content = @Content(examples = @ExampleObject(value = "{\"deviceTypesCount\":1,\"profileJson\":{\"display\":{}}}"))
     )
     @ApiResponse(
             responseCode = "400",
@@ -248,7 +249,7 @@ public class DttController {
     @ApiResponse(
             responseCode = "200",
             description = "Собранное оборудование отделений",
-            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":1,\"branchJson\":\"{...}\"}"))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
     )
     @ApiResponse(
             responseCode = "400",
@@ -281,12 +282,12 @@ public class DttController {
     @Operation(summary = "Импортировать набор DTT в существующий branch equipment JSON")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = "{\"existingBranchJson\":\"{...}\",\"mergeStrategy\":\"MERGE_NON_NULLS\",\"branches\":[{\"branchId\":\"branch-custom\",\"displayName\":\"Отделение custom\",\"deviceTypes\":[{\"archiveBase64\":\"UEsDB...\"}]}]}"))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_MERGE_REQUEST_EXAMPLE))
     )
     @ApiResponse(
             responseCode = "200",
             description = "Обновлённое оборудование отделений",
-            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":1,\"branchJson\":\"{...}\"}"))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
     )
     @ApiResponse(
             responseCode = "400",
@@ -336,7 +337,7 @@ public class DttController {
     @ApiResponse(
             responseCode = "200",
             description = "Preview branch equipment JSON",
-            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":1,\"branchJson\":\"{...}\"}"))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
     )
     @ApiResponse(
             responseCode = "400",
@@ -450,224 +451,239 @@ public class DttController {
     }
 
     private ImportDttZipToProfileUploadRequest parseProfileUploadMetadata(String metadataJson) {
-        if (metadataJson == null || metadataJson.isBlank()) {
-            return new ImportDttZipToProfileUploadRequest(MergeStrategy.FAIL_IF_EXISTS, List.of());
-        }
-        final String normalized = normalizeMetadataJson(metadataJson);
-        try {
-            return objectMapper.readValue(normalized, ImportDttZipToProfileUploadRequest.class);
-        } catch (Exception first) {
-            try {
-                return objectMapper.convertValue(parseLenientMetadata(normalized), ImportDttZipToProfileUploadRequest.class);
-            } catch (Exception second) {
-                throw new IllegalArgumentException("Invalid metadata JSON for profile upload", first);
-            }
-        }
+        return parseUploadMetadata(
+                metadataJson,
+                ImportDttZipToProfileUploadRequest.class,
+                "Invalid metadata JSON for profile upload"
+        );
     }
 
     private ImportDttZipToBranchUploadRequest parseBranchUploadMetadata(String metadataJson) {
-        if (metadataJson == null || metadataJson.isBlank()) {
-            return new ImportDttZipToBranchUploadRequest(List.of(), MergeStrategy.FAIL_IF_EXISTS, List.of());
-        }
-        final String normalized = normalizeMetadataJson(metadataJson);
-        try {
-            return objectMapper.readValue(normalized, ImportDttZipToBranchUploadRequest.class);
-        } catch (Exception first) {
-            try {
-                return objectMapper.convertValue(parseLenientMetadata(normalized), ImportDttZipToBranchUploadRequest.class);
-            } catch (Exception second) {
-                throw new IllegalArgumentException("Invalid metadata JSON for branch upload", first);
-            }
-        }
+        return parseUploadMetadata(
+                metadataJson,
+                ImportDttZipToBranchUploadRequest.class,
+                "Invalid metadata JSON for branch upload"
+        );
     }
 
     private ImportDttZipToExistingBranchUploadRequest parseExistingBranchUploadMetadata(String metadataJson) {
+        return parseUploadMetadata(
+                metadataJson,
+                ImportDttZipToExistingBranchUploadRequest.class,
+                "Invalid metadata JSON for branch merge upload"
+        );
+    }
+
+    private <T> T parseUploadMetadata(String metadataJson, Class<T> targetType, String errorMessage) {
         if (metadataJson == null || metadataJson.isBlank()) {
             throw new IllegalArgumentException("metadata must not be blank");
         }
         final String normalized = normalizeMetadataJson(metadataJson);
         try {
-            return objectMapper.readValue(normalized, ImportDttZipToExistingBranchUploadRequest.class);
-        } catch (Exception first) {
+            return objectMapper.readValue(normalized, targetType);
+        } catch (Exception primaryException) {
             try {
-                return objectMapper.convertValue(parseLenientMetadata(normalized), ImportDttZipToExistingBranchUploadRequest.class);
-            } catch (Exception second) {
-                throw new IllegalArgumentException("Invalid metadata JSON for branch merge upload", first);
+                final Object parsed = new LenientMapLikeParser(normalized).parseValue();
+                return objectMapper.convertValue(parsed, targetType);
+            } catch (Exception secondaryException) {
+                throw new IllegalArgumentException(errorMessage, primaryException);
             }
         }
     }
 
     private String normalizeMetadataJson(String metadataJson) {
-        String normalized = metadataJson == null ? null : metadataJson.trim();
-        if (normalized == null || normalized.isEmpty()) {
-            return normalized;
+        String normalized = metadataJson.trim();
+        if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
+            try {
+                normalized = objectMapper.readValue(normalized, String.class);
+            } catch (Exception ignored) {
+                normalized = normalized.substring(1, normalized.length() - 1);
+                normalized = normalized.replace("\\\"", "\"");
+                normalized = normalized.replace("\\n", "\n");
+                normalized = normalized.replace("\\r", "\r");
+                normalized = normalized.replace("\\t", "\t");
+                normalized = normalized.replace("\\\\", "\\");
+            }
         }
-        if ((normalized.startsWith("\"") && normalized.endsWith("\""))
-                || (normalized.startsWith("'") && normalized.endsWith("'"))) {
-            normalized = normalized.substring(1, normalized.length() - 1);
-        }
-        normalized = normalized.replace("\\r\\n", "\n")
-                .replace("\\n", "\n")
-                .replace("\\\"", "\"");
-        return normalized;
-    }
-
-    private Object parseLenientMetadata(String metadataJson) {
-        return new LenientMapLikeParser(metadataJson).parseValue();
+        return normalized.trim();
     }
 
     private static final class LenientMapLikeParser {
-        private final String source;
+
+        private final String text;
         private int index;
 
-        private LenientMapLikeParser(String source) {
-            this.source = source == null ? "" : source.trim();
+        private LenientMapLikeParser(String text) {
+            this.text = text;
         }
 
         private Object parseValue() {
             skipWhitespace();
-            if (index >= source.length()) {
+            if (index >= text.length()) {
                 return null;
             }
-            char current = source.charAt(index);
-            if (current == '{') {
-                return parseObject();
+            char ch = text.charAt(index);
+            if (ch == '{') {
+                return parseMap();
             }
-            if (current == '[') {
-                return parseArray();
+            if (ch == '[') {
+                return parseList();
             }
-            if (current == '"' || current == '\'') {
+            if (ch == '"' || ch == '\'') {
                 return parseQuotedString();
             }
-            return parseScalar();
+            return parseBareToken();
         }
 
-        private Map<String, Object> parseObject() {
-            Map<String, Object> result = new LinkedHashMap<>();
+        private Map<String, Object> parseMap() {
             expect('{');
+            Map<String, Object> result = new LinkedHashMap<>();
             skipWhitespace();
-            while (index < source.length() && source.charAt(index) != '}') {
+            if (peek('}')) {
+                index++;
+                return result;
+            }
+            while (index < text.length()) {
                 String key = parseKey();
                 skipWhitespace();
-                if (index < source.length() && (source.charAt(index) == '=' || source.charAt(index) == ':')) {
+                if (peek('=') || peek(':')) {
                     index++;
                 }
                 Object value = parseValue();
                 result.put(key, value);
                 skipWhitespace();
-                if (index < source.length() && source.charAt(index) == ',') {
+                if (peek(',')) {
                     index++;
                     skipWhitespace();
-                } else {
+                    continue;
+                }
+                if (peek('}')) {
+                    index++;
                     break;
                 }
             }
-            expect('}');
             return result;
         }
 
-        private List<Object> parseArray() {
-            List<Object> result = new java.util.ArrayList<>();
+        private List<Object> parseList() {
             expect('[');
+            List<Object> result = new ArrayList<>();
             skipWhitespace();
-            while (index < source.length() && source.charAt(index) != ']') {
+            if (peek(']')) {
+                index++;
+                return result;
+            }
+            while (index < text.length()) {
                 result.add(parseValue());
                 skipWhitespace();
-                if (index < source.length() && source.charAt(index) == ',') {
+                if (peek(',')) {
                     index++;
                     skipWhitespace();
-                } else {
+                    continue;
+                }
+                if (peek(']')) {
+                    index++;
                     break;
                 }
             }
-            expect(']');
             return result;
         }
 
         private String parseKey() {
             skipWhitespace();
-            if (index < source.length() && (source.charAt(index) == '"' || source.charAt(index) == '\'')) {
+            if (peek('"') || peek('\'')) {
                 return parseQuotedString();
             }
             int start = index;
-            while (index < source.length()) {
-                char current = source.charAt(index);
-                if (current == '=' || current == ':' || Character.isWhitespace(current)) {
+            while (index < text.length()) {
+                char ch = text.charAt(index);
+                if (ch == '=' || ch == ':' || ch == ',' || ch == '}' || Character.isWhitespace(ch)) {
                     break;
                 }
                 index++;
             }
-            return source.substring(start, index).trim();
-        }
-
-        private Object parseScalar() {
-            int start = index;
-            while (index < source.length()) {
-                char current = source.charAt(index);
-                if (current == ',' || current == '}' || current == ']') {
-                    break;
-                }
-                index++;
-            }
-            String raw = source.substring(start, index).trim();
-            if (raw.isEmpty()) {
-                return "";
-            }
-            if ("null".equalsIgnoreCase(raw)) {
-                return null;
-            }
-            if ("true".equalsIgnoreCase(raw) || "false".equalsIgnoreCase(raw)) {
-                return Boolean.valueOf(raw);
-            }
-            if (raw.matches("-?\\d+")) {
-                try {
-                    return Integer.valueOf(raw);
-                } catch (NumberFormatException ignored) {
-                    return raw;
-                }
-            }
-            if (raw.matches("-?\\d+\\.\\d+")) {
-                try {
-                    return Double.valueOf(raw);
-                } catch (NumberFormatException ignored) {
-                    return raw;
-                }
-            }
-            return raw;
+            return text.substring(start, index).trim();
         }
 
         private String parseQuotedString() {
-            char quote = source.charAt(index++);
+            char quote = text.charAt(index++);
             StringBuilder builder = new StringBuilder();
-            while (index < source.length()) {
-                char current = source.charAt(index++);
-                if (current == '\\' && index < source.length()) {
-                    builder.append(source.charAt(index++));
+            while (index < text.length()) {
+                char ch = text.charAt(index++);
+                if (ch == '\\' && index < text.length()) {
+                    char escaped = text.charAt(index++);
+                    switch (escaped) {
+                        case 'n' -> builder.append('\n');
+                        case 'r' -> builder.append('\r');
+                        case 't' -> builder.append('\t');
+                        case '\\' -> builder.append('\\');
+                        case '"' -> builder.append('"');
+                        case '\'' -> builder.append('\'');
+                        default -> builder.append(escaped);
+                    }
                     continue;
                 }
-                if (current == quote) {
+                if (ch == quote) {
                     break;
                 }
-                builder.append(current);
+                builder.append(ch);
             }
             return builder.toString();
         }
 
-        private void expect(char expected) {
-            skipWhitespace();
-            if (index < source.length() && source.charAt(index) == expected) {
+        private Object parseBareToken() {
+            int start = index;
+            while (index < text.length()) {
+                char ch = text.charAt(index);
+                if (ch == ',' || ch == '}' || ch == ']') {
+                    break;
+                }
                 index++;
             }
+            String token = text.substring(start, index).trim();
+            if (token.isEmpty()) {
+                return "";
+            }
+            if ("null".equalsIgnoreCase(token)) {
+                return null;
+            }
+            if ("true".equalsIgnoreCase(token)) {
+                return Boolean.TRUE;
+            }
+            if ("false".equalsIgnoreCase(token)) {
+                return Boolean.FALSE;
+            }
+            if (token.matches("-?\\d+")) {
+                try {
+                    return Integer.valueOf(token);
+                } catch (NumberFormatException ignored) {
+                    return Long.valueOf(token);
+                }
+            }
+            if (token.matches("-?\\d+\\.\\d+")) {
+                return Double.valueOf(token);
+            }
+            return token;
+        }
+
+        private void expect(char ch) {
+            skipWhitespace();
+            if (!peek(ch)) {
+                throw new IllegalArgumentException("Expected '" + ch + "' at index " + index);
+            }
+            index++;
+        }
+
+        private boolean peek(char ch) {
+            return index < text.length() && text.charAt(index) == ch;
         }
 
         private void skipWhitespace() {
-            while (index < source.length() && Character.isWhitespace(source.charAt(index))) {
+            while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
                 index++;
             }
         }
     }
-
-
 
     /**
      * Экспортирует один DTT-архив из profile JSON.
@@ -773,8 +789,34 @@ public class DttController {
     @RequestBody(
             required = true,
             content = @Content(examples = {
-                    @ExampleObject(name = "objectModelFromExportFixed", value = DttSwaggerExamples.PROFILE_EXPORT_OBJECT_FROM_EXPORT_FIXED),
-                    @ExampleObject(name = "jsonStringFromExportFixed", value = DttSwaggerExamples.PROFILE_EXPORT_JSON_STRING_FROM_EXPORT_FIXED)
+                    @ExampleObject(name = "objectModel", value = """
+                            {
+                              "profile": {
+                                "deviceTypes": {
+                                  "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                                    "metadata": {
+                                      "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                                      "name": "Terminal",
+                                      "displayName": "Терминал (Киоск)",
+                                      "description": "Терминал (Киоск)"
+                                    },
+                                    "deviceTypeParamValues": {
+                                      "printerServiceURL": "http://192.168.7.20:8084",
+                                      "prefix": "SSS"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                            """),
+                    @ExampleObject(name = "jsonString", value = """
+                            {
+                              "profileJson": "{\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\":{\\"metadata\\":{\\"id\\":\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\",\\"name\\":\\"Terminal\\",\\"displayName\\":\\"Терминал (Киоск)\\",\\"description\\":\\"Терминал (Киоск)\\"},\\"deviceTypeParamValues\\":{\\"prefix\\":\\"SSS\\"}}}",
+                              "deviceTypeIds": [
+                                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                              ]
+                            }
+                            """)
             })
     )
     @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")

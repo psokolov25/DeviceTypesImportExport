@@ -1,5 +1,8 @@
 package ru.aritmos.dtt.demo.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.inject.Singleton;
 import ru.aritmos.dtt.api.DeviceTemplateLibraryFacade;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
@@ -68,6 +71,7 @@ public class DttDemoService {
     private final DeviceTemplateLibraryFacade facade;
     private final CanonicalTemplateMapper canonicalTemplateMapper = new DefaultCanonicalTemplateMapper();
     private final CanonicalProjectionMapper canonicalProjectionMapper = new DefaultCanonicalProjectionMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Создаёт demo-сервис с явно переданным фасадом библиотеки.
@@ -130,7 +134,7 @@ public class DttDemoService {
         final var profile = facade.importDttSetToProfile(archives, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     /**
@@ -144,7 +148,7 @@ public class DttDemoService {
         final var profile = facade.importDttBase64SetToProfile(archivesBase64, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     public ImportDttSetToProfileResponse importDttSetToProfile(ImportDttSetToProfileRequest request) {
@@ -273,7 +277,7 @@ public class DttDemoService {
         final var branch = facade.importDttSetToBranch(archives, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
     /**
@@ -285,7 +289,7 @@ public class DttDemoService {
         final var branch = facade.importDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
     /**
@@ -305,7 +309,7 @@ public class DttDemoService {
         final var branch = facade.importDttBase64SetToExistingBranch(archivesBase64, existing, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
     public ImportDttSetToBranchResponse importDttSetToBranch(ImportDttSetToBranchRequest request) {
@@ -334,7 +338,7 @@ public class DttDemoService {
         final var profile = facade.previewDttSetToProfile(archives, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     /**
@@ -344,7 +348,7 @@ public class DttDemoService {
         final var profile = facade.previewDttBase64SetToProfile(archivesBase64, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     /**
@@ -361,7 +365,7 @@ public class DttDemoService {
         final var branch = facade.previewDttSetToBranch(archives, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
     /**
@@ -373,7 +377,7 @@ public class DttDemoService {
         final var branch = facade.previewDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
     /**
@@ -387,7 +391,7 @@ public class DttDemoService {
         final var profile = facade.previewDttZipToProfile(zipBytes, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     /**
@@ -404,7 +408,7 @@ public class DttDemoService {
         final var branch = facade.previewDttZipToBranch(zipBytes, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
     /**
@@ -418,7 +422,7 @@ public class DttDemoService {
         final var profile = facade.importDttZipToProfile(zipBytes, mergeStrategy);
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     /**
@@ -435,7 +439,7 @@ public class DttDemoService {
         final var branch = facade.importDttZipToBranch(zipBytes, branchIds, mergeStrategy);
         final String branchJson = facade.toBranchJson(branch);
         final int branchesCount = branch.branches() == null ? 0 : branch.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
 
@@ -465,13 +469,13 @@ public class DttDemoService {
     private ImportDttSetToProfileResponse toProfileResponse(EquipmentProfile profile) {
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(profileJson, deviceTypesCount);
+        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
     }
 
     private ImportDttSetToBranchResponse toBranchResponse(BranchEquipment branchEquipment) {
         final String branchJson = facade.toBranchJson(branchEquipment);
         final int branchesCount = branchEquipment.branches() == null ? 0 : branchEquipment.branches().size();
-        return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount);
     }
 
 
@@ -1309,4 +1313,13 @@ public class DttDemoService {
                 dttVersion
         ));
     }
+
+    private JsonNode toJsonNode(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to parse generated JSON response", exception);
+        }
+    }
+
 }

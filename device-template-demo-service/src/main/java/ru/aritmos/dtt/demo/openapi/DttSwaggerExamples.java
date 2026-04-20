@@ -37,9 +37,19 @@ public final class DttSwaggerExamples {
             """;
 
     public static final String IMPORT_PROFILE_UPLOAD_METADATA_EXAMPLE = """
-            {"mergeStrategy":"FAIL_IF_EXISTS","deviceTypes":[{"archiveEntryName":"Terminal.dtt","deviceTypeParamValues":{"prefix":"OVR","printerServiceURL":"http://10.10.10.10:8084"}}]}
+            {
+              "mergeStrategy": "FAIL_IF_EXISTS",
+              "deviceTypes": [
+                {
+                  "archiveEntryName": "Terminal.dtt",
+                  "deviceTypeParamValues": {
+                    "prefix": "OVR",
+                    "printerServiceURL": "http://10.10.10.10:8084"
+                  }
+                }
+              ]
+            }
             """;
-
 
     public static final String IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS = """
             {
@@ -103,25 +113,107 @@ public final class DttSwaggerExamples {
             """;
 
     public static final String IMPORT_BRANCH_UPLOAD_METADATA_EXAMPLE = """
-            {"mergeStrategy":"FAIL_IF_EXISTS","branches":[{"branchId":"branch-custom","displayName":"Отделение custom","deviceTypes":[{"archiveEntryName":"Display WD3264.dtt","kind":"display","deviceTypeParamValues":{"TicketZone":"9","ServicePointNameZone":"1"},"devices":[{"id":"display-1","name":"display-1","displayName":"Display 1","description":"Demo display","deviceParamValues":{"IP":"10.10.10.10","Port":22224,"ServicePointDisplayName":"OKHO 1"}}]},{"archiveEntryName":"Terminal.dtt","deviceTypeParamValues":{"prefix":"OVR","printerServiceURL":"http://10.10.10.10:8084"}}]}]}
+            {
+              "mergeStrategy": "FAIL_IF_EXISTS",
+              "branches": [
+                {
+                  "branchId": "branch-custom",
+                  "displayName": "Отделение custom",
+                  "deviceTypes": [
+                    {
+                      "archiveEntryName": "Display WD3264.dtt",
+                      "kind": "display",
+                      "deviceTypeParamValues": {
+                        "TicketZone": "9",
+                        "ServicePointNameZone": "1"
+                      },
+                      "devices": [
+                        {
+                          "id": "display-1",
+                          "name": "display-1",
+                          "displayName": "Display 1",
+                          "description": "Demo display",
+                          "deviceParamValues": {
+                            "IP": "10.10.10.10",
+                            "Port": 22224,
+                            "ServicePointDisplayName": "OKHO 1"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "archiveEntryName": "Terminal.dtt",
+                      "deviceTypeParamValues": {
+                        "prefix": "OVR",
+                        "printerServiceURL": "http://10.10.10.10:8084"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
             """;
-
 
     public static final String IMPORT_BRANCH_MERGE_UPLOAD_METADATA_EXAMPLE = """
-            {"existingBranchJson":"{
-  \"branch-custom\": {
-    \"id\": \"branch-custom\",
-    \"displayName\": \"Отделение custom\",
-    \"deviceTypes\": {}
-  }
-}","mergeStrategy":"MERGE_NON_NULLS","branches":[{"branchId":"branch-custom","displayName":"Отделение custom","deviceTypes":[{"archiveEntryName":"Display WD3264.dtt","deviceTypeParamValues":{"TicketZone":"9"},"devices":[{"id":"display-1","name":"display-1","displayName":"Display 1","deviceParamValues":{"IP":"10.10.10.10","Port":22224}}]}]}]}
+            {
+              "existingBranchJson": "{\n  \\"branch-custom\\": {\n    \\"id\\": \\"branch-custom\\",\n    \\"displayName\\": \\"Отделение custom\\",\n    \\"deviceTypes\\": {}\n  }\n}",
+              "mergeStrategy": "MERGE_NON_NULLS",
+              "branches": [
+                {
+                  "branchId": "branch-custom",
+                  "displayName": "Отделение custom",
+                  "deviceTypes": [
+                    {
+                      "archiveEntryName": "Display WD3264.dtt",
+                      "deviceTypeParamValues": {
+                        "TicketZone": "9"
+                      },
+                      "devices": [
+                        {
+                          "id": "display-1",
+                          "name": "display-1",
+                          "displayName": "Display 1",
+                          "deviceParamValues": {
+                            "IP": "10.10.10.10",
+                            "Port": 22224
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
             """;
-
 
     public static final String IMPORT_BRANCH_RESPONSE_EXAMPLE = """
             {
               "branchesCount": 1,
-              "branchJson": "{\n  \"branch-custom\": {\n    \"id\": \"branch-custom\",\n    \"displayName\": \"Отделение custom\",\n    \"deviceTypes\": {\n      \"display-wd3264\": {\n        \"id\": \"display-wd3264\",\n        \"name\": \"Display WD3264\",\n        \"deviceTypeParamValues\": {\n          \"TicketZone\": {\"value\": \"9\"},\n          \"ServicePointNameZone\": {\"value\": \"1\"}\n        },\n        \"devices\": {\n          \"display-1\": {\n            \"deviceParamValues\": {\n              \"IP\": {\"value\": \"10.10.10.10\"},\n              \"Port\": {\"value\": 22224},\n              \"ServicePointDisplayName\": {\"value\": \"OKHO 1\"}\n            }\n          }\n        }\n      }\n    }\n  }\n}"
+              "branchJson": {
+                "branch-custom": {
+                  "id": "branch-custom",
+                  "displayName": "Отделение custom",
+                  "deviceTypes": {
+                    "display-wd3264": {
+                      "id": "display-wd3264",
+                      "name": "Display WD3264",
+                      "deviceTypeParamValues": {
+                        "TicketZone": {"value": "9"},
+                        "ServicePointNameZone": {"value": "1"}
+                      },
+                      "devices": {
+                        "display-1": {
+                          "deviceParamValues": {
+                            "IP": {"value": "10.10.10.10"},
+                            "Port": {"value": 22224},
+                            "ServicePointDisplayName": {"value": "OKHO 1"}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
             """;
 
@@ -158,75 +250,6 @@ public final class DttSwaggerExamples {
             }
             """;
 
-    public static final String PROFILE_EXPORT_OBJECT_FROM_EXPORT_FIXED = """
-            {
-              "profile": {
-                "deviceTypes": {
-                  "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
-                    "metadata": {
-                      "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
-                      "name": "Terminal",
-                      "displayName": "Терминал (Киоск)",
-                      "description": "Терминал (Киоск)"
-                    },
-                    "deviceTypeParamValues": {
-                      "printerServiceURL": {
-                        "value": "http://192.168.7.20:8084",
-                        "name": "printerServiceURL",
-                        "displayName": "entrypoint_printServiceURL",
-                        "type": "String",
-                        "exampleValue": "ID:порт"
-                      },
-                      "prefix": {
-                        "value": "SSS",
-                        "name": "prefix",
-                        "displayName": "entrypoint_prefix",
-                        "type": "String",
-                        "exampleValue": "XXX",
-                        "description": "entrypoint_prefix_desc"
-                      },
-                      "translatorURL": {
-                        "value": "http://192.168.7.20:8104?prefix=SSS",
-                        "name": "translatorURL",
-                        "displayName": "entrypoint_translatorURL",
-                        "type": "String",
-                        "exampleValue": "ID:порт"
-                      },
-                      "templateID": {
-                        "value": "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297",
-                        "name": "templateID",
-                        "displayName": "entrypoint_templateID",
-                        "type": "Select",
-                        "exampleValue": "b3e7815b-ee7c-431f-8220-2c20a0229fa7"
-                      },
-                      "translatorTicket": {
-                        "value": "http://192.168.7.20:8114/printing",
-                        "name": "translatorTicket",
-                        "displayName": "entrypoint_translatorTicket",
-                        "type": "String",
-                        "exampleValue": "ID:порт"
-                      }
-                    }
-                  }
-                }
-              },
-              "deviceTypeIds": [
-                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
-              ],
-              "dttVersion": "2.1.0"
-            }
-            """;
-
-    public static final String PROFILE_EXPORT_JSON_STRING_FROM_EXPORT_FIXED = """
-            {
-              "profileJson": "{\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\":{\"id\":\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\",\"name\":\"Terminal\",\"displayName\":\"Терминал (Киоск)\",\"description\":\"Терминал (Киоск)\",\"deviceTypeParamValues\":{\"printerServiceURL\":{\"value\":\"http://192.168.7.20:8084\",\"name\":\"printerServiceURL\",\"displayName\":\"entrypoint_printServiceURL\",\"type\":\"String\",\"exampleValue\":\"ID:порт\"},\"prefix\":{\"value\":\"SSS\",\"name\":\"prefix\",\"displayName\":\"entrypoint_prefix\",\"type\":\"String\",\"exampleValue\":\"XXX\",\"description\":\"entrypoint_prefix_desc\"},\"translatorURL\":{\"value\":\"http://192.168.7.20:8104?prefix=SSS\",\"name\":\"translatorURL\",\"displayName\":\"entrypoint_translatorURL\",\"type\":\"String\",\"exampleValue\":\"ID:порт\"},\"templateID\":{\"value\":\"90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297\",\"name\":\"templateID\",\"displayName\":\"entrypoint_templateID\",\"type\":\"Select\",\"exampleValue\":\"b3e7815b-ee7c-431f-8220-2c20a0229fa7\"},\"translatorTicket\":{\"value\":\"http://192.168.7.20:8114/printing\",\"name\":\"translatorTicket\",\"displayName\":\"entrypoint_translatorTicket\",\"type\":\"String\",\"exampleValue\":\"ID:порт\"}}}",
-              "deviceTypeIds": [
-                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
-              ],
-              "dttVersion": "2.1.0"
-            }
-            """;
-
     public static final String BRANCH_EXPORT_OBJECT_AUTO_RESOLVE = """
             {
               "branchEquipment": {
@@ -235,100 +258,69 @@ public final class DttSwaggerExamples {
                     "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
                     "displayName": "test kate",
                     "deviceTypes": {
-                      "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
-                        "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
-                        "name": "Terminal",
-                        "description": "Терминал (Киоск)",
-                        "displayName": "Терминал (Киоск)",
-                        "type": "entry_point",
+                      "ffde364f-5f5a-45e6-86b7-1215a28ae96c": {
+                        "id": "ffde364f-5f5a-45e6-86b7-1215a28ae96c",
+                        "name": "Reception",
+                        "displayName": "Приёмная",
+                        "description": "Приёмная",
+                        "type": "reception",
                         "deviceTypeParamValues": {
-                          "printerServiceURL": {"value": "http://192.168.7.20:8084"},
-                          "prefix": {"value": "SSS"},
-                          "translatorURL": {"value": "http://192.168.7.20:8104?prefix=SSS"},
-                          "templateID": {"value": "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"},
-                          "translatorTicket": {"value": "http://192.168.7.20:8114/printing"}
+                          "multiService": {"value": true},
+                          "showQueues": {"value": true}
                         },
                         "devices": {
-                          "811fb688-546f-495d-be86-58a63c5d560d": {
-                            "id": "811fb688-546f-495d-be86-58a63c5d560d",
-                            "name": "entry_point 1",
-                            "displayName": "entry_point 1",
-                            "description": "Терминал (Киоск)"
+                          "14124427-9723-4faf-9a67-105dd4431a16": {
+                            "id": "14124427-9723-4faf-9a67-105dd4431a16",
+                            "name": "reception 1",
+                            "displayName": "reception 1"
                           }
                         },
                         "onPublicFinishEvent": {"inputParameters": {}, "outputParameters": []}
                       }
                     },
                     "prefix": "KAT"
-                  }
-                }
-              },
-              "branchIds": [
-                "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
-              ],
-              "deviceTypeIds": [
-                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
-              ],
-              "mergeStrategy": "FAIL_IF_EXISTS",
-              "dttVersion": "2.1.0"
-            }
-            """;
-
-
-    public static final String BRANCH_EXPORT_OBJECT_FAIL_IF_EXISTS = """
-            {
-              "branchEquipment": {
-                "branches": {
-                  "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
-                    "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
-                    "displayName": "test kate",
+                  },
+                  "37493d1c-8282-4417-a729-dceac1f3e2b4": {
+                    "id": "37493d1c-8282-4417-a729-dceac1f3e2b4",
+                    "displayName": "Отделение на Тверской",
                     "deviceTypes": {
-                      "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
-                        "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
-                        "name": "Terminal",
-                        "description": "Терминал (Киоск)",
-                        "displayName": "Терминал (Киоск)",
-                        "type": "entry_point",
+                      "ffde364f-5f5a-45e6-86b7-1215a28ae96c": {
+                        "id": "ffde364f-5f5a-45e6-86b7-1215a28ae96c",
+                        "name": "Reception",
+                        "displayName": "Reception",
+                        "description": "Устройство озвучивания",
+                        "type": "reception",
                         "deviceTypeParamValues": {
-                          "printerServiceURL": {"value": "http://192.168.7.20:8084"},
-                          "prefix": {"value": "SSS"}
+                          "phrase": {"value": "\\eFПосетитель с номером{ticketId}"},
+                          "URL": {"value": "http://192.168.1.8:8080/unnamed/rest/play"}
                         },
-                        "devices": {
-                          "811fb688-546f-495d-be86-58a63c5d560d": {
-                            "id": "811fb688-546f-495d-be86-58a63c5d560d",
-                            "name": "entry_point 1",
-                            "displayName": "entry_point 1"
-                          }
-                        }
+                        "devices": {}
                       }
                     }
                   }
                 }
               },
               "branchIds": [
-                "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
+                "37493d1c-8282-4417-a729-dceac1f3e2b4"
               ],
-              "deviceTypeIds": [
-                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
-              ],
-              "mergeStrategy": "FAIL_IF_EXISTS",
               "dttVersion": "2.1.0"
             }
             """;
 
+    public static final String BRANCH_EXPORT_OBJECT_FAIL_IF_EXISTS = BRANCH_EXPORT_OBJECT_AUTO_RESOLVE;
 
     public static final String BRANCH_EXPORT_JSON_STRING_FILTERED = """
             {
-              "branchJson": "{\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\":{\"id\":\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\",\"displayName\":\"test kate\",\"deviceTypes\":{\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\":{\"id\":\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\",\"name\":\"Terminal\",\"description\":\"Терминал (Киоск)\",\"displayName\":\"Терминал (Киоск)\",\"type\":\"entry_point\",\"deviceTypeParamValues\":{\"printerServiceURL\":{\"value\":\"http://192.168.7.20:8084\"},\"prefix\":{\"value\":\"SSS\"},\"translatorURL\":{\"value\":\"http://192.168.7.20:8104?prefix=SSS\"},\"templateID\":{\"value\":\"90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297\"},\"translatorTicket\":{\"value\":\"http://192.168.7.20:8114/printing\"}},\"devices\":{\"811fb688-546f-495d-be86-58a63c5d560d\":{\"id\":\"811fb688-546f-495d-be86-58a63c5d560d\",\"name\":\"entry_point 1\",\"displayName\":\"entry_point 1\",\"description\":\"Терминал (Киоск)\"}},\"onPublicFinishEvent\":{\"inputParameters\":{},\"outputParameters\":[]}}},\"prefix\":\"KAT\"}}",
+              "branchJson": "{\n  \"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\": {\n    \"id\": \"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\",\n    \"displayName\": \"test kate\",\n    \"deviceTypes\": {\n      \"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\": {\n        \"id\": \"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\",\n        \"name\": \"Terminal\",\n        \"displayName\": \"Терминал (Киоск)\",\n        \"description\": \"Терминал (Киоск)\",\n        \"type\": \"entry_point\",\n        \"deviceTypeParamValues\": {\n          \"prefix\": {\"value\": \"SSS\"},\n          \"translatorTicket\": {\"value\": \"http://192.168.7.20:8114/printing\"}\n        },\n        \"devices\": {\n          \"811fb688-546f-495d-be86-58a63c5d560d\": {\n            \"id\": \"811fb688-546f-495d-be86-58a63c5d560d\",\n            \"name\": \"entry_point 1\",\n            \"displayName\": \"entry_point 1\"\n          }\n        }\n      }\n    },\n    \"prefix\": \"KAT\"\n  }\n}",
               "branchIds": [
                 "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
               ],
               "deviceTypeIds": [
                 "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
               ],
-              "mergeStrategy": "FAIL_IF_EXISTS",
+              "mergeStrategy": "MERGE_NON_NULLS",
               "dttVersion": "2.1.0"
             }
             """;
-
 }
