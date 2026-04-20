@@ -1,5 +1,6 @@
 package ru.aritmos.dtt.demo.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
@@ -10,7 +11,7 @@ import java.util.List;
  * Запрос на экспорт всех DTT-архивов из branch equipment JSON.
  *
  * @param branchEquipment branch equipment JSON-модель
- * @param branchJson строковое представление branch equipment JSON (альтернативно полю branchEquipment)
+ * @param branchJson branch equipment JSON как объект (альтернативно полю branchEquipment)
  * @param branchIds опциональный список branchId для выборочного экспорта
  * @param deviceTypeIds опциональный список deviceTypeId для выборочного экспорта
  * @param mergeStrategy стратегия разрешения конфликтов deviceTypeId между отделениями
@@ -20,8 +21,8 @@ import java.util.List;
 public record ExportAllDttFromBranchRequest(
         @Schema(description = "Модель branch equipment JSON", implementation = BranchEquipment.class)
         BranchEquipment branchEquipment,
-        @Schema(description = "Строковое представление branch equipment JSON (альтернативно полю branchEquipment)")
-        String branchJson,
+        @Schema(description = "Branch equipment JSON как объект (альтернативно branchEquipment)", type = "object")
+        JsonNode branchJson,
         @Schema(description = "Опциональный список branchId для выборочного экспорта", example = "[\"branch-1\",\"branch-2\"]")
         List<String> branchIds,
         @Schema(description = "Опциональный список deviceTypeId для выборочного экспорта", example = "[\"display\"]")

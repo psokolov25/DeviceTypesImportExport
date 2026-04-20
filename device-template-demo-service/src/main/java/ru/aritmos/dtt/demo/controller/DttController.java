@@ -693,6 +693,12 @@ public class DttController {
      */
     @Post(uri = "/export/profile/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Экспортировать один DTT из profile JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "jsonObject", value = DttSwaggerExamples.PROFILE_EXPORT_SINGLE_OBJECT)
+            })
+    )
     @ApiResponse(responseCode = "200", description = "Экспортированный DTT")
     @ApiResponse(
             responseCode = "400",
@@ -712,7 +718,7 @@ public class DttController {
         if (request.profile() != null) {
             return demoService.exportSingleDttFromProfile(request.profile(), request.deviceTypeId(), request.dttVersion());
         }
-        if (request.profileJson() != null && !request.profileJson().isBlank()) {
+        if (request.profileJson() != null && !request.profileJson().isNull()) {
             return demoService.exportSingleDttFromProfileJson(request.profileJson(), request.deviceTypeId(), request.dttVersion());
         }
         throw new IllegalArgumentException("Either profile or profileJson must be provided");
@@ -726,6 +732,12 @@ public class DttController {
      */
     @Post(uri = "/preview/export/profile/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Preview single-export DTT из profile JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "jsonObject", value = DttSwaggerExamples.PROFILE_EXPORT_SINGLE_OBJECT)
+            })
+    )
     @ApiResponse(responseCode = "200", description = "Preview результата single-export")
     @ApiResponse(
             responseCode = "400",
@@ -745,7 +757,7 @@ public class DttController {
         if (request.profile() != null) {
             return demoService.previewSingleDttExportFromProfile(request.profile(), request.deviceTypeId(), request.dttVersion());
         }
-        if (request.profileJson() != null && !request.profileJson().isBlank()) {
+        if (request.profileJson() != null && !request.profileJson().isNull()) {
             return demoService.previewSingleDttExportFromProfileJson(request.profileJson(), request.deviceTypeId(), request.dttVersion());
         }
         throw new IllegalArgumentException("Either profile or profileJson must be provided");
@@ -759,6 +771,12 @@ public class DttController {
      */
     @Post(uri = "/export/profile/one/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
     @Operation(summary = "Экспортировать один DTT из profile JSON в download-режиме")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "jsonObject", value = DttSwaggerExamples.PROFILE_EXPORT_SINGLE_OBJECT)
+            })
+    )
     public HttpResponse<byte[]> exportSingleFromProfileDownload(@Body ExportSingleDttFromProfileRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
@@ -769,7 +787,7 @@ public class DttController {
         final byte[] payload;
         if (request.profile() != null) {
             payload = demoService.exportSingleDttFromProfileToBytes(request.profile(), request.deviceTypeId(), request.dttVersion());
-        } else if (request.profileJson() != null && !request.profileJson().isBlank()) {
+        } else if (request.profileJson() != null && !request.profileJson().isNull()) {
             payload = demoService.exportSingleDttFromProfileJsonToBytes(request.profileJson(), request.deviceTypeId(), request.dttVersion());
         } else {
             throw new IllegalArgumentException("Either profile or profileJson must be provided");
@@ -809,15 +827,26 @@ public class DttController {
                               }
                             }
                             """),
-                    @ExampleObject(name = "jsonString", value = """
+                    @ExampleObject(name = "jsonObject", value = """
                             {
-                              "profileJson": "{\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\":{\\"metadata\\":{\\"id\\":\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\",\\"name\\":\\"Terminal\\",\\"displayName\\":\\"Терминал (Киоск)\\",\\"description\\":\\"Терминал (Киоск)\\"},\\"deviceTypeParamValues\\":{\\"prefix\\":\\"SSS\\"}}}",
+                              "profileJson": {
+                                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                                  "metadata": {
+                                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                                    "name": "Terminal",
+                                    "displayName": "Терминал (Киоск)",
+                                    "description": "Терминал (Киоск)"
+                                  },
+                                  "deviceTypeParamValues": {
+                                    "prefix": "SSS"
+                                  }
+                                }
+                              },
                               "deviceTypeIds": [
                                 "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
                               ]
                             }
-                            """)
-            })
+                            """)            })
     )
     @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")
     @ApiResponse(
@@ -835,7 +864,7 @@ public class DttController {
         if (request.profile() != null) {
             return demoService.exportAllDttFromProfile(request.profile(), request.deviceTypeIds(), request.dttVersion());
         }
-        if (request.profileJson() != null && !request.profileJson().isBlank()) {
+        if (request.profileJson() != null && !request.profileJson().isNull()) {
             return demoService.exportAllDttFromProfileJson(request.profileJson(), request.deviceTypeIds(), request.dttVersion());
         }
         throw new IllegalArgumentException("Either profile or profileJson must be provided");
@@ -846,8 +875,14 @@ public class DttController {
      */
     @Post(uri = "/export/profile/all/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
     @Operation(summary = "Экспортировать все DTT из profile JSON в zip (upload-download)")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "objectModel", value = DttSwaggerExamples.PROFILE_EXPORT_SINGLE_OBJECT)
+            })
+    )
     public HttpResponse<byte[]> exportAllFromProfileDownload(@Body ExportAllDttFromProfileRequest request) {
-        if (request == null || (request.profile() == null && (request.profileJson() == null || request.profileJson().isBlank()))) {
+        if (request == null || (request.profile() == null && (request.profileJson() == null || request.profileJson().isNull()))) {
             throw new IllegalArgumentException("Either profile or profileJson must be provided");
         }
         final byte[] payload = demoService.exportProfileToZip(
@@ -868,6 +903,12 @@ public class DttController {
      */
     @Post(uri = "/export/branch/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Экспортировать один DTT из branch equipment JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "branchEquipmentObject", value = DttSwaggerExamples.BRANCH_EXPORT_SINGLE_OBJECT)
+            })
+    )
     @ApiResponse(responseCode = "200", description = "Экспортированный DTT")
     @ApiResponse(
             responseCode = "400",
@@ -893,7 +934,7 @@ public class DttController {
                     request.dttVersion()
             );
         }
-        if (request.branchJson() != null && !request.branchJson().isBlank()) {
+        if (request.branchJson() != null && !request.branchJson().isNull()) {
             return demoService.exportSingleDttFromBranchJson(
                     request.branchJson(),
                     request.branchIds(),
@@ -913,6 +954,12 @@ public class DttController {
      */
     @Post(uri = "/preview/export/branch/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Preview single-export DTT из branch equipment JSON")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "branchEquipmentObject", value = DttSwaggerExamples.BRANCH_EXPORT_SINGLE_OBJECT)
+            })
+    )
     @ApiResponse(responseCode = "200", description = "Preview результата single-export")
     @ApiResponse(
             responseCode = "400",
@@ -938,7 +985,7 @@ public class DttController {
                     request.dttVersion()
             );
         }
-        if (request.branchJson() != null && !request.branchJson().isBlank()) {
+        if (request.branchJson() != null && !request.branchJson().isNull()) {
             return demoService.previewSingleDttExportFromBranchJson(
                     request.branchJson(),
                     request.branchIds(),
@@ -958,6 +1005,12 @@ public class DttController {
      */
     @Post(uri = "/export/branch/one/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
     @Operation(summary = "Экспортировать один DTT из branch equipment JSON в download-режиме")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "branchEquipmentObject", value = DttSwaggerExamples.BRANCH_EXPORT_SINGLE_OBJECT)
+            })
+    )
     public HttpResponse<byte[]> exportSingleFromBranchDownload(@Body ExportSingleDttFromBranchRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
@@ -974,7 +1027,7 @@ public class DttController {
                     request.mergeStrategy(),
                     request.dttVersion()
             );
-        } else if (request.branchJson() != null && !request.branchJson().isBlank()) {
+        } else if (request.branchJson() != null && !request.branchJson().isNull()) {
             payload = demoService.exportSingleDttFromBranchJsonToBytes(
                     request.branchJson(),
                     request.branchIds(),
@@ -1027,7 +1080,7 @@ public class DttController {
                     request.dttVersion()
             );
         }
-        if (request.branchJson() != null && !request.branchJson().isBlank()) {
+        if (request.branchJson() != null && !request.branchJson().isNull()) {
             return demoService.exportAllDttFromBranchJson(
                     request.branchJson(),
                     request.branchIds(),
@@ -1053,7 +1106,7 @@ public class DttController {
             })
     )
     public HttpResponse<byte[]> exportAllFromBranchDownload(@Body ExportAllDttFromBranchRequest request) {
-        if (request == null || (request.branchEquipment() == null && (request.branchJson() == null || request.branchJson().isBlank()))) {
+        if (request == null || (request.branchEquipment() == null && (request.branchJson() == null || request.branchJson().isNull()))) {
             throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
         }
         final byte[] payload = demoService.exportBranchToZip(

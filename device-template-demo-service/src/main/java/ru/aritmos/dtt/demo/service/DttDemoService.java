@@ -182,10 +182,10 @@ public class DttDemoService {
      * @param deviceTypeIds опциональный фильтр типов устройств
      * @return Base64-представление экспортированных DTT-архивов
      */
-    public ExportAllDttFromProfileResponse exportAllDttFromProfileJson(String profileJson,
+    public ExportAllDttFromProfileResponse exportAllDttFromProfileJson(JsonNode profileJson,
                                                                        List<String> deviceTypeIds,
                                                                        String dttVersion) {
-        return exportAllDttFromProfile(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion);
+        return exportAllDttFromProfile(facade.parseProfileJson(toCompactJson(profileJson)), deviceTypeIds, dttVersion);
     }
 
     /**
@@ -211,10 +211,10 @@ public class DttDemoService {
     /**
      * Экспортирует один DTT-архив из строкового profile JSON.
      */
-    public ExportSingleDttResponse exportSingleDttFromProfileJson(String profileJson,
+    public ExportSingleDttResponse exportSingleDttFromProfileJson(JsonNode profileJson,
                                                                   String deviceTypeId,
                                                                   String dttVersion) {
-        return exportSingleDttFromProfile(facade.parseProfileJson(profileJson), deviceTypeId, dttVersion);
+        return exportSingleDttFromProfile(facade.parseProfileJson(toCompactJson(profileJson)), deviceTypeId, dttVersion);
     }
 
     /**
@@ -229,7 +229,7 @@ public class DttDemoService {
     /**
      * Экспортирует один DTT-архив из строкового profile JSON как бинарный payload.
      */
-    public byte[] exportSingleDttFromProfileJsonToBytes(String profileJson,
+    public byte[] exportSingleDttFromProfileJsonToBytes(JsonNode profileJson,
                                                         String deviceTypeId,
                                                         String dttVersion) {
         return Base64.getDecoder().decode(exportSingleDttFromProfileJson(profileJson, deviceTypeId, dttVersion).archiveBase64());
@@ -252,7 +252,7 @@ public class DttDemoService {
     /**
      * Выполняет preview single-export из строкового profile JSON.
      */
-    public SingleDttExportPreviewResponse previewSingleDttExportFromProfileJson(String profileJson,
+    public SingleDttExportPreviewResponse previewSingleDttExportFromProfileJson(JsonNode profileJson,
                                                                                  String deviceTypeId,
                                                                                  String dttVersion) {
         try {
@@ -1153,12 +1153,12 @@ public class DttDemoService {
      * @param mergeStrategy стратегия конфликтов между branch
      * @return Base64-представление экспортированных DTT-архивов
      */
-    public ExportAllDttFromBranchResponse exportAllDttFromBranchJson(String branchJson,
+    public ExportAllDttFromBranchResponse exportAllDttFromBranchJson(JsonNode branchJson,
                                                                      List<String> branchIds,
                                                                      List<String> deviceTypeIds,
                                                                      MergeStrategy mergeStrategy,
                                                                      String dttVersion) {
-        return exportAllDttFromBranch(facade.parseBranchJson(branchJson), branchIds, deviceTypeIds, mergeStrategy, dttVersion);
+        return exportAllDttFromBranch(facade.parseBranchJson(toCompactJson(branchJson)), branchIds, deviceTypeIds, mergeStrategy, dttVersion);
     }
 
     /**
@@ -1193,13 +1193,13 @@ public class DttDemoService {
     /**
      * Экспортирует один DTT-архив из строкового branch equipment JSON.
      */
-    public ExportSingleDttResponse exportSingleDttFromBranchJson(String branchJson,
+    public ExportSingleDttResponse exportSingleDttFromBranchJson(JsonNode branchJson,
                                                                  List<String> branchIds,
                                                                  String deviceTypeId,
                                                                  MergeStrategy mergeStrategy,
                                                                  String dttVersion) {
         return exportSingleDttFromBranch(
-                facade.parseBranchJson(branchJson),
+                facade.parseBranchJson(toCompactJson(branchJson)),
                 branchIds,
                 deviceTypeId,
                 mergeStrategy,
@@ -1223,7 +1223,7 @@ public class DttDemoService {
     /**
      * Экспортирует один DTT-архив из строкового branch equipment JSON как бинарный payload.
      */
-    public byte[] exportSingleDttFromBranchJsonToBytes(String branchJson,
+    public byte[] exportSingleDttFromBranchJsonToBytes(JsonNode branchJson,
                                                        List<String> branchIds,
                                                        String deviceTypeId,
                                                        MergeStrategy mergeStrategy,
@@ -1252,7 +1252,7 @@ public class DttDemoService {
     /**
      * Выполняет preview single-export из строкового branch equipment JSON.
      */
-    public SingleDttExportPreviewResponse previewSingleDttExportFromBranchJson(String branchJson,
+    public SingleDttExportPreviewResponse previewSingleDttExportFromBranchJson(JsonNode branchJson,
                                                                                 List<String> branchIds,
                                                                                 String deviceTypeId,
                                                                                 MergeStrategy mergeStrategy,
@@ -1286,12 +1286,12 @@ public class DttDemoService {
      * Экспортирует все DTT-архивы из profile JSON в zip-файл (upload-download режим).
      */
     public byte[] exportProfileToZip(EquipmentProfile profile,
-                                     String profileJson,
+                                     JsonNode profileJson,
                                      List<String> deviceTypeIds,
                                      String dttVersion) {
         final var exported = profile != null
                 ? facade.exportProfileToDttZip(new ProfileExportRequest(profile, deviceTypeIds, dttVersion))
-                : facade.exportProfileToDttZip(new ProfileExportRequest(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion));
+                : facade.exportProfileToDttZip(new ProfileExportRequest(facade.parseProfileJson(toCompactJson(profileJson)), deviceTypeIds, dttVersion));
         return exported;
     }
 
@@ -1299,12 +1299,12 @@ public class DttDemoService {
      * Экспортирует все DTT-архивы из branch equipment JSON в zip-файл (upload-download режим).
      */
     public byte[] exportBranchToZip(BranchEquipment branchEquipment,
-                                    String branchJson,
+                                    JsonNode branchJson,
                                     List<String> branchIds,
                                     List<String> deviceTypeIds,
                                     MergeStrategy mergeStrategy,
                                     String dttVersion) {
-        final BranchEquipment source = branchEquipment != null ? branchEquipment : facade.parseBranchJson(branchJson);
+        final BranchEquipment source = branchEquipment != null ? branchEquipment : facade.parseBranchJson(toCompactJson(branchJson));
         return facade.exportBranchToDttZip(new BranchEquipmentExportRequest(
                 source,
                 branchIds,
@@ -1312,6 +1312,17 @@ public class DttDemoService {
                 mergeStrategy,
                 dttVersion
         ));
+    }
+
+    private String toCompactJson(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(node);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to serialize request JSON", exception);
+        }
     }
 
     private JsonNode toJsonNode(String json) {

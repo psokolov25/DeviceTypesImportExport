@@ -1,5 +1,6 @@
 package ru.aritmos.dtt.demo.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.api.DeviceTemplateLibrary;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
@@ -45,6 +46,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DttControllerTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final DttController controller =
             new DttController(new DttDemoService(DeviceTemplateLibrary.createDefaultFacade()));
@@ -315,13 +318,13 @@ class DttControllerTest {
     void shouldExportSingleDttFromBranchAsDownload() {
         final ExportSingleDttFromBranchRequest request = new ExportSingleDttFromBranchRequest(
                 null,
-                "{" +
+                json("{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
                         "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
-                        "}",
+                        "}"),
                 List.of("branch-1"),
                 "display",
                 MergeStrategy.FAIL_IF_EXISTS,
@@ -341,7 +344,7 @@ class DttControllerTest {
     void shouldReturnMergeConflictDiagnosticsForBranchPreviewSingleExport() {
         final ExportSingleDttFromBranchRequest request = new ExportSingleDttFromBranchRequest(
                 null,
-                "{" +
+                json("{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
                         "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
@@ -352,7 +355,7 @@ class DttControllerTest {
                         "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
-                        "}",
+                        "}"),
                 null,
                 "display",
                 MergeStrategy.FAIL_IF_EXISTS,
@@ -465,9 +468,9 @@ class DttControllerTest {
     void shouldExportAllDttFromProfileJsonString() {
         final ExportAllDttFromProfileRequest request = new ExportAllDttFromProfileRequest(
                 null,
-                "{" +
+                json("{" +
                         "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"deviceTypeParamValues\":{}}" +
-                        "}",
+                        "}"),
                 List.of("display"),
                 null
         );
@@ -549,13 +552,13 @@ class DttControllerTest {
     void shouldExportBranchAsDttZipDownload() throws IOException {
         final ExportAllDttFromBranchRequest request = new ExportAllDttFromBranchRequest(
                 null,
-                "{" +
+                json("{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
                         "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
-                "}",
+                "}"),
                 List.of("branch-1"),
                 List.of("display"),
                 MergeStrategy.FAIL_IF_EXISTS,
@@ -579,13 +582,13 @@ class DttControllerTest {
     void shouldExportAllDttFromBranchJsonString() {
         final ExportAllDttFromBranchRequest request = new ExportAllDttFromBranchRequest(
                 null,
-                "{" +
+                json("{" +
                         "\"branch-1\":{" +
                         "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
                         "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
                         "}" +
                         "}" +
-                "}",
+                "}"),
                 List.of("branch-1"),
                 List.of("display"),
                 MergeStrategy.FAIL_IF_EXISTS,
@@ -751,6 +754,14 @@ class DttControllerTest {
         assertThat(response.branchJson().toString()).contains("10.10.10.10");
         assertThat(response.branchJson().toString()).contains("TicketZone");
         assertThat(response.branchJson().toString()).contains("OVR");
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode json(String rawJson) {
+        try {
+            return OBJECT_MAPPER.readTree(rawJson);
+        } catch (IOException exception) {
+            throw new RuntimeException(exception);
+        }
     }
 
     private byte[] createArchiveBytes(String deviceTypeId, String onStart) {

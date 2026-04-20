@@ -250,6 +250,72 @@ public final class DttSwaggerExamples {
             }
             """;
 
+
+    public static final String PROFILE_EXPORT_SINGLE_OBJECT = """
+            {
+              "profileJson": {
+                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                  "metadata": {
+                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                    "name": "Terminal",
+                    "displayName": "Терминал (Киоск)",
+                    "description": "Терминал (Киоск)"
+                  },
+                  "deviceTypeParamValues": {
+                    "printerServiceURL": "http://192.168.7.20:8084",
+                    "prefix": "SSS",
+                    "translatorURL": "http://192.168.7.20:8104?prefix=SSS",
+                    "templateID": "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297",
+                    "translatorTicket": "http://192.168.7.20:8114/printing"
+                  }
+                }
+              },
+              "deviceTypeId": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+              "dttVersion": "2.1.0"
+            }
+            """;
+
+    public static final String BRANCH_EXPORT_SINGLE_OBJECT = """
+            {
+              "branchEquipment": {
+                "branches": {
+                  "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
+                    "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
+                    "displayName": "test kate",
+                    "deviceTypes": {
+                      "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                        "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                        "name": "Terminal",
+                        "displayName": "Терминал (Киоск)",
+                        "description": "Терминал (Киоск)",
+                        "type": "entry_point",
+                        "deviceTypeParamValues": {
+                          "printerServiceURL": {"value": "http://192.168.7.20:8084"},
+                          "prefix": {"value": "SSS"},
+                          "translatorURL": {"value": "http://192.168.7.20:8104?prefix=SSS"},
+                          "templateID": {"value": "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"},
+                          "translatorTicket": {"value": "http://192.168.7.20:8114/printing"}
+                        },
+                        "devices": {
+                          "811fb688-546f-495d-be86-58a63c5d560d": {
+                            "id": "811fb688-546f-495d-be86-58a63c5d560d",
+                            "name": "entry_point 1",
+                            "displayName": "entry_point 1"
+                          }
+                        },
+                        "onPublicFinishEvent": {"inputParameters": {}, "outputParameters": []}
+                      }
+                    },
+                    "prefix": "KAT"
+                  }
+                }
+              },
+              "branchIds": ["ec8d252d-deb9-4ebb-accf-0ef7994bf17b"],
+              "deviceTypeId": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+              "dttVersion": "2.1.0"
+            }
+            """;
+
     public static final String BRANCH_EXPORT_OBJECT_AUTO_RESOLVE = """
             {
               "branchEquipment": {
@@ -312,7 +378,36 @@ public final class DttSwaggerExamples {
 
     public static final String BRANCH_EXPORT_JSON_STRING_FILTERED = """
             {
-              "branchJson": "{\n  \"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\": {\n    \"id\": \"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\",\n    \"displayName\": \"test kate\",\n    \"deviceTypes\": {\n      \"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\": {\n        \"id\": \"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\",\n        \"name\": \"Terminal\",\n        \"displayName\": \"Терминал (Киоск)\",\n        \"description\": \"Терминал (Киоск)\",\n        \"type\": \"entry_point\",\n        \"deviceTypeParamValues\": {\n          \"prefix\": {\"value\": \"SSS\"},\n          \"translatorTicket\": {\"value\": \"http://192.168.7.20:8114/printing\"}\n        },\n        \"devices\": {\n          \"811fb688-546f-495d-be86-58a63c5d560d\": {\n            \"id\": \"811fb688-546f-495d-be86-58a63c5d560d\",\n            \"name\": \"entry_point 1\",\n            \"displayName\": \"entry_point 1\"\n          }\n        }\n      }\n    },\n    \"prefix\": \"KAT\"\n  }\n}",
+              "branchJson": {
+                "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
+                  "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
+                  "displayName": "test kate",
+                  "deviceTypes": {
+                    "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                      "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                      "name": "Terminal",
+                      "displayName": "Терминал (Киоск)",
+                      "description": "Терминал (Киоск)",
+                      "type": "entry_point",
+                      "deviceTypeParamValues": {
+                        "printerServiceURL": {"value": "http://192.168.7.20:8084"},
+                        "prefix": {"value": "SSS"},
+                        "translatorURL": {"value": "http://192.168.7.20:8104?prefix=SSS"},
+                        "templateID": {"value": "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"},
+                        "translatorTicket": {"value": "http://192.168.7.20:8114/printing"}
+                      },
+                      "devices": {
+                        "811fb688-546f-495d-be86-58a63c5d560d": {
+                          "id": "811fb688-546f-495d-be86-58a63c5d560d",
+                          "name": "entry_point 1",
+                          "displayName": "entry_point 1"
+                        }
+                      }
+                    }
+                  },
+                  "prefix": "KAT"
+                }
+              },
               "branchIds": [
                 "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
               ],
@@ -323,4 +418,5 @@ public final class DttSwaggerExamples {
               "dttVersion": "2.1.0"
             }
             """;
+
 }
