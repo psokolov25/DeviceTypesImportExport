@@ -16,6 +16,8 @@ import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -191,12 +193,36 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(countDttEntries(zipPayload)).isEqualTo(1);
+        assertThat(firstDttEntryName(zipPayload)).isEqualTo("Display.dtt");
 
         final var profileFromZip = facade.importDttZipToProfile(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromZip.deviceTypes()).containsKey("display");
 
         final String zipBase64 = facade.exportProfileToDttZipBase64(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(zipBase64).isNotBlank();
+    }
+
+
+    @Test
+    void shouldUseDeviceTypeNamesForDttFilesInsideZip() throws Exception {
+        final var profile = new EquipmentProfile(Map.of(
+                "display",
+                new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                        new DeviceTypeMetadata("display", "Display WD3264", "Display WD3264", "desc"),
+                        Map.of("ip", "127.0.0.1")
+                ),
+                "terminal",
+                new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                        new DeviceTypeMetadata("terminal", "Терминал (Киоск)", "Терминал (Киоск)", "desc"),
+                        Map.of("prefix", "SSS")
+                )
+        ));
+
+        final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profile, List.of(), null));
+
+        assertThat(zipEntryNames(zipPayload))
+                .contains("Display WD3264.dtt")
+                .contains("Терминал (Киоск).dtt");
     }
 
     @Test
@@ -1036,6 +1062,144 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(secondType.onStartEvent().scriptCode()).isEqualTo("println 'start display'");
     }
 
+    @Test
+    void shouldPreferMostFilledDeviceTypeWhenSameTypeExistsInDifferentBranchesAndMergeStrategyIsNotSpecified() {
+        final String sourceBranchJson = """
+                {
+                  "branch-1": {
+                    "id": "branch-1",
+                    "displayName": "Main",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display",
+                        "description": "Less filled",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": { "value": "10.10.0.1", "name": "ip", "type": "String" }
+                        }
+                      }
+                    }
+                  },
+                  "branch-2": {
+                    "id": "branch-2",
+                    "displayName": "Backup",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display terminal",
+                        "description": "More filled",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": {
+                            "value": "10.10.0.2",
+                            "name": "ip",
+                            "displayName": "IP address",
+                            "type": "String",
+                            "description": "Terminal IP",
+                            "exampleValue": "192.168.0.2"
+                          }
+                        },
+                        "onStartEvent": { "scriptCode": "println 'start display'" },
+                        "eventHandlers": {
+                          "E1": { "scriptCode": "println 'event'" }
+                        },
+                        "commands": {
+                          "C1": { "scriptCode": "println 'command'" }
+                        },
+                        "deviceTypeFunctions": "println 'fn'"
+                      }
+                    }
+                  }
+                }
+                """;
+
+        final BatchDttExportResult exported = facade.exportDttSetFromBranchJson(
+                sourceBranchJson,
+                List.of("branch-1", "branch-2"),
+                null,
+                null,
+                "2.0.0"
+        );
+
+        assertThat(exported.archivesByDeviceTypeId()).containsOnlyKeys("display");
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+        final Map<String, Object> ip = castToMap(restored.deviceTypeParametersSchema().get("ip"));
+        assertThat(restored.metadata().description()).contains("More filled");
+        assertThat(ip).containsEntry("displayName", "IP address");
+        assertThat(ip).containsEntry("description", "Terminal IP");
+        assertThat(restored.eventHandlers()).containsKey("E1");
+        assertThat(restored.commands()).containsKey("C1");
+        assertThat(restored.deviceTypeFunctions()).isEqualTo("println 'fn'");
+        assertThat(castToMap(restored.templateOrigin().get("branchTopologyByBranchId")))
+                .containsKeys("branch-1", "branch-2");
+    }
+
+    @Test
+    void shouldKeepFirstDeviceTypeWhenSameTypeCompletenessIsEqualAndMergeStrategyIsNotSpecified() {
+        final String sourceBranchJson = """
+                {
+                  "branch-1": {
+                    "id": "branch-1",
+                    "displayName": "Main",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display A",
+                        "description": "First branch version",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": {
+                            "value": "10.10.0.1",
+                            "name": "ip",
+                            "displayName": "IP A",
+                            "type": "String"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "branch-2": {
+                    "id": "branch-2",
+                    "displayName": "Backup",
+                    "deviceTypes": {
+                      "display": {
+                        "id": "display",
+                        "name": "Display",
+                        "displayName": "Display B",
+                        "description": "Second branch version",
+                        "type": "display_kind",
+                        "deviceTypeParamValues": {
+                          "ip": {
+                            "value": "10.10.0.2",
+                            "name": "ip",
+                            "displayName": "IP B",
+                            "type": "String"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+
+        final BatchDttExportResult exported = facade.exportDttSetFromBranchJson(
+                sourceBranchJson,
+                List.of("branch-1", "branch-2"),
+                null,
+                null,
+                "2.0.0"
+        );
+
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+        final Map<String, Object> ip = castToMap(restored.deviceTypeParametersSchema().get("ip"));
+        assertThat(restored.metadata().description()).contains("First branch version");
+        assertThat(ip).containsEntry("displayName", "IP A");
+    }
+
     private DttArchiveTemplate template() {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
@@ -1068,4 +1232,31 @@ class DefaultDeviceTemplateLibraryFacadeTest {
             return count;
         }
     }
+
+
+    private String firstDttEntryName(byte[] zipBytes) throws IOException {
+        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".dtt")) {
+                    return entry.getName();
+                }
+            }
+            throw new IllegalStateException("zip payload does not contain .dtt entry");
+        }
+    }
+
+    private List<String> zipEntryNames(byte[] zipBytes) throws IOException {
+        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
+            final java.util.ArrayList<String> names = new java.util.ArrayList<>();
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".dtt")) {
+                    names.add(entry.getName());
+                }
+            }
+            return names;
+        }
+    }
+
 }

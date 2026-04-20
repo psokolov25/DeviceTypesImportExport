@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.archive.DttFileNames;
 import ru.aritmos.dtt.demo.dto.DemoErrorResponse;
 import ru.aritmos.dtt.demo.dto.DttInspectionResponse;
 import ru.aritmos.dtt.demo.dto.DttValidationResponse;
@@ -31,6 +32,7 @@ import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
+import ru.aritmos.dtt.demo.openapi.DttSwaggerExamples;
 import ru.aritmos.dtt.demo.service.DttDemoService;
 import ru.aritmos.dtt.exception.DttFormatException;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
@@ -38,6 +40,8 @@ import ru.aritmos.dtt.exception.TemplateExportException;
 import ru.aritmos.dtt.exception.TemplateImportException;
 import ru.aritmos.dtt.exception.TemplateValidationException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -194,23 +198,15 @@ public class DttController {
     @Operation(summary = "Импортировать набор DTT в branch equipment JSON")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = """
-                    {
-                      "archivesBase64": [
-                        "UEsDB..."
-                      ],
-                      "branchIds": [
-                        "branch-1",
-                        "branch-2"
-                      ],
-                      "mergeStrategy": "FAIL_IF_EXISTS"
-                    }
-                    """))
+            content = @Content(examples = {
+                    @ExampleObject(name = "mergeNonNulls", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS),
+                    @ExampleObject(name = "createCopyWithSuffix", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_CREATE_COPY)
+            })
     )
     @ApiResponse(
             responseCode = "200",
             description = "Собранное оборудование отделений",
-            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":2,\"branchJson\":\"{...}\"}"))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
     )
     @ApiResponse(
             responseCode = "400",
@@ -240,20 +236,13 @@ public class DttController {
     @Operation(summary = "Импортировать набор DTT в существующий branch equipment JSON")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = """
-                    {
-                      "existingBranchJson": "{\"branch-1\":{\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{}}}",
-                      "archivesBase64": [
-                        "UEsDB..."
-                      ],
-                      "branchIds": [
-                        "branch-1"
-                      ],
-                      "mergeStrategy": "CREATE_COPY_WITH_SUFFIX"
-                    }
-                    """))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_MERGE_REQUEST_EXAMPLE))
     )
-    @ApiResponse(responseCode = "200", description = "Обновлённое оборудование отделений")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Обновлённое оборудование отделений",
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
+    )
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка входных данных",
@@ -290,19 +279,16 @@ public class DttController {
     @Operation(summary = "Preview сборки branch equipment JSON из набора DTT")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = """
-                    {
-                      "archivesBase64": [
-                        "UEsDB..."
-                      ],
-                      "branchIds": [
-                        "branch-1"
-                      ],
-                      "mergeStrategy": "MERGE_NON_NULLS"
-                    }
-                    """))
+            content = @Content(examples = {
+                    @ExampleObject(name = "mergeNonNulls", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS),
+                    @ExampleObject(name = "createCopyWithSuffix", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_CREATE_COPY)
+            })
     )
-    @ApiResponse(responseCode = "200", description = "Preview branch equipment JSON")
+    @ApiResponse(
+            responseCode = "200",
+            description = "Preview branch equipment JSON",
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
+    )
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка входных данных",
@@ -450,7 +436,7 @@ public class DttController {
             throw new IllegalArgumentException("Either profile or profileJson must be provided");
         }
         return HttpResponse.ok(payload)
-                .header("Content-Disposition", "attachment; filename=\"" + request.deviceTypeId() + ".dtt\"");
+                .header("Content-Disposition", buildDttContentDisposition(payload, request.deviceTypeId()));
     }
 
     /**
@@ -661,7 +647,7 @@ public class DttController {
             throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
         }
         return HttpResponse.ok(payload)
-                .header("Content-Disposition", "attachment; filename=\"" + request.deviceTypeId() + ".dtt\"");
+                .header("Content-Disposition", buildDttContentDisposition(payload, request.deviceTypeId()));
     }
 
     /**
@@ -675,46 +661,9 @@ public class DttController {
     @RequestBody(
             required = true,
             content = @Content(examples = {
-                    @ExampleObject(name = "objectModel", value = """
-                            {
-                              "branchEquipment": {
-                                "branches": {
-                                  "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
-                                    "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
-                                    "displayName": "test kate",
-                                    "deviceTypes": {
-                                      "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
-                                        "template": {
-                                          "metadata": {
-                                            "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
-                                            "name": "Terminal",
-                                            "displayName": "Терминал (Киоск)",
-                                            "description": "Терминал (Киоск)"
-                                          },
-                                          "deviceTypeParamValues": {
-                                            "prefix": "SSS"
-                                          }
-                                        },
-                                        "devices": {}
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                            """),
-                    @ExampleObject(name = "jsonString", value = """
-                            {
-                              "branchJson": "{\\"branch-1\\":{\\"id\\":\\"branch-1\\",\\"displayName\\":\\"Main\\",\\"deviceTypes\\":{\\"display\\":{\\"template\\":{\\"metadata\\":{\\"id\\":\\"display\\",\\"name\\":\\"Display\\",\\"displayName\\":\\"Display\\",\\"description\\":\\"desc\\"},\\"deviceTypeParamValues\\":{}},\\"devices\\":{}}}}}",
-                              "branchIds": [
-                                "branch-1"
-                              ],
-                              "deviceTypeIds": [
-                                "display"
-                              ],
-                              "mergeStrategy": "FAIL_IF_EXISTS"
-                            }
-                            """)
+                    @ExampleObject(name = "autoResolveMostComplete", value = DttSwaggerExamples.BRANCH_EXPORT_OBJECT_AUTO_RESOLVE),
+                    @ExampleObject(name = "failIfExists", value = DttSwaggerExamples.BRANCH_EXPORT_OBJECT_FAIL_IF_EXISTS),
+                    @ExampleObject(name = "jsonStringFiltered", value = DttSwaggerExamples.BRANCH_EXPORT_JSON_STRING_FILTERED)
             })
     )
     @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")
@@ -756,6 +705,14 @@ public class DttController {
      */
     @Post(uri = "/export/branch/all/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
     @Operation(summary = "Экспортировать все DTT из branch equipment JSON в zip (upload-download)")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = {
+                    @ExampleObject(name = "autoResolveMostComplete", value = DttSwaggerExamples.BRANCH_EXPORT_OBJECT_AUTO_RESOLVE),
+                    @ExampleObject(name = "failIfExists", value = DttSwaggerExamples.BRANCH_EXPORT_OBJECT_FAIL_IF_EXISTS),
+                    @ExampleObject(name = "jsonStringFiltered", value = DttSwaggerExamples.BRANCH_EXPORT_JSON_STRING_FILTERED)
+            })
+    )
     public HttpResponse<byte[]> exportAllFromBranchDownload(@Body ExportAllDttFromBranchRequest request) {
         if (request == null || (request.branchEquipment() == null && (request.branchJson() == null || request.branchJson().isBlank()))) {
             throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
@@ -770,6 +727,15 @@ public class DttController {
         );
         return HttpResponse.ok(payload)
                 .header("Content-Disposition", "attachment; filename=\"branch-dtt-set.zip\"");
+    }
+
+    private String buildDttContentDisposition(byte[] payload, String fallbackBaseName) {
+        final String baseName = demoService.resolveDeviceTypeArchiveBaseName(payload, fallbackBaseName);
+        final String unicodeBaseName = DttFileNames.sanitizeBaseName(baseName);
+        final String asciiBaseName = DttFileNames.toAsciiFallbackBaseName(unicodeBaseName, fallbackBaseName);
+        final String encodedFileName = URLEncoder.encode(unicodeBaseName + ".dtt", StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return "attachment; filename=\"" + asciiBaseName + ".dtt\"; filename*=UTF-8''" + encodedFileName;
     }
 
     /**

@@ -68,6 +68,19 @@ public class DttDemoService {
         );
     }
 
+
+    /**
+     * Возвращает человеко-читаемое имя типа устройства из DTT-архива.
+     *
+     * @param archiveBytes бинарное содержимое DTT-архива
+     * @param fallbackName резервное имя
+     * @return базовое имя файла без расширения
+     */
+    public String resolveDeviceTypeArchiveBaseName(byte[] archiveBytes, String fallbackName) {
+        final DttArchiveTemplate template = facade.readDtt(archiveBytes);
+        return ru.aritmos.dtt.archive.DttFileNames.resolveBaseName(template.metadata(), fallbackName);
+    }
+
     /**
      * Импортирует набор DTT-архивов в profile JSON.
      *

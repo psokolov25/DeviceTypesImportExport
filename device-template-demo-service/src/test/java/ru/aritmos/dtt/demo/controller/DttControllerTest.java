@@ -146,7 +146,7 @@ class DttControllerTest {
         final var response = controller.exportSingleFromProfileDownload(request);
 
         assertThat(response.getStatus().getCode()).isEqualTo(200);
-        assertThat(response.getHeaders().get("Content-Disposition")).contains("display.dtt");
+        assertThat(response.getHeaders().get("Content-Disposition")).contains("Display.dtt");
         final var exportedTemplate = new DefaultDttArchiveReader()
                 .read(new java.io.ByteArrayInputStream(response.body()));
         assertThat(exportedTemplate.metadata().id()).isEqualTo("display");
@@ -327,7 +327,7 @@ class DttControllerTest {
         final var response = controller.exportSingleFromBranchDownload(request);
 
         assertThat(response.getStatus().getCode()).isEqualTo(200);
-        assertThat(response.getHeaders().get("Content-Disposition")).contains("display.dtt");
+        assertThat(response.getHeaders().get("Content-Disposition")).contains("Display.dtt");
         final var exportedTemplate = new DefaultDttArchiveReader()
                 .read(new java.io.ByteArrayInputStream(response.body()));
         assertThat(exportedTemplate.metadata().id()).isEqualTo("display");
@@ -533,6 +533,7 @@ class DttControllerTest {
         assertThat(response.getStatus().getCode()).isEqualTo(200);
         assertThat(response.getHeaders().get("Content-Disposition")).contains("profile-dtt-set.zip");
         assertThat(countDttEntries(response.body())).isEqualTo(1);
+        assertThat(firstDttEntryName(response.body())).isEqualTo("Display.dtt");
         final var exportedTemplate = new DefaultDttArchiveReader()
                 .read(new java.io.ByteArrayInputStream(firstDttEntry(response.body())));
         assertThat(exportedTemplate.descriptor().formatVersion()).isEqualTo("1.0");
@@ -562,6 +563,7 @@ class DttControllerTest {
         assertThat(response.getStatus().getCode()).isEqualTo(200);
         assertThat(response.getHeaders().get("Content-Disposition")).contains("branch-dtt-set.zip");
         assertThat(countDttEntries(response.body())).isEqualTo(1);
+        assertThat(firstDttEntryName(response.body())).isEqualTo("Display.dtt");
         final var exportedTemplate = new DefaultDttArchiveReader()
                 .read(new java.io.ByteArrayInputStream(firstDttEntry(response.body())));
         assertThat(exportedTemplate.descriptor().formatVersion()).isEqualTo("1.0");
@@ -660,6 +662,19 @@ class DttControllerTest {
                 }
             }
             return count;
+        }
+    }
+
+
+    private String firstDttEntryName(byte[] zipBytes) throws IOException {
+        try (ZipInputStream input = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName().endsWith(".dtt")) {
+                    return entry.getName();
+                }
+            }
+            throw new IllegalStateException("zip payload does not contain .dtt entry");
         }
     }
 

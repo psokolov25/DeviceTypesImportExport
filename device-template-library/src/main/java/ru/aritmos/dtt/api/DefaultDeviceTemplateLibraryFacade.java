@@ -16,6 +16,7 @@ import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
 import ru.aritmos.dtt.archive.DttArchiveReader;
+import ru.aritmos.dtt.archive.DttFileNames;
 import ru.aritmos.dtt.archive.DttArchiveWriter;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
@@ -222,7 +223,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         Objects.requireNonNull(request, "request is required");
         Objects.requireNonNull(request.branchEquipment(), "request.branchEquipment is required");
         final Map<String, byte[]> archives = new LinkedHashMap<>();
-        final MergeStrategy effectiveMergeStrategy = request.mergeStrategy() == null ? MergeStrategy.FAIL_IF_EXISTS : request.mergeStrategy();
+        final MergeStrategy requestedMergeStrategy = request.mergeStrategy();
         final Set<String> requestedBranches = resolveRequestedBranches(request.branchEquipment(), request.branchIds());
         final Set<String> requestedDeviceTypeIds = request.deviceTypeIds() == null ? Set.of() : Set.copyOf(request.deviceTypeIds());
         final Set<String> exportedDeviceTypeIds = new HashSet<>();
@@ -235,17 +236,20 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 if (!requestedDeviceTypeIds.isEmpty() && !requestedDeviceTypeIds.contains(typeId)) {
                     return;
                 }
-                final String key = resolveKeyForBranchExport(archives, typeId, branchId, effectiveMergeStrategy);
+                final String key = resolveKeyForBranchExport(archives, typeId, branchId, requestedMergeStrategy);
                 final DttArchiveTemplate incomingTemplate = toArchiveTemplate(key, branchType, branchId, request.dttVersion());
-                if (archives.containsKey(key) && (effectiveMergeStrategy == MergeStrategy.MERGE_NON_NULLS
-                        || effectiveMergeStrategy == MergeStrategy.MERGE_PRESERVE_EXISTING)) {
+                if (archives.containsKey(key)) {
                     final DttArchiveTemplate existingTemplate = readDtt(archives.get(key));
-                    final DttArchiveTemplate mergedTemplate = mergeTemplatesForBranchExport(
-                            existingTemplate,
-                            incomingTemplate,
-                            effectiveMergeStrategy
-                    );
-                    archives.put(key, writeDtt(mergedTemplate));
+                    final DttArchiveTemplate resolvedTemplate;
+                    if (requestedMergeStrategy == null) {
+                        resolvedTemplate = selectMostCompleteTemplateForBranchExport(existingTemplate, incomingTemplate);
+                    } else if (requestedMergeStrategy == MergeStrategy.MERGE_NON_NULLS
+                            || requestedMergeStrategy == MergeStrategy.MERGE_PRESERVE_EXISTING) {
+                        resolvedTemplate = mergeTemplatesForBranchExport(existingTemplate, incomingTemplate, requestedMergeStrategy);
+                    } else {
+                        resolvedTemplate = incomingTemplate;
+                    }
+                    archives.put(key, writeDtt(resolvedTemplate));
                 } else {
                     archives.put(key, writeDtt(incomingTemplate));
                 }
@@ -404,12 +408,6 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 .map(template -> new EquipmentProfileDeviceTypeRequest(template, true))
                 .toList();
         return new EquipmentProfileAssemblyRequest(requests, List.of(), mergeStrategy);
-    }
-
-    private BranchEquipmentAssemblyRequest toBranchAssemblyRequest(List<byte[]> archives,
-                                                                   List<String> branchIds,
-                                                                   MergeStrategy mergeStrategy) {
-        return toBranchAssemblyRequest(archives, branchIds, mergeStrategy, false);
     }
 
     private BranchEquipmentAssemblyRequest toBranchAssemblyRequest(List<byte[]> archives,
@@ -1076,6 +1074,9 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         if (!result.containsKey(typeId)) {
             return typeId;
         }
+        if (mergeStrategy == null) {
+            return typeId;
+        }
 
         return switch (mergeStrategy) {
             case FAIL_IF_EXISTS -> throw new TemplateAssemblyException(
@@ -1084,6 +1085,84 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             case REPLACE, MERGE_NON_NULLS, MERGE_PRESERVE_EXISTING -> typeId;
             case CREATE_COPY_WITH_SUFFIX -> nextCopyKey(result, typeId);
         };
+    }
+
+
+    private DttArchiveTemplate selectMostCompleteTemplateForBranchExport(DttArchiveTemplate existing,
+                                                                         DttArchiveTemplate incoming) {
+        final int existingScore = templateCompletenessScore(existing);
+        final int incomingScore = templateCompletenessScore(incoming);
+        final DttArchiveTemplate preferred = incomingScore > existingScore ? incoming : existing;
+        final Map<String, Object> mergedOrigin = mergeTemplateOrigin(existing.templateOrigin(), incoming.templateOrigin());
+        return new DttArchiveTemplate(
+                preferred.descriptor(),
+                preferred.metadata(),
+                preferred.deviceTypeParametersSchema(),
+                preferred.deviceParametersSchema(),
+                preferred.bindingHints(),
+                preferred.defaultValues(),
+                preferred.exampleValues(),
+                mergedOrigin,
+                preferred.onStartEvent(),
+                preferred.onStopEvent(),
+                preferred.onPublicStartEvent(),
+                preferred.onPublicFinishEvent(),
+                preferred.deviceTypeFunctions(),
+                preferred.eventHandlers(),
+                preferred.commands()
+        );
+    }
+
+    private int templateCompletenessScore(DttArchiveTemplate template) {
+        if (template == null) {
+            return 0;
+        }
+        int score = 0;
+        score += valueCompletenessScore(template.metadata() == null ? null : template.metadata().id());
+        score += valueCompletenessScore(template.metadata() == null ? null : template.metadata().name());
+        score += valueCompletenessScore(template.metadata() == null ? null : template.metadata().displayName());
+        score += valueCompletenessScore(template.metadata() == null ? null : template.metadata().description());
+        score += valueCompletenessScore(template.deviceTypeParametersSchema());
+        score += valueCompletenessScore(template.deviceParametersSchema());
+        score += valueCompletenessScore(template.bindingHints());
+        score += valueCompletenessScore(template.defaultValues());
+        score += valueCompletenessScore(template.exampleValues());
+        score += valueCompletenessScore(template.templateOrigin());
+        score += valueCompletenessScore(template.onStartEvent());
+        score += valueCompletenessScore(template.onStopEvent());
+        score += valueCompletenessScore(template.onPublicStartEvent());
+        score += valueCompletenessScore(template.onPublicFinishEvent());
+        score += valueCompletenessScore(template.deviceTypeFunctions());
+        score += valueCompletenessScore(template.eventHandlers());
+        score += valueCompletenessScore(template.commands());
+        return score;
+    }
+
+    private int valueCompletenessScore(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof CharSequence sequence) {
+            return sequence.toString().isBlank() ? 0 : 1;
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            return 1;
+        }
+        if (value instanceof Map<?, ?> map) {
+            int score = 0;
+            for (Object entryValue : map.values()) {
+                score += valueCompletenessScore(entryValue);
+            }
+            return score;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            int score = 0;
+            for (Object item : iterable) {
+                score += valueCompletenessScore(item);
+            }
+            return score;
+        }
+        return 1;
     }
 
 
@@ -1150,8 +1229,12 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     private byte[] writeDttZip(Map<String, byte[]> archivesByDeviceTypeId) {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream();
              ZipOutputStream zip = new ZipOutputStream(output)) {
+            final Set<String> usedEntryNames = new HashSet<>();
             for (Map.Entry<String, byte[]> entry : archivesByDeviceTypeId.entrySet()) {
-                zip.putNextEntry(new ZipEntry(entry.getKey() + ".dtt"));
+                final DttArchiveTemplate template = readDtt(entry.getValue());
+                final String preferredBaseName = DttFileNames.resolveBaseName(template.metadata(), entry.getKey());
+                final String uniqueBaseName = ensureUniqueArchiveEntryBaseName(preferredBaseName, usedEntryNames);
+                zip.putNextEntry(new ZipEntry(uniqueBaseName + ".dtt"));
                 zip.write(entry.getValue());
                 zip.closeEntry();
             }
@@ -1160,6 +1243,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to build zip payload with DTT archives", exception);
         }
+    }
+
+    private String ensureUniqueArchiveEntryBaseName(String preferredBaseName, Set<String> usedEntryNames) {
+        String candidate = preferredBaseName;
+        int index = 2;
+        while (!usedEntryNames.add(candidate)) {
+            candidate = preferredBaseName + " (" + index + ")";
+            index++;
+        }
+        return candidate;
     }
 
     private Map<String, String> encodeArchives(Map<String, byte[]> archivesByDeviceTypeId) {
