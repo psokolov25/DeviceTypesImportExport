@@ -11,13 +11,17 @@ import ru.aritmos.dtt.demo.dto.DttValidationIssueResponse;
 import ru.aritmos.dtt.demo.dto.DttValidationResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
+import ru.aritmos.dtt.demo.dto.ExportSingleDttResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
+import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewIssueResponse;
+import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Base64;
 
 /**
  * Сервис demo-модуля для валидации и инспекции DTT-архивов.
@@ -119,6 +123,81 @@ public class DttDemoService {
                                                                        List<String> deviceTypeIds,
                                                                        String dttVersion) {
         return exportAllDttFromProfile(facade.parseProfileJson(profileJson), deviceTypeIds, dttVersion);
+    }
+
+    /**
+     * Экспортирует один DTT-архив из profile JSON.
+     *
+     * @param profile профиль оборудования
+     * @param deviceTypeId идентификатор типа устройства
+     * @param dttVersion опциональная версия шаблона
+     * @return экспортированный архив в Base64
+     */
+    public ExportSingleDttResponse exportSingleDttFromProfile(EquipmentProfile profile,
+                                                              String deviceTypeId,
+                                                              String dttVersion) {
+        final ExportAllDttFromProfileResponse exported =
+                exportAllDttFromProfile(profile, List.of(deviceTypeId), dttVersion);
+        final String archiveBase64 = exported.archivesBase64ByDeviceTypeId().get(deviceTypeId);
+        if (archiveBase64 == null || archiveBase64.isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId not found in profile: " + deviceTypeId);
+        }
+        return new ExportSingleDttResponse(deviceTypeId, archiveBase64);
+    }
+
+    /**
+     * Экспортирует один DTT-архив из строкового profile JSON.
+     */
+    public ExportSingleDttResponse exportSingleDttFromProfileJson(String profileJson,
+                                                                  String deviceTypeId,
+                                                                  String dttVersion) {
+        return exportSingleDttFromProfile(facade.parseProfileJson(profileJson), deviceTypeId, dttVersion);
+    }
+
+    /**
+     * Экспортирует один DTT-архив из profile JSON как бинарный payload.
+     */
+    public byte[] exportSingleDttFromProfileToBytes(EquipmentProfile profile,
+                                                    String deviceTypeId,
+                                                    String dttVersion) {
+        return Base64.getDecoder().decode(exportSingleDttFromProfile(profile, deviceTypeId, dttVersion).archiveBase64());
+    }
+
+    /**
+     * Экспортирует один DTT-архив из строкового profile JSON как бинарный payload.
+     */
+    public byte[] exportSingleDttFromProfileJsonToBytes(String profileJson,
+                                                        String deviceTypeId,
+                                                        String dttVersion) {
+        return Base64.getDecoder().decode(exportSingleDttFromProfileJson(profileJson, deviceTypeId, dttVersion).archiveBase64());
+    }
+
+    /**
+     * Выполняет preview single-export из profile JSON.
+     */
+    public SingleDttExportPreviewResponse previewSingleDttExportFromProfile(EquipmentProfile profile,
+                                                                             String deviceTypeId,
+                                                                             String dttVersion) {
+        try {
+            final byte[] payload = exportSingleDttFromProfileToBytes(profile, deviceTypeId, dttVersion);
+            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
+        } catch (RuntimeException exception) {
+            return failedPreview(deviceTypeId, exception, false);
+        }
+    }
+
+    /**
+     * Выполняет preview single-export из строкового profile JSON.
+     */
+    public SingleDttExportPreviewResponse previewSingleDttExportFromProfileJson(String profileJson,
+                                                                                 String deviceTypeId,
+                                                                                 String dttVersion) {
+        try {
+            final byte[] payload = exportSingleDttFromProfileJsonToBytes(profileJson, deviceTypeId, dttVersion);
+            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
+        } catch (RuntimeException exception) {
+            return failedPreview(deviceTypeId, exception, false);
+        }
     }
 
     /**
@@ -322,6 +401,127 @@ public class DttDemoService {
                                                                      MergeStrategy mergeStrategy,
                                                                      String dttVersion) {
         return exportAllDttFromBranch(facade.parseBranchJson(branchJson), branchIds, deviceTypeIds, mergeStrategy, dttVersion);
+    }
+
+    /**
+     * Экспортирует один DTT-архив из branch equipment JSON.
+     *
+     * @param branchEquipment branch equipment модель
+     * @param branchIds опциональный фильтр branch
+     * @param deviceTypeId идентификатор типа устройства
+     * @param mergeStrategy стратегия merge
+     * @param dttVersion опциональная версия шаблона
+     * @return экспортированный архив в Base64
+     */
+    public ExportSingleDttResponse exportSingleDttFromBranch(BranchEquipment branchEquipment,
+                                                             List<String> branchIds,
+                                                             String deviceTypeId,
+                                                             MergeStrategy mergeStrategy,
+                                                             String dttVersion) {
+        final ExportAllDttFromBranchResponse exported = exportAllDttFromBranch(
+                branchEquipment,
+                branchIds,
+                List.of(deviceTypeId),
+                mergeStrategy,
+                dttVersion
+        );
+        final String archiveBase64 = exported.archivesBase64ByDeviceTypeId().get(deviceTypeId);
+        if (archiveBase64 == null || archiveBase64.isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId not found in branch equipment: " + deviceTypeId);
+        }
+        return new ExportSingleDttResponse(deviceTypeId, archiveBase64);
+    }
+
+    /**
+     * Экспортирует один DTT-архив из строкового branch equipment JSON.
+     */
+    public ExportSingleDttResponse exportSingleDttFromBranchJson(String branchJson,
+                                                                 List<String> branchIds,
+                                                                 String deviceTypeId,
+                                                                 MergeStrategy mergeStrategy,
+                                                                 String dttVersion) {
+        return exportSingleDttFromBranch(
+                facade.parseBranchJson(branchJson),
+                branchIds,
+                deviceTypeId,
+                mergeStrategy,
+                dttVersion
+        );
+    }
+
+    /**
+     * Экспортирует один DTT-архив из branch equipment JSON как бинарный payload.
+     */
+    public byte[] exportSingleDttFromBranchToBytes(BranchEquipment branchEquipment,
+                                                   List<String> branchIds,
+                                                   String deviceTypeId,
+                                                   MergeStrategy mergeStrategy,
+                                                   String dttVersion) {
+        return Base64.getDecoder().decode(
+                exportSingleDttFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion).archiveBase64()
+        );
+    }
+
+    /**
+     * Экспортирует один DTT-архив из строкового branch equipment JSON как бинарный payload.
+     */
+    public byte[] exportSingleDttFromBranchJsonToBytes(String branchJson,
+                                                       List<String> branchIds,
+                                                       String deviceTypeId,
+                                                       MergeStrategy mergeStrategy,
+                                                       String dttVersion) {
+        return Base64.getDecoder().decode(
+                exportSingleDttFromBranchJson(branchJson, branchIds, deviceTypeId, mergeStrategy, dttVersion).archiveBase64()
+        );
+    }
+
+    /**
+     * Выполняет preview single-export из branch equipment JSON.
+     */
+    public SingleDttExportPreviewResponse previewSingleDttExportFromBranch(BranchEquipment branchEquipment,
+                                                                            List<String> branchIds,
+                                                                            String deviceTypeId,
+                                                                            MergeStrategy mergeStrategy,
+                                                                            String dttVersion) {
+        try {
+            final byte[] payload = exportSingleDttFromBranchToBytes(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion);
+            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
+        } catch (RuntimeException exception) {
+            return failedPreview(deviceTypeId, exception, true);
+        }
+    }
+
+    /**
+     * Выполняет preview single-export из строкового branch equipment JSON.
+     */
+    public SingleDttExportPreviewResponse previewSingleDttExportFromBranchJson(String branchJson,
+                                                                                List<String> branchIds,
+                                                                                String deviceTypeId,
+                                                                                MergeStrategy mergeStrategy,
+                                                                                String dttVersion) {
+        try {
+            final byte[] payload = exportSingleDttFromBranchJsonToBytes(branchJson, branchIds, deviceTypeId, mergeStrategy, dttVersion);
+            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
+        } catch (RuntimeException exception) {
+            return failedPreview(deviceTypeId, exception, true);
+        }
+    }
+
+    private SingleDttExportPreviewResponse failedPreview(String deviceTypeId,
+                                                         RuntimeException exception,
+                                                         boolean preferMergeConflictCode) {
+        final String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+        final String messageLower = message.toLowerCase();
+        final boolean mergeLike = messageLower.contains("merge")
+                || messageLower.contains("conflict")
+                || messageLower.contains("already exists");
+        final String code = (mergeLike || preferMergeConflictCode) ? "MERGE_CONFLICT" : "EXPORT_PREVIEW_ERROR";
+        return new SingleDttExportPreviewResponse(
+                false,
+                deviceTypeId,
+                null,
+                List.of(new SingleDttExportPreviewIssueResponse(code, message))
+        );
     }
 
     /**

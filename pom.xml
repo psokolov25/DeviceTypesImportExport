@@ -31,6 +31,7 @@
         <maven.install.plugin.version>3.1.3</maven.install.plugin.version>
         <maven.deploy.plugin.version>3.1.3</maven.deploy.plugin.version>
         <maven.shade.plugin.version>3.6.0</maven.shade.plugin.version>
+        <spotbugs.maven.plugin.version>4.9.3.0</spotbugs.maven.plugin.version>
     </properties>
 
     <build>
@@ -79,6 +80,11 @@
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>${maven.shade.plugin.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-maven-plugin</artifactId>
+                    <version>${spotbugs.maven.plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -103,6 +109,25 @@
                                 </requireMavenVersion>
                             </rules>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+                    <failOnError>true</failOnError>
+                    <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs-exclude.xml</excludeFilterFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

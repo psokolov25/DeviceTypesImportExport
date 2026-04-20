@@ -161,6 +161,9 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/preview/profile` (application/json, Base64 DTT set -> preview profile JSON).
 - `POST /api/dtt/import/profile/upload` (application/octet-stream zip с `.dtt` -> profile JSON).
 - `POST /api/dtt/preview/profile/upload` (application/octet-stream zip с `.dtt` -> preview profile JSON).
+- `POST /api/dtt/export/profile/one` (application/json, profile JSON + `deviceTypeId` -> один Base64 DTT).
+- `POST /api/dtt/export/profile/one/download` (application/json, profile JSON + `deviceTypeId` -> бинарный `.dtt`).
+- `POST /api/dtt/preview/export/profile/one` (application/json, preview single export из profile JSON с диагностикой конфликтов/ошибок).
 - `POST /api/dtt/export/profile/all` (application/json, profile JSON -> Base64 DTT set).
 - `POST /api/dtt/export/profile/all/download` (application/json, profile JSON -> zip с `.dtt`).
 - `POST /api/dtt/import/branch` (application/json, Base64 DTT set + branchIds -> branch equipment JSON).
@@ -168,6 +171,9 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/preview/branch` (application/json, Base64 DTT set + branchIds -> preview branch equipment JSON).
 - `POST /api/dtt/import/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> branch equipment JSON).
 - `POST /api/dtt/preview/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> preview branch equipment JSON).
+- `POST /api/dtt/export/branch/one` (application/json, branch equipment JSON + `deviceTypeId` -> один Base64 DTT).
+- `POST /api/dtt/export/branch/one/download` (application/json, branch equipment JSON + `deviceTypeId` -> бинарный `.dtt`).
+- `POST /api/dtt/preview/export/branch/one` (application/json, preview single export из branch equipment JSON с merge-диагностикой).
 - `POST /api/dtt/export/branch/all` (application/json, branch equipment JSON -> Base64 DTT set, поддерживает фильтры `branchIds` и `deviceTypeIds`).
 - `POST /api/dtt/export/branch/all/download` (application/json, branch equipment JSON -> zip с `.dtt`).
 - export endpoint-ы поддерживают **оба варианта входа**: типизированные объектные модели (`profile`, `branchEquipment`) и строковые JSON-поля (`profileJson`, `branchJson`).

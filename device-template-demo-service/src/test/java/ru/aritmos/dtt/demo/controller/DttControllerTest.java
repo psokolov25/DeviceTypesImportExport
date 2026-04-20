@@ -10,6 +10,8 @@ import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchRequest;
+import ru.aritmos.dtt.demo.dto.ExportSingleDttFromBranchRequest;
+import ru.aritmos.dtt.demo.dto.ExportSingleDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
@@ -112,6 +114,66 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldExportSingleDttFromProfileJson() {
+        final ExportSingleDttFromProfileRequest request = new ExportSingleDttFromProfileRequest(
+                new EquipmentProfile(Map.of(
+                        "display",
+                        new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of())
+                )),
+                null,
+                "display",
+                null
+        );
+
+        final var response = controller.exportSingleFromProfile(request);
+
+        assertThat(response.deviceTypeId()).isEqualTo("display");
+        assertThat(response.archiveBase64()).isNotBlank();
+    }
+
+    @Test
+    void shouldExportSingleDttFromProfileAsDownload() {
+        final ExportSingleDttFromProfileRequest request = new ExportSingleDttFromProfileRequest(
+                new EquipmentProfile(Map.of(
+                        "display",
+                        new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of())
+                )),
+                null,
+                "display",
+                "2.1.0"
+        );
+
+        final var response = controller.exportSingleFromProfileDownload(request);
+
+        assertThat(response.getStatus().getCode()).isEqualTo(200);
+        assertThat(response.getHeaders().get("Content-Disposition")).contains("display.dtt");
+        final var exportedTemplate = new DefaultDttArchiveReader()
+                .read(new java.io.ByteArrayInputStream(response.body()));
+        assertThat(exportedTemplate.metadata().id()).isEqualTo("display");
+    }
+
+    @Test
+    void shouldPreviewSingleExportFromProfile() {
+        final ExportSingleDttFromProfileRequest request = new ExportSingleDttFromProfileRequest(
+                new EquipmentProfile(Map.of(
+                        "display",
+                        new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of())
+                )),
+                null,
+                "display",
+                null
+        );
+
+        final var response = controller.previewSingleExportFromProfile(request);
+
+        assertThat(response.canExport()).isTrue();
+        assertThat(response.deviceTypeId()).isEqualTo("display");
+        assertThat(response.archiveSizeBytes()).isNotNull();
+        assertThat(response.archiveSizeBytes()).isGreaterThan(100);
+        assertThat(response.issues()).isEmpty();
+    }
+
+    @Test
     void shouldImportDttSetToBranchJson() {
         final byte[] bytes = createArchiveBytes("display", "println 'ok'");
         final ImportDttSetToBranchRequest request = new ImportDttSetToBranchRequest(
@@ -208,6 +270,101 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldExportSingleDttFromBranchJson() {
+        final ExportSingleDttFromBranchRequest request = new ExportSingleDttFromBranchRequest(
+                new BranchEquipment(Map.of(
+                        "branch-1",
+                        new BranchNode(
+                                "branch-1",
+                                "Main",
+                                Map.of(
+                                        "display",
+                                        new BranchDeviceType(
+                                                new DeviceTypeTemplate(new DeviceTypeMetadata("display", "Display", "Display", "desc"), Map.of()),
+                                                Map.of("dev-1", new DeviceInstanceTemplate("dev-1", "d1", "d1", "desc", Map.of())),
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                null,
+                                                Map.of(),
+                                                Map.of()
+                                        )
+                                )
+                        )
+                )),
+                null,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        );
+
+        final var response = controller.exportSingleFromBranch(request);
+
+        assertThat(response.deviceTypeId()).isEqualTo("display");
+        assertThat(response.archiveBase64()).isNotBlank();
+    }
+
+    @Test
+    void shouldExportSingleDttFromBranchAsDownload() {
+        final ExportSingleDttFromBranchRequest request = new ExportSingleDttFromBranchRequest(
+                null,
+                "{" +
+                        "\"branch-1\":{" +
+                        "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
+                        "}" +
+                        "}" +
+                        "}",
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        );
+
+        final var response = controller.exportSingleFromBranchDownload(request);
+
+        assertThat(response.getStatus().getCode()).isEqualTo(200);
+        assertThat(response.getHeaders().get("Content-Disposition")).contains("display.dtt");
+        final var exportedTemplate = new DefaultDttArchiveReader()
+                .read(new java.io.ByteArrayInputStream(response.body()));
+        assertThat(exportedTemplate.metadata().id()).isEqualTo("display");
+    }
+
+    @Test
+    void shouldReturnMergeConflictDiagnosticsForBranchPreviewSingleExport() {
+        final ExportSingleDttFromBranchRequest request = new ExportSingleDttFromBranchRequest(
+                null,
+                "{" +
+                        "\"branch-1\":{" +
+                        "\"id\":\"branch-1\",\"displayName\":\"Main\",\"deviceTypes\":{" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
+                        "}" +
+                        "}," +
+                        "\"branch-2\":{" +
+                        "\"id\":\"branch-2\",\"displayName\":\"Backup\",\"deviceTypes\":{" +
+                        "\"display\":{\"id\":\"display\",\"name\":\"Display\",\"displayName\":\"Display\",\"description\":\"desc\",\"type\":\"display\",\"deviceTypeParamValues\":{},\"devices\":{}}" +
+                        "}" +
+                        "}" +
+                        "}",
+                null,
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        );
+
+        final var response = controller.previewSingleExportFromBranch(request);
+
+        assertThat(response.canExport()).isFalse();
+        assertThat(response.deviceTypeId()).isEqualTo("display");
+        assertThat(response.archiveSizeBytes()).isNull();
+        assertThat(response.issues()).isNotEmpty();
+        assertThat(response.issues().get(0).code()).isEqualTo("MERGE_CONFLICT");
+    }
+
+    @Test
     void shouldReturnActualDeviceTypesCountForReplaceStrategy() {
         final byte[] oldArchive = createArchiveBytes("display", "println 'old'");
         final byte[] replacementArchive = createArchiveBytes("display", "println 'new'");
@@ -242,6 +399,15 @@ class DttControllerTest {
         assertThatThrownBy(() -> controller.exportAllFromProfile(new ExportAllDttFromProfileRequest(null, null, List.of(), null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either profile or profileJson must be provided");
+    }
+
+    @Test
+    void shouldFailOnBlankDeviceTypeIdForSingleProfileExport() {
+        assertThatThrownBy(() -> controller.exportSingleFromProfile(
+                new ExportSingleDttFromProfileRequest(new EquipmentProfile(Map.of()), null, " ", null)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("deviceTypeId must not be blank");
     }
 
     @Test
@@ -280,6 +446,15 @@ class DttControllerTest {
         )))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either branchEquipment or branchJson must be provided");
+    }
+
+    @Test
+    void shouldFailOnBlankDeviceTypeIdForSingleBranchExport() {
+        assertThatThrownBy(() -> controller.exportSingleFromBranch(
+                new ExportSingleDttFromBranchRequest(new BranchEquipment(Map.of()), null, List.of(), "", MergeStrategy.FAIL_IF_EXISTS, null)
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("deviceTypeId must not be blank");
     }
 
     @Test
