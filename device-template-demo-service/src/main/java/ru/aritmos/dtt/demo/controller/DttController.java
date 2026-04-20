@@ -1,11 +1,13 @@
 package ru.aritmos.dtt.demo.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Error;
 import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.Part;
 import io.micronaut.http.annotation.QueryValue;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,9 +30,12 @@ import ru.aritmos.dtt.demo.dto.ExportSingleDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportSingleDttResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
+import ru.aritmos.dtt.demo.dto.ImportDttZipToBranchUploadRequest;
+import ru.aritmos.dtt.demo.dto.ImportDttZipToExistingBranchUploadRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
+import ru.aritmos.dtt.demo.dto.ImportDttZipToProfileUploadRequest;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
 import ru.aritmos.dtt.demo.openapi.DttSwaggerExamples;
 import ru.aritmos.dtt.demo.service.DttDemoService;
@@ -42,7 +47,9 @@ import ru.aritmos.dtt.exception.TemplateValidationException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Demo API для валидации, инспекции и импорта DTT-архивов.
@@ -52,6 +59,7 @@ import java.util.List;
 public class DttController {
 
     private final DttDemoService demoService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * @param demoService сервис демо-сценариев DTT
@@ -96,14 +104,10 @@ public class DttController {
     @Operation(summary = "Импортировать набор DTT в profile JSON")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = """
-                    {
-                      "archivesBase64": [
-                        "UEsDB..."
-                      ],
-                      "mergeStrategy": "FAIL_IF_EXISTS"
-                    }
-                    """))
+            content = @Content(examples = {
+                    @ExampleObject(name = "legacyBase64Full", value = DttSwaggerExamples.IMPORT_PROFILE_REQUEST_BASE64_FULL),
+                    @ExampleObject(name = "structuredWithOverrides", value = DttSwaggerExamples.IMPORT_PROFILE_REQUEST_STRUCTURED_FULL)
+            })
     )
     @ApiResponse(
             responseCode = "200",
@@ -138,14 +142,10 @@ public class DttController {
     @Operation(summary = "Preview сборки profile JSON из набора DTT")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = """
-                    {
-                      "archivesBase64": [
-                        "UEsDB..."
-                      ],
-                      "mergeStrategy": "MERGE_PRESERVE_EXISTING"
-                    }
-                    """))
+            content = @Content(examples = {
+                    @ExampleObject(name = "legacyBase64Full", value = DttSwaggerExamples.IMPORT_PROFILE_REQUEST_BASE64_FULL),
+                    @ExampleObject(name = "structuredWithOverrides", value = DttSwaggerExamples.IMPORT_PROFILE_REQUEST_STRUCTURED_FULL)
+            })
     )
     @ApiResponse(responseCode = "200", description = "Preview profile JSON")
     @ApiResponse(
@@ -194,6 +194,41 @@ public class DttController {
         return demoService.previewDttZipToProfile(zipPayload, mergeStrategy);
     }
 
+
+    /**
+     * Импортирует zip-архив с файлами .dtt в profile JSON через multipart/form-data.
+     *
+     * @param zipPayload zip-архив с .dtt файлами
+     * @param metadataJson JSON-метаданные импорта profile upload
+     * @return profile JSON и количество типов устройств
+     */
+    @Post(uri = "/import/profile/upload/multipart", consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать zip DTT в profile JSON через multipart/form-data")
+    public ImportDttSetToProfileResponse importToProfileUploadMultipart(
+            @Part("zipPayload") @Schema(type = "string", format = "binary", description = "ZIP-архив с .dtt файлами")
+            byte[] zipPayload,
+            @Part("metadataJson") @Schema(description = "JSON-метаданные импорта profile upload", example = DttSwaggerExamples.IMPORT_PROFILE_UPLOAD_METADATA_EXAMPLE)
+            String metadataJson) {
+        return demoService.importDttZipToProfile(zipPayload, parseProfileUploadMetadata(metadataJson));
+    }
+
+    /**
+     * Выполняет preview-сборку profile JSON из zip-архива с файлами .dtt через multipart/form-data.
+     *
+     * @param zipPayload zip-архив с .dtt файлами
+     * @param metadataJson JSON-метаданные preview-импорта
+     * @return preview profile JSON и количество типов устройств
+     */
+    @Post(uri = "/preview/profile/upload/multipart", consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview profile JSON из zip DTT через multipart/form-data")
+    public ImportDttSetToProfileResponse previewProfileUploadMultipart(
+            @Part("zipPayload") @Schema(type = "string", format = "binary", description = "ZIP-архив с .dtt файлами")
+            byte[] zipPayload,
+            @Part("metadataJson") @Schema(description = "JSON-метаданные preview profile upload", example = DttSwaggerExamples.IMPORT_PROFILE_UPLOAD_METADATA_EXAMPLE)
+            String metadataJson) {
+        return demoService.previewDttZipToProfile(zipPayload, parseProfileUploadMetadata(metadataJson));
+    }
+
     /**
      * Импортирует один или несколько DTT-архивов в branch equipment JSON.
      *
@@ -205,14 +240,15 @@ public class DttController {
     @RequestBody(
             required = true,
             content = @Content(examples = {
-                    @ExampleObject(name = "mergeNonNulls", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS),
-                    @ExampleObject(name = "createCopyWithSuffix", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_CREATE_COPY)
+                    @ExampleObject(name = "mergeNonNullsLegacyBase64Full", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS),
+                    @ExampleObject(name = "createCopyWithSuffixLegacyBase64Full", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_CREATE_COPY),
+                    @ExampleObject(name = "structuredWithOverrides", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_STRUCTURED_FULL)
             })
     )
     @ApiResponse(
             responseCode = "200",
             description = "Собранное оборудование отделений",
-            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
+            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":1,\"branchJson\":\"{...}\"}"))
     )
     @ApiResponse(
             responseCode = "400",
@@ -245,12 +281,12 @@ public class DttController {
     @Operation(summary = "Импортировать набор DTT в существующий branch equipment JSON")
     @RequestBody(
             required = true,
-            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_MERGE_REQUEST_EXAMPLE))
+            content = @Content(examples = @ExampleObject(value = "{\"existingBranchJson\":\"{...}\",\"mergeStrategy\":\"MERGE_NON_NULLS\",\"branches\":[{\"branchId\":\"branch-custom\",\"displayName\":\"Отделение custom\",\"deviceTypes\":[{\"archiveBase64\":\"UEsDB...\"}]}]}"))
     )
     @ApiResponse(
             responseCode = "200",
             description = "Обновлённое оборудование отделений",
-            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
+            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":1,\"branchJson\":\"{...}\"}"))
     )
     @ApiResponse(
             responseCode = "400",
@@ -292,14 +328,15 @@ public class DttController {
     @RequestBody(
             required = true,
             content = @Content(examples = {
-                    @ExampleObject(name = "mergeNonNulls", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS),
-                    @ExampleObject(name = "createCopyWithSuffix", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_CREATE_COPY)
+                    @ExampleObject(name = "mergeNonNullsLegacyBase64Full", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_MERGE_NON_NULLS),
+                    @ExampleObject(name = "createCopyWithSuffixLegacyBase64Full", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_CREATE_COPY),
+                    @ExampleObject(name = "structuredWithOverrides", value = DttSwaggerExamples.IMPORT_BRANCH_REQUEST_STRUCTURED_FULL)
             })
     )
     @ApiResponse(
             responseCode = "200",
             description = "Preview branch equipment JSON",
-            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_BRANCH_RESPONSE_EXAMPLE))
+            content = @Content(examples = @ExampleObject(value = "{\"branchesCount\":1,\"branchJson\":\"{...}\"}"))
     )
     @ApiResponse(
             responseCode = "400",
@@ -359,6 +396,277 @@ public class DttController {
         }
         return demoService.previewDttZipToBranch(zipPayload, branchIds, mergeStrategy);
     }
+
+
+    /**
+     * Импортирует zip-архив с файлами .dtt в branch equipment JSON через multipart/form-data.
+     *
+     * @param zipPayload zip-архив с .dtt файлами
+     * @param metadataJson JSON-метаданные импорта branch upload
+     * @return branch JSON и количество branch
+     */
+    @Post(uri = "/import/branch/upload/multipart", consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать zip DTT в branch equipment JSON через multipart/form-data")
+    public ImportDttSetToBranchResponse importToBranchUploadMultipart(
+            @Part("zipPayload") @Schema(type = "string", format = "binary", description = "ZIP-архив с .dtt файлами")
+            byte[] zipPayload,
+            @Part("metadataJson") @Schema(description = "JSON-метаданные импорта branch upload", example = DttSwaggerExamples.IMPORT_BRANCH_UPLOAD_METADATA_EXAMPLE)
+            String metadataJson) {
+        return demoService.importDttZipToBranch(zipPayload, parseBranchUploadMetadata(metadataJson));
+    }
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON из zip-архива с файлами .dtt через multipart/form-data.
+     *
+     * @param zipPayload zip-архив с .dtt файлами
+     * @param metadataJson JSON-метаданные preview-импорта branch upload
+     * @return preview branch JSON и количество branch
+     */
+    @Post(uri = "/preview/branch/upload/multipart", consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview branch equipment JSON из zip DTT через multipart/form-data")
+    public ImportDttSetToBranchResponse previewBranchUploadMultipart(
+            @Part("zipPayload") @Schema(type = "string", format = "binary", description = "ZIP-архив с .dtt файлами")
+            byte[] zipPayload,
+            @Part("metadataJson") @Schema(description = "JSON-метаданные preview branch upload", example = DttSwaggerExamples.IMPORT_BRANCH_UPLOAD_METADATA_EXAMPLE)
+            String metadataJson) {
+        return demoService.previewDttZipToBranch(zipPayload, parseBranchUploadMetadata(metadataJson));
+    }
+
+    /**
+     * Выполняет merge-импорт zip-архива с файлами .dtt в существующий DeviceManager.json через multipart/form-data.
+     *
+     * @param zipPayload zip-архив с .dtt файлами
+     * @param metadataJson JSON-метаданные merge-импорта
+     * @return branch JSON после merge-импорта
+     */
+    @Post(uri = "/import/branch/merge/upload/multipart", consumes = MediaType.MULTIPART_FORM_DATA, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать zip DTT в существующий branch equipment JSON через multipart/form-data")
+    public ImportDttSetToBranchResponse importToExistingBranchUploadMultipart(
+            @Part("zipPayload") @Schema(type = "string", format = "binary", description = "ZIP-архив с .dtt файлами")
+            byte[] zipPayload,
+            @Part("metadataJson") @Schema(description = "JSON-метаданные merge-импорта branch upload", example = DttSwaggerExamples.IMPORT_BRANCH_MERGE_UPLOAD_METADATA_EXAMPLE)
+            String metadataJson) {
+        return demoService.importDttZipToExistingBranch(zipPayload, parseExistingBranchUploadMetadata(metadataJson));
+    }
+
+    private ImportDttZipToProfileUploadRequest parseProfileUploadMetadata(String metadataJson) {
+        if (metadataJson == null || metadataJson.isBlank()) {
+            return new ImportDttZipToProfileUploadRequest(MergeStrategy.FAIL_IF_EXISTS, List.of());
+        }
+        final String normalized = normalizeMetadataJson(metadataJson);
+        try {
+            return objectMapper.readValue(normalized, ImportDttZipToProfileUploadRequest.class);
+        } catch (Exception first) {
+            try {
+                return objectMapper.convertValue(parseLenientMetadata(normalized), ImportDttZipToProfileUploadRequest.class);
+            } catch (Exception second) {
+                throw new IllegalArgumentException("Invalid metadata JSON for profile upload", first);
+            }
+        }
+    }
+
+    private ImportDttZipToBranchUploadRequest parseBranchUploadMetadata(String metadataJson) {
+        if (metadataJson == null || metadataJson.isBlank()) {
+            return new ImportDttZipToBranchUploadRequest(List.of(), MergeStrategy.FAIL_IF_EXISTS, List.of());
+        }
+        final String normalized = normalizeMetadataJson(metadataJson);
+        try {
+            return objectMapper.readValue(normalized, ImportDttZipToBranchUploadRequest.class);
+        } catch (Exception first) {
+            try {
+                return objectMapper.convertValue(parseLenientMetadata(normalized), ImportDttZipToBranchUploadRequest.class);
+            } catch (Exception second) {
+                throw new IllegalArgumentException("Invalid metadata JSON for branch upload", first);
+            }
+        }
+    }
+
+    private ImportDttZipToExistingBranchUploadRequest parseExistingBranchUploadMetadata(String metadataJson) {
+        if (metadataJson == null || metadataJson.isBlank()) {
+            throw new IllegalArgumentException("metadata must not be blank");
+        }
+        final String normalized = normalizeMetadataJson(metadataJson);
+        try {
+            return objectMapper.readValue(normalized, ImportDttZipToExistingBranchUploadRequest.class);
+        } catch (Exception first) {
+            try {
+                return objectMapper.convertValue(parseLenientMetadata(normalized), ImportDttZipToExistingBranchUploadRequest.class);
+            } catch (Exception second) {
+                throw new IllegalArgumentException("Invalid metadata JSON for branch merge upload", first);
+            }
+        }
+    }
+
+    private String normalizeMetadataJson(String metadataJson) {
+        String normalized = metadataJson == null ? null : metadataJson.trim();
+        if (normalized == null || normalized.isEmpty()) {
+            return normalized;
+        }
+        if ((normalized.startsWith("\"") && normalized.endsWith("\""))
+                || (normalized.startsWith("'") && normalized.endsWith("'"))) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        normalized = normalized.replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\\"", "\"");
+        return normalized;
+    }
+
+    private Object parseLenientMetadata(String metadataJson) {
+        return new LenientMapLikeParser(metadataJson).parseValue();
+    }
+
+    private static final class LenientMapLikeParser {
+        private final String source;
+        private int index;
+
+        private LenientMapLikeParser(String source) {
+            this.source = source == null ? "" : source.trim();
+        }
+
+        private Object parseValue() {
+            skipWhitespace();
+            if (index >= source.length()) {
+                return null;
+            }
+            char current = source.charAt(index);
+            if (current == '{') {
+                return parseObject();
+            }
+            if (current == '[') {
+                return parseArray();
+            }
+            if (current == '"' || current == '\'') {
+                return parseQuotedString();
+            }
+            return parseScalar();
+        }
+
+        private Map<String, Object> parseObject() {
+            Map<String, Object> result = new LinkedHashMap<>();
+            expect('{');
+            skipWhitespace();
+            while (index < source.length() && source.charAt(index) != '}') {
+                String key = parseKey();
+                skipWhitespace();
+                if (index < source.length() && (source.charAt(index) == '=' || source.charAt(index) == ':')) {
+                    index++;
+                }
+                Object value = parseValue();
+                result.put(key, value);
+                skipWhitespace();
+                if (index < source.length() && source.charAt(index) == ',') {
+                    index++;
+                    skipWhitespace();
+                } else {
+                    break;
+                }
+            }
+            expect('}');
+            return result;
+        }
+
+        private List<Object> parseArray() {
+            List<Object> result = new java.util.ArrayList<>();
+            expect('[');
+            skipWhitespace();
+            while (index < source.length() && source.charAt(index) != ']') {
+                result.add(parseValue());
+                skipWhitespace();
+                if (index < source.length() && source.charAt(index) == ',') {
+                    index++;
+                    skipWhitespace();
+                } else {
+                    break;
+                }
+            }
+            expect(']');
+            return result;
+        }
+
+        private String parseKey() {
+            skipWhitespace();
+            if (index < source.length() && (source.charAt(index) == '"' || source.charAt(index) == '\'')) {
+                return parseQuotedString();
+            }
+            int start = index;
+            while (index < source.length()) {
+                char current = source.charAt(index);
+                if (current == '=' || current == ':' || Character.isWhitespace(current)) {
+                    break;
+                }
+                index++;
+            }
+            return source.substring(start, index).trim();
+        }
+
+        private Object parseScalar() {
+            int start = index;
+            while (index < source.length()) {
+                char current = source.charAt(index);
+                if (current == ',' || current == '}' || current == ']') {
+                    break;
+                }
+                index++;
+            }
+            String raw = source.substring(start, index).trim();
+            if (raw.isEmpty()) {
+                return "";
+            }
+            if ("null".equalsIgnoreCase(raw)) {
+                return null;
+            }
+            if ("true".equalsIgnoreCase(raw) || "false".equalsIgnoreCase(raw)) {
+                return Boolean.valueOf(raw);
+            }
+            if (raw.matches("-?\\d+")) {
+                try {
+                    return Integer.valueOf(raw);
+                } catch (NumberFormatException ignored) {
+                    return raw;
+                }
+            }
+            if (raw.matches("-?\\d+\\.\\d+")) {
+                try {
+                    return Double.valueOf(raw);
+                } catch (NumberFormatException ignored) {
+                    return raw;
+                }
+            }
+            return raw;
+        }
+
+        private String parseQuotedString() {
+            char quote = source.charAt(index++);
+            StringBuilder builder = new StringBuilder();
+            while (index < source.length()) {
+                char current = source.charAt(index++);
+                if (current == '\\' && index < source.length()) {
+                    builder.append(source.charAt(index++));
+                    continue;
+                }
+                if (current == quote) {
+                    break;
+                }
+                builder.append(current);
+            }
+            return builder.toString();
+        }
+
+        private void expect(char expected) {
+            skipWhitespace();
+            if (index < source.length() && source.charAt(index) == expected) {
+                index++;
+            }
+        }
+
+        private void skipWhitespace() {
+            while (index < source.length() && Character.isWhitespace(source.charAt(index))) {
+                index++;
+            }
+        }
+    }
+
 
 
     /**
@@ -465,34 +773,8 @@ public class DttController {
     @RequestBody(
             required = true,
             content = @Content(examples = {
-                    @ExampleObject(name = "objectModel", value = """
-                            {
-                              "profile": {
-                                "deviceTypes": {
-                                  "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
-                                    "metadata": {
-                                      "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
-                                      "name": "Terminal",
-                                      "displayName": "Терминал (Киоск)",
-                                      "description": "Терминал (Киоск)"
-                                    },
-                                    "deviceTypeParamValues": {
-                                      "printerServiceURL": "http://192.168.7.20:8084",
-                                      "prefix": "SSS"
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                            """),
-                    @ExampleObject(name = "jsonString", value = """
-                            {
-                              "profileJson": "{\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\":{\\"metadata\\":{\\"id\\":\\"ed650d7d-6201-42fb-a4c3-b9efb93dda0c\\",\\"name\\":\\"Terminal\\",\\"displayName\\":\\"Терминал (Киоск)\\",\\"description\\":\\"Терминал (Киоск)\\"},\\"deviceTypeParamValues\\":{\\"prefix\\":\\"SSS\\"}}}",
-                              "deviceTypeIds": [
-                                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
-                              ]
-                            }
-                            """)
+                    @ExampleObject(name = "objectModelFromExportFixed", value = DttSwaggerExamples.PROFILE_EXPORT_OBJECT_FROM_EXPORT_FIXED),
+                    @ExampleObject(name = "jsonStringFromExportFixed", value = DttSwaggerExamples.PROFILE_EXPORT_JSON_STRING_FROM_EXPORT_FIXED)
             })
     )
     @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")

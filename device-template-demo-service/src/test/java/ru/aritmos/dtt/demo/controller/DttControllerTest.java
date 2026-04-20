@@ -672,6 +672,87 @@ class DttControllerTest {
         assertThat(response.branchJson()).contains("display-1");
     }
 
+
+    @Test
+    void shouldImportProfileZipUploadMultipartWithMetadata() {
+        final byte[] zipBytes = zipArchives(Map.of(
+                "Terminal.dtt", createArchiveBytes("terminal", "println 'ok'")
+        ));
+        final String metadataJson = """
+                {
+                  "mergeStrategy": "FAIL_IF_EXISTS",
+                  "deviceTypes": [
+                    {
+                      "archiveEntryName": "Terminal.dtt",
+                      "deviceTypeParamValues": {
+                        "prefix": "OVR",
+                        "printerServiceURL": "http://10.10.10.10:8084"
+                      }
+                    }
+                  ]
+                }
+                """;
+
+        final var response = controller.importToProfileUploadMultipart(zipBytes, metadataJson);
+
+        assertThat(response.deviceTypesCount()).isEqualTo(1);
+        assertThat(response.profileJson()).contains("OVR");
+        assertThat(response.profileJson()).contains("http://10.10.10.10:8084");
+    }
+
+    @Test
+    void shouldImportBranchZipUploadMultipartWithMetadata() {
+        final byte[] zipBytes = zipArchives(Map.of(
+                "Display WD3264.dtt", createArchiveBytes("display-wd3264", "println 'ok'"),
+                "Terminal.dtt", createArchiveBytes("terminal", "println 'ok'")
+        ));
+        final String metadataJson = """
+                {
+                  "mergeStrategy": "FAIL_IF_EXISTS",
+                  "branches": [
+                    {
+                      "branchId": "branch-custom",
+                      "displayName": "Отделение custom",
+                      "deviceTypes": [
+                        {
+                          "archiveEntryName": "Display WD3264.dtt",
+                          "kind": "display",
+                          "deviceTypeParamValues": {
+                            "TicketZone": "9"
+                          },
+                          "devices": [
+                            {
+                              "id": "display-1",
+                              "name": "display-1",
+                              "displayName": "Display 1",
+                              "deviceParamValues": {
+                                "IP": "10.10.10.10",
+                                "Port": 22224
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "archiveEntryName": "Terminal.dtt",
+                          "deviceTypeParamValues": {
+                            "prefix": "OVR"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """;
+
+        final var response = controller.importToBranchUploadMultipart(zipBytes, metadataJson);
+
+        assertThat(response.branchesCount()).isEqualTo(1);
+        assertThat(response.branchJson()).contains("branch-custom");
+        assertThat(response.branchJson()).contains("10.10.10.10");
+        assertThat(response.branchJson()).contains("TicketZone");
+        assertThat(response.branchJson()).contains("OVR");
+    }
+
     private byte[] createArchiveBytes(String deviceTypeId, String onStart) {
         final DttArchiveTemplate template = new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", deviceTypeId, null),

@@ -25,10 +25,16 @@ import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
+import ru.aritmos.dtt.demo.dto.ImportDttZipToBranchUploadRequest;
+import ru.aritmos.dtt.demo.dto.ImportDttZipToExistingBranchUploadRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
+import ru.aritmos.dtt.demo.dto.ImportDttZipToProfileUploadRequest;
 import ru.aritmos.dtt.demo.dto.ImportProfileDeviceTypeRequest;
+import ru.aritmos.dtt.demo.dto.ImportUploadedBranchDeviceTypeRequest;
+import ru.aritmos.dtt.demo.dto.ImportUploadedBranchRequest;
+import ru.aritmos.dtt.demo.dto.ImportUploadedProfileDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewIssueResponse;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
@@ -48,6 +54,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
 /**
  * Сервис demo-модуля для валидации и инспекции DTT-архивов.
@@ -428,6 +438,30 @@ public class DttDemoService {
         return new ImportDttSetToBranchResponse(branchJson, branchesCount);
     }
 
+
+    public ImportDttSetToProfileResponse importDttZipToProfile(byte[] zipBytes, ImportDttZipToProfileUploadRequest request) {
+        return toProfileResponse(facade.assembleProfile(toStructuredProfileAssemblyRequest(zipBytes, request)));
+    }
+
+    public ImportDttSetToProfileResponse previewDttZipToProfile(byte[] zipBytes, ImportDttZipToProfileUploadRequest request) {
+        return toProfileResponse(facade.assembleProfile(toStructuredProfileAssemblyRequest(zipBytes, request)));
+    }
+
+    public ImportDttSetToBranchResponse importDttZipToBranch(byte[] zipBytes, ImportDttZipToBranchUploadRequest request) {
+        return toBranchResponse(facade.assembleBranch(toStructuredBranchAssemblyRequest(zipBytes, request)));
+    }
+
+    public ImportDttSetToBranchResponse previewDttZipToBranch(byte[] zipBytes, ImportDttZipToBranchUploadRequest request) {
+        return toBranchResponse(facade.assembleBranch(toStructuredBranchAssemblyRequest(zipBytes, request)));
+    }
+
+    public ImportDttSetToBranchResponse importDttZipToExistingBranch(byte[] zipBytes,
+                                                                     ImportDttZipToExistingBranchUploadRequest request) {
+        final BranchEquipment existing = facade.parseBranchJson(request.existingBranchJson());
+        final BranchEquipment imported = facade.assembleBranch(toStructuredBranchAssemblyRequest(zipBytes, request));
+        return toBranchResponse(mergeBranchEquipment(existing, imported, request.mergeStrategy()));
+    }
+
     private ImportDttSetToProfileResponse toProfileResponse(EquipmentProfile profile) {
         final String profileJson = facade.toProfileJson(profile);
         final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
@@ -438,6 +472,181 @@ public class DttDemoService {
         final String branchJson = facade.toBranchJson(branchEquipment);
         final int branchesCount = branchEquipment.branches() == null ? 0 : branchEquipment.branches().size();
         return new ImportDttSetToBranchResponse(branchJson, branchesCount);
+    }
+
+
+    private EquipmentProfileAssemblyRequest toStructuredProfileAssemblyRequest(byte[] zipBytes,
+                                                                              ImportDttZipToProfileUploadRequest request) {
+        final Map<String, byte[]> archivesByEntryName = readDttFilesFromZipByEntryName(zipBytes);
+        final List<EquipmentProfileDeviceTypeRequest> deviceTypes = new ArrayList<>();
+        if (request != null && request.deviceTypes() != null && !request.deviceTypes().isEmpty()) {
+            request.deviceTypes().forEach(item -> deviceTypes.add(toProfileDeviceTypeRequest(archivesByEntryName, item)));
+        } else {
+            archivesByEntryName.values().forEach(bytes -> {
+                final DttArchiveTemplate archive = facade.readDtt(bytes);
+                deviceTypes.add(new EquipmentProfileDeviceTypeRequest(toDeviceTypeTemplate(archive), true));
+            });
+        }
+        if (deviceTypes.isEmpty()) {
+            throw new IllegalArgumentException("zip payload must contain at least one .dtt file");
+        }
+        return new EquipmentProfileAssemblyRequest(
+                deviceTypes,
+                List.of(),
+                request == null ? MergeStrategy.FAIL_IF_EXISTS : request.mergeStrategy()
+        );
+    }
+
+    private EquipmentProfileDeviceTypeRequest toProfileDeviceTypeRequest(Map<String, byte[]> archivesByEntryName,
+                                                                        ImportUploadedProfileDeviceTypeRequest request) {
+        final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
+        final DeviceTypeTemplate template = toDeviceTypeTemplate(archive);
+        return new EquipmentProfileDeviceTypeRequest(
+                new DeviceTypeTemplate(template.metadata(), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
+                true
+        );
+    }
+
+    private BranchEquipmentAssemblyRequest toStructuredBranchAssemblyRequest(byte[] zipBytes,
+                                                                            ImportDttZipToBranchUploadRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        final Map<String, byte[]> archivesByEntryName = readDttFilesFromZipByEntryName(zipBytes);
+        final Map<String, BranchImportRequest> branches = new LinkedHashMap<>();
+        if (request.branchIds() != null) {
+            final List<byte[]> archives = new ArrayList<>(archivesByEntryName.values());
+            for (String branchId : request.branchIds()) {
+                branches.put(branchId, buildLegacyBranchImportRequestFromBytes(branchId, archives));
+            }
+        }
+        if (request.branches() != null) {
+            request.branches().forEach(branchRequest -> mergeBranchImport(branches, toStructuredBranchImportRequest(archivesByEntryName, branchRequest)));
+        }
+        if (branches.isEmpty()) {
+            throw new IllegalArgumentException("Either branchIds or structured branches must contain at least one import target");
+        }
+        return new BranchEquipmentAssemblyRequest(new ArrayList<>(branches.values()), request.mergeStrategy());
+    }
+
+    private BranchEquipmentAssemblyRequest toStructuredBranchAssemblyRequest(byte[] zipBytes,
+                                                                            ImportDttZipToExistingBranchUploadRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        final Map<String, byte[]> archivesByEntryName = readDttFilesFromZipByEntryName(zipBytes);
+        final Map<String, BranchImportRequest> branches = new LinkedHashMap<>();
+        if (request.branchIds() != null) {
+            final List<byte[]> archives = new ArrayList<>(archivesByEntryName.values());
+            for (String branchId : request.branchIds()) {
+                branches.put(branchId, buildLegacyBranchImportRequestFromBytes(branchId, archives));
+            }
+        }
+        if (request.branches() != null) {
+            request.branches().forEach(branchRequest -> mergeBranchImport(branches, toStructuredBranchImportRequest(archivesByEntryName, branchRequest)));
+        }
+        if (branches.isEmpty()) {
+            throw new IllegalArgumentException("Either branchIds or structured branches must contain at least one import target");
+        }
+        return new BranchEquipmentAssemblyRequest(new ArrayList<>(branches.values()), request.mergeStrategy());
+    }
+
+    private BranchImportRequest toStructuredBranchImportRequest(Map<String, byte[]> archivesByEntryName,
+                                                               ImportUploadedBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("branch request must not be null");
+        }
+        if (request.branchId() == null || request.branchId().isBlank()) {
+            throw new IllegalArgumentException("branchId must not be blank");
+        }
+        if (request.deviceTypes() == null || request.deviceTypes().isEmpty()) {
+            throw new IllegalArgumentException("deviceTypes must contain at least one DTT archive for branch " + request.branchId());
+        }
+        final List<BranchDeviceTypeImportRequest> deviceTypes = request.deviceTypes().stream()
+                .map(deviceTypeRequest -> toStructuredBranchDeviceTypeImportRequest(request.branchId(), archivesByEntryName, deviceTypeRequest))
+                .toList();
+        final String displayName = request.displayName() == null || request.displayName().isBlank()
+                ? request.branchId()
+                : request.displayName();
+        return new BranchImportRequest(request.branchId(), displayName, deviceTypes);
+    }
+
+    private BranchDeviceTypeImportRequest toStructuredBranchDeviceTypeImportRequest(String branchId,
+                                                                                    Map<String, byte[]> archivesByEntryName,
+                                                                                    ImportUploadedBranchDeviceTypeRequest request) {
+        final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
+        final BranchDeviceTypeImportRequest base = toBranchDeviceTypeImportRequest(archive, branchId);
+        final DeviceTypeTemplate baseTemplate = base.deviceTypeRequest().template();
+        final DeviceTypeTemplate overriddenTemplate = new DeviceTypeTemplate(
+                baseTemplate.metadata(),
+                mergeValues(baseTemplate.deviceTypeParamValues(), request.deviceTypeParamValues())
+        );
+        final String kind = firstNonBlank(request.kind(), base.kind());
+        return new BranchDeviceTypeImportRequest(
+                new EquipmentProfileDeviceTypeRequest(overriddenTemplate, true),
+                mergeDeviceInstances(base.deviceInstances(), request.devices()),
+                kind,
+                base.onStartEvent(),
+                base.onStopEvent(),
+                base.onPublicStartEvent(),
+                base.onPublicFinishEvent(),
+                base.deviceTypeFunctions(),
+                base.eventHandlers(),
+                base.commands()
+        );
+    }
+
+    private BranchImportRequest buildLegacyBranchImportRequestFromBytes(String branchId, List<byte[]> archives) {
+        if (archives == null || archives.isEmpty()) {
+            throw new IllegalArgumentException("zip payload must contain at least one .dtt file");
+        }
+        final List<BranchDeviceTypeImportRequest> deviceTypes = archives.stream()
+                .map(facade::readDtt)
+                .map(archive -> toBranchDeviceTypeImportRequest(archive, branchId))
+                .toList();
+        return new BranchImportRequest(branchId, branchId, deviceTypes);
+    }
+
+    private Map<String, byte[]> readDttFilesFromZipByEntryName(byte[] zipBytes) {
+        if (zipBytes == null || zipBytes.length == 0) {
+            throw new IllegalArgumentException("zip payload must not be empty");
+        }
+        final Map<String, byte[]> result = new LinkedHashMap<>();
+        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName() != null && entry.getName().toLowerCase().endsWith(".dtt")) {
+                    result.put(entry.getName(), input.readAllBytes());
+                }
+            }
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Failed to read DTT zip payload", exception);
+        }
+        if (result.isEmpty()) {
+            throw new IllegalArgumentException("zip payload does not contain any .dtt entries");
+        }
+        return result;
+    }
+
+    private byte[] resolveArchiveEntry(Map<String, byte[]> archivesByEntryName, String archiveEntryName) {
+        if (archiveEntryName == null || archiveEntryName.isBlank()) {
+            throw new IllegalArgumentException("archiveEntryName must not be blank");
+        }
+        final byte[] exact = archivesByEntryName.get(archiveEntryName);
+        if (exact != null) {
+            return exact;
+        }
+        final String normalized = normalizeArchiveEntryName(archiveEntryName);
+        for (Map.Entry<String, byte[]> entry : archivesByEntryName.entrySet()) {
+            if (normalizeArchiveEntryName(entry.getKey()).equalsIgnoreCase(normalized)) {
+                return entry.getValue();
+            }
+        }
+        throw new IllegalArgumentException("DTT archive entry not found in uploaded zip: " + archiveEntryName
+                + ". Available entries: " + archivesByEntryName.keySet());
+    }
+
+    private String normalizeArchiveEntryName(String name) {
+        final String normalized = name.replace('\\', '/');
+        final int slashIndex = normalized.lastIndexOf('/');
+        final String fileName = slashIndex >= 0 ? normalized.substring(slashIndex + 1) : normalized;
+        return fileName.toLowerCase().endsWith(".dtt") ? fileName.substring(0, fileName.length() - 4) : fileName;
     }
 
     private EquipmentProfileAssemblyRequest toStructuredProfileAssemblyRequest(ImportDttSetToProfileRequest request) {
