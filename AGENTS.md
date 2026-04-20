@@ -709,6 +709,7 @@ JavaDoc должен быть на русском языке и объяснят
 ```bash
 ./mvnw -Dmaven.repo.local=.m2/repository clean test
 ./mvnw -Dmaven.repo.local=.m2/repository clean verify
+./mvnw -Dmaven.repo.local=.m2/repository clean package spotbugs:check -DskipTests
 ./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-library test
 ./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service test
 ```
@@ -837,6 +838,51 @@ JavaDoc должен быть на русском языке и объяснят
 - [x] AGENTS.md содержит актуальный done/todo чеклист.
 - [x] Тесты на ключевые сценарии импорта/экспорта/merge/preview.
 - [x] Полное покрытие всех пунктов AGENTS.md (архитектурные инварианты, DTO-матрица, canonical depth, полный round-trip matrix).
+
+### Остаток после аудита (2026-04-19)
+
+- [x] Добавить `package-info.java` для ключевых пакетов с русским JavaDoc (library API и demo-service API-слой).
+- [x] Добавить `package-info.java` для остальных ключевых пакетов core-слоя (`archive`, `assembly`, `importing`, `export`, `json`, `model`, `validation`, `exception`).
+- [x] Добавить отдельный тест на генерацию OpenAPI-спеки demo-service с проверкой наличия новых endpoint-ов и схем ошибок.
+
+### Остаток после ревизии (2026-04-19, итерация 2)
+
+- [x] Подключить SpotBugs на уровне parent Maven-проекта, добавить запуск в `verify` и ввести базовый exclude-filter для осознанных DTO `EI_EXPOSE_REP*` кейсов.
+- [x] Прогнать SpotBugs (`clean verify`) и устранить оставшиеся предупреждения/ошибки до зелёного статуса.
+- [x] Добавить в demo-service сценарии **single export**: `export from profile JSON` и `export from branch equipment JSON` (помимо `export all`).
+- [x] Добавить upload-download сценарии single export (один `.dtt` как бинарный download без zip-обёртки).
+- [x] Добавить endpoint-ы/DTO для preview single export с явной диагностикой конфликтов merge.
+
+### Остаток после ревизии (2026-04-19, итерация 3)
+
+- [x] Для новых preview single-export endpoint-ов добавить явные OpenAPI `@ApiResponse` (200/400) со схемой `DemoErrorResponse`.
+- [x] Расширить OpenAPI контрактный тест проверкой схемы `SingleDttExportPreviewResponse`.
+
+### Остаток после ревизии (2026-04-19, итерация 4)
+
+- [x] Уточнить SpotBugs exclude-filter: ограничить suppress `EI_EXPOSE_REP*` только целевыми DTO/model пакетами вместо глобального `ru.aritmos.dtt.*`.
+- [x] После сужения фильтра учесть demo-service DTO (`ru.aritmos.dtt.demo.dto.*`) и DI-ссылку фасада в `DttDemoService` (`EI_EXPOSE_REP2`) как осознанные исключения.
+
+### Остаток после ревизии (2026-04-19, итерация 5)
+
+- [x] Добавить в раздел команд явный локальный запуск SpotBugs для быстрой диагностики до полного `verify` (финальная рабочая форма: `clean package spotbugs:check -DskipTests`).
+
+### Остаток после ревизии (2026-04-19, итерация 6)
+
+- [x] Прогнать полный `./mvnw -Dmaven.repo.local=.m2/repository clean verify` после SpotBugs-интеграции и подтвердить нулевой результат по SpotBugs (`No errors/warnings found`) для library и demo-service модулей.
+
+### Остаток после ревизии (2026-04-19, итерация 7)
+
+- [x] Исправить "быструю" команду SpotBugs в AGENTS.md: заменить нерабочий `clean spotbugs:check` (ломался из-за неразрешённой межмодульной зависимости) на рабочий `clean package spotbugs:check -DskipTests`.
+- [x] Перепроверить новую команду SpotBugs и подтвердить `BUILD SUCCESS` + `No errors/warnings found`.
+
+### Остаток после ревизии (2026-04-19, итерация 8)
+
+- [x] Повторно прогнать `./mvnw -Dmaven.repo.local=.m2/repository clean package spotbugs:check -DskipTests` после замечаний и подтвердить, что SpotBugs остаётся в зелёном статусе (`No errors/warnings found` в library и demo-service).
+
+### Остаток после ревизии (2026-04-20, итерация 9)
+
+- [x] Синхронизировать исторические пункты чеклиста SpotBugs с текущей рабочей командой (`clean package spotbugs:check -DskipTests`), чтобы в AGENTS.md не оставалось противоречивых формулировок.
 
 ---
 

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!--
+      Для типизированных DTO/record-моделей (Map/List поля) библиотека осознанно
+      сохраняет mutable-структуры для корректной сериализации и совместимости API.
+    -->
+    <Match>
+        <Class name="~ru\.aritmos\.dtt\.api\.dto\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~ru\.aritmos\.dtt\.archive\.model\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~ru\.aritmos\.dtt\.json\.branch\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~ru\.aritmos\.dtt\.json\.profile\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~ru\.aritmos\.dtt\.model\.canonical\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="~ru\.aritmos\.dtt\.demo\.dto\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="ru.aritmos.dtt.demo.service.DttDemoService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>

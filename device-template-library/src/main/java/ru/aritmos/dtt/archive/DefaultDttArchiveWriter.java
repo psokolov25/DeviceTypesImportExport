@@ -141,21 +141,16 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
     }
 
     private String archiveReadme(DttArchiveTemplate template) {
-        return """
-                # DTT Archive
-                                
-                Device type id: %s
-                Format: %s/%s
-                                
-                Files:
-                - template/*.yml: schema/default/example/origin/binding hints
-                - examples/*.yml: sample profile/branch values
-                - scripts/*.groovy: lifecycle handlers, functions, events, commands
-                """.formatted(
-                template.descriptor().deviceTypeId(),
-                template.descriptor().formatName(),
-                template.descriptor().formatVersion()
-        );
+        final String nl = System.lineSeparator();
+        return "# DTT Archive" + nl
+                + nl
+                + "Device type id: " + template.descriptor().deviceTypeId() + nl
+                + "Format: " + template.descriptor().formatName() + "/" + template.descriptor().formatVersion() + nl
+                + nl
+                + "Files:" + nl
+                + "- template/*.yml: schema/default/example/origin/binding hints" + nl
+                + "- examples/*.yml: sample profile/branch values" + nl
+                + "- scripts/*.groovy: lifecycle handlers, functions, events, commands" + nl;
     }
 
     private Map<String, Object> defaultTemplateOrigin(Map<String, Object> templateOrigin) {

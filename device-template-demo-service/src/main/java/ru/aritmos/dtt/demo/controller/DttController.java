@@ -10,6 +10,7 @@ import io.micronaut.http.annotation.QueryValue;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,11 +22,15 @@ import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
+import ru.aritmos.dtt.demo.dto.ExportSingleDttFromBranchRequest;
+import ru.aritmos.dtt.demo.dto.ExportSingleDttFromProfileRequest;
+import ru.aritmos.dtt.demo.dto.ExportSingleDttResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
+import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
 import ru.aritmos.dtt.demo.service.DttDemoService;
 import ru.aritmos.dtt.exception.DttFormatException;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
@@ -104,7 +109,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}")
+            )
     )
     public ImportDttSetToProfileResponse importToProfile(@Body ImportDttSetToProfileRequest request) {
         if (request == null) {
@@ -136,7 +144,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}")
+            )
     )
     public ImportDttSetToProfileResponse previewProfile(@Body ImportDttSetToProfileRequest request) {
         if (request == null) {
@@ -204,7 +215,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}")
+            )
     )
     public ImportDttSetToBranchResponse importToBranch(@Body ImportDttSetToBranchRequest request) {
         if (request == null) {
@@ -243,7 +257,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"existingBranchJson must not be blank\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"existingBranchJson must not be blank\"}")
+            )
     )
     public ImportDttSetToBranchResponse importToExistingBranch(@Body ImportDttSetToExistingBranchRequest request) {
         if (request == null) {
@@ -289,7 +306,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}")
+            )
     )
     public ImportDttSetToBranchResponse previewBranch(@Body ImportDttSetToBranchRequest request) {
         if (request == null) {
@@ -341,6 +361,99 @@ public class DttController {
 
 
     /**
+     * Экспортирует один DTT-архив из profile JSON.
+     *
+     * @param request запрос с profile JSON и идентификатором типа устройства
+     * @return экспортированный DTT-архив в Base64
+     */
+    @Post(uri = "/export/profile/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Экспортировать один DTT из profile JSON")
+    @ApiResponse(responseCode = "200", description = "Экспортированный DTT")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка валидации входных данных",
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+            )
+    )
+    public ExportSingleDttResponse exportSingleFromProfile(@Body ExportSingleDttFromProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypeId() == null || request.deviceTypeId().isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId must not be blank");
+        }
+        if (request.profile() != null) {
+            return demoService.exportSingleDttFromProfile(request.profile(), request.deviceTypeId(), request.dttVersion());
+        }
+        if (request.profileJson() != null && !request.profileJson().isBlank()) {
+            return demoService.exportSingleDttFromProfileJson(request.profileJson(), request.deviceTypeId(), request.dttVersion());
+        }
+        throw new IllegalArgumentException("Either profile or profileJson must be provided");
+    }
+
+    /**
+     * Выполняет preview single-export из profile JSON с диагностикой конфликтов.
+     *
+     * @param request запрос с profile JSON и идентификатором типа устройства
+     * @return результат preview с размером архива и/или диагностическими проблемами
+     */
+    @Post(uri = "/preview/export/profile/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview single-export DTT из profile JSON")
+    @ApiResponse(responseCode = "200", description = "Preview результата single-export")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка валидации входных данных",
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+            )
+    )
+    public SingleDttExportPreviewResponse previewSingleExportFromProfile(@Body ExportSingleDttFromProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypeId() == null || request.deviceTypeId().isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId must not be blank");
+        }
+        if (request.profile() != null) {
+            return demoService.previewSingleDttExportFromProfile(request.profile(), request.deviceTypeId(), request.dttVersion());
+        }
+        if (request.profileJson() != null && !request.profileJson().isBlank()) {
+            return demoService.previewSingleDttExportFromProfileJson(request.profileJson(), request.deviceTypeId(), request.dttVersion());
+        }
+        throw new IllegalArgumentException("Either profile or profileJson must be provided");
+    }
+
+    /**
+     * Экспортирует один DTT-архив из profile JSON в бинарном виде (upload-download режим).
+     *
+     * @param request запрос с profile JSON и идентификатором типа устройства
+     * @return бинарный payload одного файла .dtt
+     */
+    @Post(uri = "/export/profile/one/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
+    @Operation(summary = "Экспортировать один DTT из profile JSON в download-режиме")
+    public HttpResponse<byte[]> exportSingleFromProfileDownload(@Body ExportSingleDttFromProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypeId() == null || request.deviceTypeId().isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId must not be blank");
+        }
+        final byte[] payload;
+        if (request.profile() != null) {
+            payload = demoService.exportSingleDttFromProfileToBytes(request.profile(), request.deviceTypeId(), request.dttVersion());
+        } else if (request.profileJson() != null && !request.profileJson().isBlank()) {
+            payload = demoService.exportSingleDttFromProfileJsonToBytes(request.profileJson(), request.deviceTypeId(), request.dttVersion());
+        } else {
+            throw new IllegalArgumentException("Either profile or profileJson must be provided");
+        }
+        return HttpResponse.ok(payload)
+                .header("Content-Disposition", "attachment; filename=\"" + request.deviceTypeId() + ".dtt\"");
+    }
+
+    /**
      * Экспортирует все DTT-архивы из profile JSON.
      *
      * @param request запрос с profile JSON
@@ -385,7 +498,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either profile or profileJson must be provided\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either profile or profileJson must be provided\"}")
+            )
     )
     public ExportAllDttFromProfileResponse exportAllFromProfile(@Body ExportAllDttFromProfileRequest request) {
         if (request == null) {
@@ -417,6 +533,135 @@ public class DttController {
         );
         return HttpResponse.ok(payload)
                 .header("Content-Disposition", "attachment; filename=\"profile-dtt-set.zip\"");
+    }
+
+    /**
+     * Экспортирует один DTT-архив из branch equipment JSON.
+     *
+     * @param request запрос с branch equipment JSON и идентификатором типа устройства
+     * @return экспортированный DTT-архив в Base64
+     */
+    @Post(uri = "/export/branch/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Экспортировать один DTT из branch equipment JSON")
+    @ApiResponse(responseCode = "200", description = "Экспортированный DTT")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка валидации входных данных",
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+            )
+    )
+    public ExportSingleDttResponse exportSingleFromBranch(@Body ExportSingleDttFromBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypeId() == null || request.deviceTypeId().isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId must not be blank");
+        }
+        if (request.branchEquipment() != null) {
+            return demoService.exportSingleDttFromBranch(
+                    request.branchEquipment(),
+                    request.branchIds(),
+                    request.deviceTypeId(),
+                    request.mergeStrategy(),
+                    request.dttVersion()
+            );
+        }
+        if (request.branchJson() != null && !request.branchJson().isBlank()) {
+            return demoService.exportSingleDttFromBranchJson(
+                    request.branchJson(),
+                    request.branchIds(),
+                    request.deviceTypeId(),
+                    request.mergeStrategy(),
+                    request.dttVersion()
+            );
+        }
+        throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
+    }
+
+    /**
+     * Выполняет preview single-export из branch equipment JSON с диагностикой merge-конфликтов.
+     *
+     * @param request запрос с branch equipment JSON и идентификатором типа устройства
+     * @return результат preview с размером архива и/или диагностическими проблемами
+     */
+    @Post(uri = "/preview/export/branch/one", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Preview single-export DTT из branch equipment JSON")
+    @ApiResponse(responseCode = "200", description = "Preview результата single-export")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Ошибка валидации входных данных",
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+            )
+    )
+    public SingleDttExportPreviewResponse previewSingleExportFromBranch(@Body ExportSingleDttFromBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypeId() == null || request.deviceTypeId().isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId must not be blank");
+        }
+        if (request.branchEquipment() != null) {
+            return demoService.previewSingleDttExportFromBranch(
+                    request.branchEquipment(),
+                    request.branchIds(),
+                    request.deviceTypeId(),
+                    request.mergeStrategy(),
+                    request.dttVersion()
+            );
+        }
+        if (request.branchJson() != null && !request.branchJson().isBlank()) {
+            return demoService.previewSingleDttExportFromBranchJson(
+                    request.branchJson(),
+                    request.branchIds(),
+                    request.deviceTypeId(),
+                    request.mergeStrategy(),
+                    request.dttVersion()
+            );
+        }
+        throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
+    }
+
+    /**
+     * Экспортирует один DTT-архив из branch equipment JSON в бинарном виде (upload-download режим).
+     *
+     * @param request запрос с branch equipment JSON и идентификатором типа устройства
+     * @return бинарный payload одного файла .dtt
+     */
+    @Post(uri = "/export/branch/one/download", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_OCTET_STREAM)
+    @Operation(summary = "Экспортировать один DTT из branch equipment JSON в download-режиме")
+    public HttpResponse<byte[]> exportSingleFromBranchDownload(@Body ExportSingleDttFromBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (request.deviceTypeId() == null || request.deviceTypeId().isBlank()) {
+            throw new IllegalArgumentException("deviceTypeId must not be blank");
+        }
+        final byte[] payload;
+        if (request.branchEquipment() != null) {
+            payload = demoService.exportSingleDttFromBranchToBytes(
+                    request.branchEquipment(),
+                    request.branchIds(),
+                    request.deviceTypeId(),
+                    request.mergeStrategy(),
+                    request.dttVersion()
+            );
+        } else if (request.branchJson() != null && !request.branchJson().isBlank()) {
+            payload = demoService.exportSingleDttFromBranchJsonToBytes(
+                    request.branchJson(),
+                    request.branchIds(),
+                    request.deviceTypeId(),
+                    request.mergeStrategy(),
+                    request.dttVersion()
+            );
+        } else {
+            throw new IllegalArgumentException("Either branchEquipment or branchJson must be provided");
+        }
+        return HttpResponse.ok(payload)
+                .header("Content-Disposition", "attachment; filename=\"" + request.deviceTypeId() + ".dtt\"");
     }
 
     /**
@@ -476,7 +721,10 @@ public class DttController {
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
-            content = @Content(examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either branchEquipment or branchJson must be provided\"}"))
+            content = @Content(
+                    schema = @Schema(implementation = DemoErrorResponse.class),
+                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either branchEquipment or branchJson must be provided\"}")
+            )
     )
     public ExportAllDttFromBranchResponse exportAllFromBranch(@Body ExportAllDttFromBranchRequest request) {
         if (request == null) {
