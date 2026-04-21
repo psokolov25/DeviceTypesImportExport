@@ -6,9 +6,12 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,12 +39,14 @@ public final class OpenApiExamplesPostProcessor {
             return;
         }
 
-        final ObjectNode root = (ObjectNode) YAML.readTree(Files.readString(specPath));
+        final ObjectNode root = (ObjectNode) YAML.readTree(Files.readString(specPath, StandardCharsets.UTF_8));
         patchJsonContentExamples(root);
         patchKnownRequestExamples(root);
         patchMultipartStringExamples(root);
         patchJsonNodeSchemas(root);
-        YAML.writerWithDefaultPrettyPrinter().writeValue(specPath.toFile(), root);
+        patchMojibakeStrings(root);
+        final String yaml = YAML.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        Files.writeString(specPath, yaml, StandardCharsets.UTF_8);
     }
 
     private static Path resolveSpecPath(String[] args) {
@@ -264,7 +269,7 @@ public final class OpenApiExamplesPostProcessor {
         terminal.putObject("devices");
 
         final ObjectNode request = JSON.createObjectNode();
-        request.put("existingBranchJson", JSON.writerWithDefaultPrettyPrinter().writeValueAsString(existing));
+        request.put("existingBranchJson", JSON.writeValueAsString(existing));
         request.put("mergeStrategy", "MERGE_NON_NULLS");
         final ArrayNode branches = request.putArray("branches");
         final ObjectNode branch = branches.addObject();
@@ -350,7 +355,7 @@ public final class OpenApiExamplesPostProcessor {
         branchJson.putObject("deviceTypes");
 
         final ObjectNode root = JSON.createObjectNode();
-        root.put("existingBranchJson", JSON.writerWithDefaultPrettyPrinter().writeValueAsString(existing));
+        root.put("existingBranchJson", JSON.writeValueAsString(existing));
         root.put("mergeStrategy", "MERGE_NON_NULLS");
         final ArrayNode branches = root.putArray("branches");
         final ObjectNode branch = branches.addObject();
@@ -385,6 +390,58 @@ public final class OpenApiExamplesPostProcessor {
             propertyNode.put("description", description);
             propertyNode.set("additionalProperties", BooleanNode.TRUE);
         }
+    }
+
+    private static void patchMojibakeStrings(JsonNode node) {
+        if (node instanceof ObjectNode objectNode) {
+            final Iterator<Map.Entry<String, JsonNode>> fields = objectNode.fields();
+            while (fields.hasNext()) {
+                final Map.Entry<String, JsonNode> entry = fields.next();
+                final JsonNode child = entry.getValue();
+                if (child.isTextual()) {
+                    final String fixed = tryFixMojibake(child.asText());
+                    if (!fixed.equals(child.asText())) {
+                        objectNode.set(entry.getKey(), TextNode.valueOf(fixed));
+                    }
+                } else {
+                    patchMojibakeStrings(child);
+                }
+            }
+            return;
+        }
+        if (node instanceof ArrayNode arrayNode) {
+            for (int i = 0; i < arrayNode.size(); i++) {
+                final JsonNode child = arrayNode.get(i);
+                if (child.isTextual()) {
+                    final String fixed = tryFixMojibake(child.asText());
+                    if (!fixed.equals(child.asText())) {
+                        arrayNode.set(i, TextNode.valueOf(fixed));
+                    }
+                } else {
+                    patchMojibakeStrings(child);
+                }
+            }
+        }
+    }
+
+    private static String tryFixMojibake(String value) {
+        if (value == null || value.isBlank() || !value.contains("Р")) {
+            return value;
+        }
+        final Charset windows1251 = Charset.forName("windows-1251");
+        final String candidate = new String(value.getBytes(windows1251), StandardCharsets.UTF_8);
+        return countReadableCyrillic(candidate) > countReadableCyrillic(value) ? candidate : value;
+    }
+
+    private static int countReadableCyrillic(String value) {
+        int count = 0;
+        for (int i = 0; i < value.length(); i++) {
+            final char ch = value.charAt(i);
+            if ((ch >= 'А' && ch <= 'я') || ch == 'Ё' || ch == 'ё') {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static JsonNode nodeAt(JsonNode node, String... path) {
