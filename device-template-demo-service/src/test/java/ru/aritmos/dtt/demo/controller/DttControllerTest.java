@@ -16,6 +16,7 @@ import ru.aritmos.dtt.demo.dto.ExportSingleDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
+import ru.aritmos.dtt.demo.dto.ImportDeviceTypeMetadataOverrideRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
@@ -629,6 +630,7 @@ class DttControllerTest {
                 MergeStrategy.FAIL_IF_EXISTS,
                 List.of(new ImportProfileDeviceTypeRequest(
                         Base64.getEncoder().encodeToString(bytes),
+                        null,
                         Map.of("printerServiceURL", "http://override.local:8084", "prefix", "OVR")
                 ))
         );
@@ -653,6 +655,7 @@ class DttControllerTest {
                         "Отделение custom",
                         List.of(new ImportBranchDeviceTypeRequest(
                                 Base64.getEncoder().encodeToString(bytes),
+                                null,
                                 Map.of("TicketZone", "9"),
                                 List.of(new ImportBranchDeviceRequest(
                                         "display-1",
@@ -661,6 +664,7 @@ class DttControllerTest {
                                         "Demo display",
                                         Map.of("IP", "10.10.10.10", "Port", 22224)
                                 )),
+                                null,
                                 "display"
                         ))
                 ))
@@ -674,6 +678,112 @@ class DttControllerTest {
         assertThat(response.branchJson().toString()).contains("10.10.10.10");
         assertThat(response.branchJson().toString()).contains("display-1");
     }
+
+    @Test
+    void shouldImportSameDttToProfileAsSeveralDerivedDeviceTypes() {
+        final byte[] bytes = createArchiveBytes("display-wd3264", "println 'ok'");
+        final String base64 = Base64.getEncoder().encodeToString(bytes);
+        final ImportDttSetToProfileRequest request = new ImportDttSetToProfileRequest(
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(
+                        new ImportProfileDeviceTypeRequest(
+                                base64,
+                                new ImportDeviceTypeMetadataOverrideRequest(
+                                        "display-wd3264-red-window",
+                                        "Display WD3264 Красное окно",
+                                        "Display WD3264 Красное окно",
+                                        "Красное окно"
+                                ),
+                                Map.of("FirstZoneColor", "red")
+                        ),
+                        new ImportProfileDeviceTypeRequest(
+                                base64,
+                                new ImportDeviceTypeMetadataOverrideRequest(
+                                        "display-wd3264-blue-window",
+                                        "Display WD3264 Синее окно",
+                                        "Display WD3264 Синее окно",
+                                        "Синее окно"
+                                ),
+                                Map.of("FirstZoneColor", "blue")
+                        )
+                )
+        );
+
+        final var response = controller.importToProfile(request);
+
+        assertThat(response.deviceTypesCount()).isEqualTo(2);
+        assertThat(response.profileJson().toString()).contains("display-wd3264-red-window");
+        assertThat(response.profileJson().toString()).contains("display-wd3264-blue-window");
+        assertThat(response.profileJson().toString()).contains("Display WD3264 Красное окно");
+        assertThat(response.profileJson().toString()).contains("Display WD3264 Синее окно");
+        assertThat(response.profileJson().toString()).contains("red");
+        assertThat(response.profileJson().toString()).contains("blue");
+    }
+
+    @Test
+    void shouldImportSameDttToBranchAsSeveralDerivedDeviceTypesWithDifferentDeviceSets() {
+        final byte[] bytes = createArchiveBytes("display-wd3264", "println 'ok'");
+        final String base64 = Base64.getEncoder().encodeToString(bytes);
+        final ImportDttSetToBranchRequest request = new ImportDttSetToBranchRequest(
+                List.of(),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ImportBranchRequest(
+                        "branch-custom",
+                        "Отделение custom",
+                        List.of(
+                                new ImportBranchDeviceTypeRequest(
+                                        base64,
+                                        new ImportDeviceTypeMetadataOverrideRequest(
+                                                "display-wd3264-red-window",
+                                                "Display WD3264 Красное окно",
+                                                "Display WD3264 Красное окно",
+                                                "Красное окно"
+                                        ),
+                                        Map.of("FirstZoneColor", "red"),
+                                        List.of(
+                                                new ImportBranchDeviceRequest("red-1", "red-1", "Red 1", "Red display 1", Map.of("IP", "10.10.10.11")),
+                                                new ImportBranchDeviceRequest("red-2", "red-2", "Red 2", "Red display 2", Map.of("IP", "10.10.10.12"))
+                                        ),
+                                        true,
+                                        "display"
+                                ),
+                                new ImportBranchDeviceTypeRequest(
+                                        base64,
+                                        new ImportDeviceTypeMetadataOverrideRequest(
+                                                "display-wd3264-blue-window",
+                                                "Display WD3264 Синее окно",
+                                                "Display WD3264 Синее окно",
+                                                "Синее окно"
+                                        ),
+                                        Map.of("FirstZoneColor", "blue"),
+                                        List.of(
+                                                new ImportBranchDeviceRequest("blue-1", "blue-1", "Blue 1", "Blue display 1", Map.of("IP", "10.10.10.21")),
+                                                new ImportBranchDeviceRequest("blue-2", "blue-2", "Blue 2", "Blue display 2", Map.of("IP", "10.10.10.22")),
+                                                new ImportBranchDeviceRequest("blue-3", "blue-3", "Blue 3", "Blue display 3", Map.of("IP", "10.10.10.23"))
+                                        ),
+                                        true,
+                                        "display"
+                                )
+                        )
+                ))
+        );
+
+        final var response = controller.importToBranch(request);
+
+        assertThat(response.branchesCount()).isEqualTo(1);
+        assertThat(response.branchJson().toString()).contains("display-wd3264-red-window");
+        assertThat(response.branchJson().toString()).contains("display-wd3264-blue-window");
+        assertThat(response.branchJson().toString()).contains("red-1");
+        assertThat(response.branchJson().toString()).contains("red-2");
+        assertThat(response.branchJson().toString()).contains("blue-1");
+        assertThat(response.branchJson().toString()).contains("blue-2");
+        assertThat(response.branchJson().toString()).contains("blue-3");
+        assertThat(response.branchJson().toString()).contains("red");
+        assertThat(response.branchJson().toString()).contains("blue");
+    }
+
 
 
     @Test
