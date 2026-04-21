@@ -85,6 +85,8 @@ class DttControllerTest {
 
         assertThat(response.metadata()).hasSize(1);
         assertThat(response.metadata().get(0).id()).isEqualTo("display");
+        assertThat(response.metadata().get(0).name()).isNotBlank();
+        assertThat(response.metadata().get(0).description()).isNotBlank();
         assertThat(response.metadata().get(0).imageBase64()).isNotBlank();
     }
 
@@ -566,7 +568,7 @@ class DttControllerTest {
     void shouldImportProfileFromDttZipUpload() {
         final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
 
-        final var response = controller.importToProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+        final var response = controller.importToProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS, "");
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
         assertThat(response.profileJson().toString()).contains("display");
@@ -576,7 +578,7 @@ class DttControllerTest {
     void shouldPreviewProfileFromDttZipUpload() {
         final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
 
-        final var response = controller.previewProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+        final var response = controller.previewProfileUpload(zipPayload, MergeStrategy.FAIL_IF_EXISTS, "");
 
         assertThat(response.deviceTypesCount()).isEqualTo(1);
         assertThat(response.profileJson().toString()).contains("display");
@@ -586,7 +588,7 @@ class DttControllerTest {
     void shouldImportBranchFromDttZipUpload() {
         final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
 
-        final var response = controller.importToBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final var response = controller.importToBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS, "");
 
         assertThat(response.branchesCount()).isEqualTo(1);
         assertThat(response.branchJson().toString()).contains("branch-1");
@@ -597,10 +599,56 @@ class DttControllerTest {
     void shouldPreviewBranchFromDttZipUpload() {
         final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
 
-        final var response = controller.previewBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final var response = controller.previewBranchUpload(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS, "");
 
         assertThat(response.branchesCount()).isEqualTo(1);
         assertThat(response.branchJson().toString()).contains("branch-1");
+        assertThat(response.branchJson().toString()).contains("display");
+    }
+
+    @Test
+    void shouldImportProfileFromDttZipUploadWithQueryMetadataJson() {
+        final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
+        final String metadataJson = """
+                {
+                  "mergeStrategy": "FAIL_IF_EXISTS",
+                  "deviceTypes": [
+                    {
+                      "archiveEntryName": "display.dtt",
+                      "metadataOverride": {
+                        "id": "display-v2",
+                        "name": "Display v2",
+                        "displayName": "Display v2",
+                        "description": "patched",
+                        "version": "9.9.9"
+                      }
+                    }
+                  ]
+                }
+                """;
+
+        final var response = controller.importToProfileUpload(zipPayload, MergeStrategy.REPLACE, metadataJson);
+
+        assertThat(response.deviceTypesCount()).isEqualTo(1);
+        assertThat(response.profileJson().toString()).contains("display-v2");
+        assertThat(response.profileJson().toString()).contains("9.9.9");
+    }
+
+    @Test
+    void shouldImportExistingBranchFromDttZipUploadWithoutMultipart() {
+        final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
+        final String metadataJson = """
+                {
+                  "existingBranchJson": "{\\"branch-legacy\\":{\\"id\\":\\"branch-legacy\\",\\"displayName\\":\\"Legacy\\",\\"deviceTypes\\":{}}}",
+                  "branchIds": ["branch-legacy"],
+                  "mergeStrategy": "MERGE_NON_NULLS"
+                }
+                """;
+
+        final var response = controller.importToExistingBranchUpload(zipPayload, metadataJson);
+
+        assertThat(response.branchesCount()).isEqualTo(1);
+        assertThat(response.branchJson().toString()).contains("branch-legacy");
         assertThat(response.branchJson().toString()).contains("display");
     }
 
