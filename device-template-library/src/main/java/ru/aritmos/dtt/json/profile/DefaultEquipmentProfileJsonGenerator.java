@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
+import ru.aritmos.dtt.archive.DttIconSupport;
 import ru.aritmos.dtt.exception.DttFormatException;
 
 /**
@@ -31,6 +32,12 @@ public class DefaultEquipmentProfileJsonGenerator implements EquipmentProfileJso
         node.put("name", template.metadata().name());
         node.put("description", template.metadata().description());
         node.put("displayName", template.metadata().displayName());
+        if (template.metadata().version() == null) {
+            node.putNull("version");
+        } else {
+            node.put("version", template.metadata().version());
+        }
+        node.put("imageBase64", DttIconSupport.resolveOrDefault(template.metadata().iconBase64()));
         node.set("deviceTypeParamValues", objectMapper.valueToTree(toCanonicalParameterValues(template.deviceTypeParamValues())));
         return node;
     }

@@ -22,7 +22,7 @@ public class DefaultCanonicalProjectionMapper implements CanonicalProjectionMapp
         final Map<String, Object> examples = template.exampleValues() == null ? Map.of() : template.exampleValues().values();
         final Map<String, Object> values = new LinkedHashMap<>();
         if (template.deviceTypeParameterSchema() == null || template.deviceTypeParameterSchema().parameters() == null) {
-            return new CanonicalProfileProjection(defaults);
+            return new CanonicalProfileProjection(defaults, template.deviceTypeParameterSchema());
         }
         template.deviceTypeParameterSchema().parameters().forEach((name, definition) -> {
             final Object value = defaults.containsKey(name) ? defaults.get(name) : null;
@@ -30,13 +30,18 @@ public class DefaultCanonicalProjectionMapper implements CanonicalProjectionMapp
             values.put(name, mergeDefinitionWithValues(name, definition, value, example));
         });
         defaults.forEach(values::putIfAbsent);
-        return new CanonicalProfileProjection(values);
+        return new CanonicalProfileProjection(values, template.deviceTypeParameterSchema());
     }
 
     @Override
     public CanonicalBranchProjection toBranchProjection(CanonicalDeviceTypeTemplate template, String kind) {
         final CanonicalProfileProjection profileProjection = toProfileProjection(template);
-        return new CanonicalBranchProjection(kind, profileProjection.deviceTypeParamValues());
+        return new CanonicalBranchProjection(
+                kind,
+                profileProjection.deviceTypeParamValues(),
+                profileProjection.deviceTypeParameterSchema(),
+                template.deviceParameterSchema()
+        );
     }
 
     private Object mergeDefinitionWithValues(String name,
@@ -94,4 +99,3 @@ public class DefaultCanonicalProjectionMapper implements CanonicalProjectionMapp
         return casted;
     }
 }
-

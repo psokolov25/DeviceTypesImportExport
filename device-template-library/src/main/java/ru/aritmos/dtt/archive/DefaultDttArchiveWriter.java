@@ -60,6 +60,7 @@ public class DefaultDttArchiveWriter implements DttArchiveWriter {
                     "displayName", template.metadata().displayName(),
                     "description", template.metadata().description()
             ));
+            writeBytes(zipOutputStream, DttIconSupport.ICON_FILE_NAME, DttIconSupport.decode(template.metadata().iconBase64()));
             writeYaml(zipOutputStream, "template/device-type-parameters.yml", template.deviceTypeParametersSchema());
             writeYaml(zipOutputStream, "template/device-parameters-schema.yml", template.deviceParametersSchema());
             writeYaml(zipOutputStream, "template/template-origin.yml", defaultTemplateOrigin(template.templateOrigin()));

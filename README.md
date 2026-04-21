@@ -157,8 +157,11 @@ String profileJson = facade.toProfileJson(
 - `GET /api/system/health`.
 - `POST /api/dtt/validate` (application/octet-stream).
 - `POST /api/dtt/inspect` (application/octet-stream).
+- `POST /api/dtt/metadata` (application/octet-stream: один `.dtt` или zip c `.dtt` -> список базовых metadata: `id`, `name`, `version`, `description`, `imageBase64`).
+- `POST /api/dtt/version/compare?inputVersion=...` (application/octet-stream: сравнение версии из параметра и версии из `.dtt`, возвращает какая версия больше).
 - `POST /api/dtt/import/profile` (application/json, Base64 DTT set -> profile JSON).
 - `POST /api/dtt/preview/profile` (application/json, Base64 DTT set -> preview profile JSON).
+- `POST /api/dtt/preview/profile/detailed` (application/json -> preview profile JSON + расчёт defaults/overrides по типам).
 - `POST /api/dtt/import/profile/upload` (application/octet-stream zip с `.dtt` -> profile JSON).
 - `POST /api/dtt/preview/profile/upload` (application/octet-stream zip с `.dtt` -> preview profile JSON).
 - `POST /api/dtt/export/profile/one` (application/json, profile JSON + `deviceTypeId` -> один Base64 DTT).
@@ -169,6 +172,7 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/import/branch` (application/json, Base64 DTT set + branchIds -> branch equipment JSON).
 - `POST /api/dtt/import/branch/merge` (application/json, Base64 DTT set + existingBranchJson + branchIds -> merge в существующий branch equipment JSON).
 - `POST /api/dtt/preview/branch` (application/json, Base64 DTT set + branchIds -> preview branch equipment JSON).
+- `POST /api/dtt/preview/branch/detailed` (application/json -> preview branch JSON + расчёт defaults/overrides по `branchId:deviceTypeId`).
 - `POST /api/dtt/import/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> branch equipment JSON).
 - `POST /api/dtt/preview/branch/upload` (application/octet-stream zip с `.dtt` + query branchIds -> preview branch equipment JSON).
 - `POST /api/dtt/export/branch/one` (application/json, branch equipment JSON + `deviceTypeId` -> один Base64 DTT).
@@ -176,11 +180,15 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/preview/export/branch/one` (application/json, preview single export из branch equipment JSON с merge-диагностикой).
 - `POST /api/dtt/export/branch/all` (application/json, branch equipment JSON -> Base64 DTT set, поддерживает фильтры `branchIds` и `deviceTypeIds`).
 - `POST /api/dtt/export/branch/all/download` (application/json, branch equipment JSON -> zip с `.dtt`).
+
+Дополнительно: при сборке/экспорте `.dtt` поддерживается иконка типа устройства `icon.png` в корне архива. Если иконка не передана во входном JSON и не найдена в `.dtt`, используется встроенное PNG-изображение по умолчанию (возвращается как `imageBase64`).
 - export endpoint-ы поддерживают **оба варианта входа**: типизированные объектные модели (`profile`, `branchEquipment`) и строковые JSON-поля (`profileJson`, `branchJson`).
 - для export endpoint-ов можно передать `dttVersion`:
   - версия фиксируется в `manifest.yml` (`deviceTypeVersion`) без изменения версии формата (`formatVersion`);
+  - если в metadata типа уже есть версия, библиотека выбирает **большую** между `dttVersion` из запроса и версией из модели;
   - версия добавляется в конец `description` типа устройства;
   - `defaultValues` в DTT берутся из фактических значений параметров типа устройства, переданных в profile/branch JSON.
+- валидатор Groovy дополнительно проверяет наличие domain-context metadata в `bindingHints` для lifecycle/event/command скриптов (помимо синтаксиса).
 - `GET /swagger-ui/index.html` (Swagger UI для ручного прогона сценариев).
 - `GET /swagger/device-template-demo.yml` (OpenAPI-спецификация demo-service).
 - Интеграция demo-service с библиотекой выполняется через DI-бин публичного фасада `DeviceTemplateLibraryFacade` (без ручной сборки core-сервисов в контроллерах/сервисах).

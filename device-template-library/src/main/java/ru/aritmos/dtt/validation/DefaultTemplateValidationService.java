@@ -20,6 +20,7 @@ import java.util.Objects;
 public class DefaultTemplateValidationService implements TemplateValidationService {
 
     private static final String GROOVY_SYNTAX_ERROR = "GROOVY_SYNTAX_ERROR";
+    private static final String GROOVY_CONTEXT_ERROR = "GROOVY_CONTEXT_ERROR";
     private static final String REQUIRED_FIELD_MISSING = "REQUIRED_FIELD_MISSING";
 
     private final GroovyShell groovyShell;
@@ -44,6 +45,7 @@ public class DefaultTemplateValidationService implements TemplateValidationServi
             validateGroovy("scripts/deviceTypeFunctions.groovy", template.deviceTypeFunctions(), issues);
             validateGroovyMap("scripts/event-handlers", template.eventHandlers(), issues);
             validateGroovyMap("scripts/commands", template.commands(), issues);
+            validateGroovyDomainContexts(template, issues);
             return new ValidationResult(issues.isEmpty(), List.copyOf(issues));
         } catch (RuntimeException exception) {
             throw new TemplateValidationException("Ошибка валидации шаблона DTT", exception);
@@ -90,5 +92,53 @@ public class DefaultTemplateValidationService implements TemplateValidationServi
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private void validateGroovyDomainContexts(DttArchiveTemplate template, List<ValidationIssue> issues) {
+        final Map<String, Object> hints = template.bindingHints() == null ? Map.of() : template.bindingHints();
+        if (hints.isEmpty()) {
+            return;
+        }
+        validateLifecycleContext("scripts/onStartEvent.groovy", template.onStartEvent(), hints.get("onStartEvent"), issues);
+        validateLifecycleContext("scripts/onStopEvent.groovy", template.onStopEvent(), hints.get("onStopEvent"), issues);
+        validateLifecycleContext("scripts/onPublicStartEvent.groovy", template.onPublicStartEvent(), hints.get("onPublicStartEvent"), issues);
+        validateLifecycleContext("scripts/onPublicFinishEvent.groovy", template.onPublicFinishEvent(), hints.get("onPublicFinishEvent"), issues);
+        validateNamedContextMap("scripts/event-handlers", template.eventHandlers(), hints.get("eventHandlers"), issues);
+        validateNamedContextMap("scripts/commands", template.commands(), hints.get("commands"), issues);
+    }
+
+    private void validateLifecycleContext(String path, String script, Object metadata, List<ValidationIssue> issues) {
+        if (isBlank(script)) {
+            return;
+        }
+        if (!(metadata instanceof Map<?, ?>)) {
+            issues.add(new ValidationIssue(
+                    GROOVY_CONTEXT_ERROR,
+                    path,
+                    "Отсутствует metadata контекста выполнения для lifecycle-скрипта (bindingHints)"
+            ));
+        }
+    }
+
+    private void validateNamedContextMap(String directory, Map<String, String> scripts, Object metadata, List<ValidationIssue> issues) {
+        if (scripts == null || scripts.isEmpty()) {
+            return;
+        }
+        final Map<String, Object> metadataMap = metadata instanceof Map<?, ?> map ? castMap(map) : Map.of();
+        scripts.forEach((name, script) -> {
+            if (!isBlank(script) && !metadataMap.containsKey(name)) {
+                issues.add(new ValidationIssue(
+                        GROOVY_CONTEXT_ERROR,
+                        directory + "/" + name + ".groovy",
+                        "Для скрипта не найден доменный контекст в bindingHints"
+                ));
+            }
+        });
+    }
+
+    private Map<String, Object> castMap(Map<?, ?> source) {
+        final Map<String, Object> result = new java.util.LinkedHashMap<>();
+        source.forEach((key, value) -> result.put(String.valueOf(key), value));
+        return result;
     }
 }

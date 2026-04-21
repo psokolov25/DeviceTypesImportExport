@@ -39,11 +39,11 @@ class DefaultTemplateValidationServiceTest {
         final DttArchiveTemplate template = new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
+                Map.of("commands", Map.of()),
                 Map.of(),
                 Map.of(),
                 Map.of(),
-                Map.of(),
-                Map.of(),
+                Map.of("commands", Map.of()),
                 Map.of(),
                 "println 'ok'",
                 null,
@@ -62,13 +62,46 @@ class DefaultTemplateValidationServiceTest {
                 .contains("scripts/event-handlers/EVENT.groovy", "scripts/commands/CMD.groovy");
     }
 
+    @Test
+    void shouldDetectMissingDomainContextMetadataForGroovyScripts() {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", null),
+                new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
+                Map.of(),
+                Map.of(),
+                Map.of("commands", Map.of()),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                "println 'ok'",
+                null,
+                null,
+                null,
+                null,
+                Map.of("EVENT", "println 'handler'"),
+                Map.of("CMD", "println 'cmd'")
+        );
+
+        final var result = validationService.validate(template);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.issues()).extracting("code").contains("GROOVY_CONTEXT_ERROR");
+    }
+
     private DttArchiveTemplate templateWithScripts(String onStart, String handler) {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
                 new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
                 Map.of(),
                 Map.of(),
-                Map.of(),
+                Map.of(
+                        "onStartEvent", Map.of("inputParameters", Map.of(), "outputParameters", java.util.List.of()),
+                        "onStopEvent", Map.of("inputParameters", Map.of(), "outputParameters", java.util.List.of()),
+                        "onPublicStartEvent", Map.of("inputParameters", Map.of(), "outputParameters", java.util.List.of()),
+                        "onPublicFinishEvent", Map.of("inputParameters", Map.of(), "outputParameters", java.util.List.of()),
+                        "eventHandlers", Map.of("EVENT", Map.of("inputParameters", Map.of(), "outputParameters", java.util.List.of())),
+                        "commands", Map.of("CMD", Map.of("inputParameters", Map.of(), "outputParameters", java.util.List.of()))
+                ),
                 Map.of(),
                 Map.of(),
                 Map.of(),

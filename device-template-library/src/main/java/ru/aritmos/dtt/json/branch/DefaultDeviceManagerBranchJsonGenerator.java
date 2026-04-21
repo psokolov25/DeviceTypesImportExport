@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import ru.aritmos.dtt.exception.DttFormatException;
+import ru.aritmos.dtt.archive.DttIconSupport;
 
 /**
  * Реализация генератора branch equipment JSON через Jackson.
@@ -19,6 +20,7 @@ public class DefaultDeviceManagerBranchJsonGenerator implements DeviceManagerBra
         try {
             final ObjectNode root = objectMapper.createObjectNode();
             branchEquipment.branches().forEach((branchId, branchNode) -> root.set(branchId, toCanonicalBranchNode(branchNode)));
+            root.set("metadata", objectMapper.valueToTree(buildMetadata(branchEquipment)));
             return objectMapper.writeValueAsString(root);
         } catch (JsonProcessingException exception) {
             throw new DttFormatException("Ошибка генерации branch equipment JSON", exception);
@@ -37,6 +39,12 @@ public class DefaultDeviceManagerBranchJsonGenerator implements DeviceManagerBra
             typeNode.put("name", branchDeviceType.template().metadata().name());
             typeNode.put("description", branchDeviceType.template().metadata().description());
             typeNode.put("displayName", branchDeviceType.template().metadata().displayName());
+            if (branchDeviceType.template().metadata().version() != null) {
+                typeNode.put("version", branchDeviceType.template().metadata().version());
+            } else {
+                typeNode.putNull("version");
+            }
+            typeNode.put("imageBase64", DttIconSupport.resolveOrDefault(branchDeviceType.template().metadata().iconBase64()));
             typeNode.set("deviceTypeParamValues", objectMapper.valueToTree(toCanonicalParameterValues(branchDeviceType.template().deviceTypeParamValues())));
             typeNode.set("devices", objectMapper.valueToTree(branchDeviceType.devices() == null ? java.util.Map.of() : branchDeviceType.devices()));
             final String resolvedKind = branchDeviceType.kind() == null || branchDeviceType.kind().isBlank()
@@ -103,5 +111,22 @@ public class DefaultDeviceManagerBranchJsonGenerator implements DeviceManagerBra
         wrapped.put("value", value);
         wrapped.put("name", key);
         return wrapped;
+    }
+
+    private java.util.List<BranchDeviceTypeMetadata> buildMetadata(BranchEquipment branchEquipment) {
+        if (branchEquipment.metadata() != null && !branchEquipment.metadata().isEmpty()) {
+            return branchEquipment.metadata();
+        }
+        final java.util.Map<String, BranchDeviceTypeMetadata> result = new java.util.LinkedHashMap<>();
+        branchEquipment.branches().values().forEach(branchNode -> branchNode.deviceTypes().forEach((typeId, branchDeviceType) -> {
+            result.putIfAbsent(typeId, new BranchDeviceTypeMetadata(
+                    typeId,
+                    branchDeviceType.template().metadata().name(),
+                    branchDeviceType.template().metadata().version(),
+                    branchDeviceType.template().metadata().description(),
+                    DttIconSupport.resolveOrDefault(branchDeviceType.template().metadata().iconBase64())
+            ));
+        }));
+        return java.util.List.copyOf(result.values());
     }
 }

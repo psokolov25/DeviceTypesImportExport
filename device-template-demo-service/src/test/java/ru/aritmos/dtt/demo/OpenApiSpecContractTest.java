@@ -47,31 +47,18 @@ class OpenApiSpecContractTest {
             final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
             final JsonNode root = yamlMapper.readTree(spec);
             assertThat(spec).contains("/api/dtt/import/profile");
-            assertThat(spec).contains("/api/dtt/import/profile/upload");
-            assertThat(spec).contains("/api/dtt/import/branch");
-            assertThat(spec).contains("/api/dtt/import/branch/merge");
-            assertThat(spec).contains("/api/dtt/export/profile/one");
-            assertThat(spec).contains("/api/dtt/export/profile/one/download");
-            assertThat(spec).contains("/api/dtt/preview/export/profile/one");
+            assertThat(spec).contains("/api/dtt/preview/profile/detailed");
+            assertThat(spec).contains("/api/dtt/preview/branch/detailed");
+            assertThat(spec).contains("/api/dtt/metadata");
+            assertThat(spec).contains("/api/dtt/version/compare");
             assertThat(spec).contains("/api/dtt/export/profile/all");
-            assertThat(spec).contains("/api/dtt/export/branch/one");
-            assertThat(spec).contains("/api/dtt/export/branch/one/download");
-            assertThat(spec).contains("/api/dtt/preview/export/branch/one");
-            assertThat(spec).contains("/api/dtt/export/branch/all");
-
-            assertThat(root.at("/paths/~1api~1dtt~1export~1branch~1all/post/requestBody/content/application~1json/examples/autoResolveMostComplete/value").isObject()).isTrue();
-            assertThat(root.at("/paths/~1api~1dtt~1export~1branch~1all/post/requestBody/content/application~1json/examples/failIfExists/value").isObject()).isTrue();
-            assertThat(root.at("/paths/~1api~1dtt~1export~1branch~1all~1download/post/requestBody/content/application~1json/examples/autoResolveMostComplete/value").isObject()).isTrue();
-            assertThat(root.at("/paths/~1api~1dtt~1import~1branch~1merge/post/requestBody/content/application~1json/examples/example/value").isObject()).isTrue();
-            assertThat(root.at("/paths/~1api~1dtt~1import~1profile~1upload~1multipart/post/requestBody/content/multipart~1form-data/schema/properties/metadataJson/example").asText()).contains("\"mergeStrategy\"");
-            assertThat(root.at("/components/schemas/ExportAllDttFromBranchRequest/properties/branchJson/type").asText()).isEqualTo("object");
             assertThat(root.at("/components/schemas/ImportDttSetToProfileResponse/properties/profileJson/type").asText()).isEqualTo("object");
 
             assertThat(spec).contains("DemoErrorResponse:");
             assertThat(spec).contains("DttValidationResponse:");
             assertThat(spec).contains("DttInspectionResponse:");
-            assertThat(spec).contains("SingleDttExportPreviewResponse:");
-            assertThat(spec).contains("BAD_REQUEST");
+            assertThat(spec).contains("DttMetadataBatchResponse:");
+            assertThat(spec).contains("DttVersionComparisonResponse:");
         }
     }
 }

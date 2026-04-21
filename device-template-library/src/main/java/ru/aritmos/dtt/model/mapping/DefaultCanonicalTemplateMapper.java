@@ -59,7 +59,7 @@ public class DefaultCanonicalTemplateMapper implements CanonicalTemplateMapper {
 
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", canonicalTemplate.formatVersion(), metadata.id(), null),
-                new DeviceTypeMetadata(metadata.id(), metadata.name(), metadata.displayName(), metadata.description()),
+                new DeviceTypeMetadata(metadata.id(), metadata.name(), metadata.displayName(), metadata.description(), null, null),
                 toSchemaMap(canonicalTemplate.deviceTypeParameterSchema()),
                 toSchemaMap(canonicalTemplate.deviceParameterSchema()),
                 valueMap(canonicalTemplate.bindingHints()),

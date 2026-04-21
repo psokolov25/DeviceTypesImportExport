@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
 import ru.aritmos.dtt.exception.DttFormatException;
+import ru.aritmos.dtt.archive.DttIconSupport;
 
 import java.util.List;
 import java.util.Map;
@@ -71,7 +72,9 @@ public record BranchDeviceType(
                 resolvedId,
                 resolvedName,
                 resolvedDisplayName,
-                description == null ? "" : description
+                description == null ? "" : description,
+                asString(raw.get("version")),
+                DttIconSupport.resolveOrDefault(asString(raw.get("imageBase64")))
         );
         final Map<String, Object> deviceTypeParamValues = convertMap(raw.get("deviceTypeParamValues"));
         final DeviceTypeTemplate template = new DeviceTypeTemplate(metadata, deviceTypeParamValues);

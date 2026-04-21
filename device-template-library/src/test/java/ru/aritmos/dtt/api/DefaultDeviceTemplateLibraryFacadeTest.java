@@ -422,6 +422,25 @@ class DefaultDeviceTemplateLibraryFacadeTest {
     }
 
     @Test
+    void shouldUseGreaterVersionBetweenRequestedAndTemplateMetadataVersion() {
+        final var sourceTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc", "4.2.0", null),
+                Map.of("ip", "127.0.0.1")
+        );
+        final var profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(sourceTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final var exported = facade.exportDttSetFromProfile(new ProfileExportRequest(profile, List.of("display"), "3.1.0"));
+        final DttArchiveTemplate restored = facade.readDtt(exported.archivesByDeviceTypeId().get("display"));
+
+        assertThat(restored.descriptor().deviceTypeVersion()).isEqualTo("4.2.0");
+        assertThat(restored.metadata().version()).isEqualTo("4.2.0");
+    }
+
+    @Test
     void shouldExportDttFromProfileJsonStringWithRequestedVersion() {
         final String profileJson = """
                 {

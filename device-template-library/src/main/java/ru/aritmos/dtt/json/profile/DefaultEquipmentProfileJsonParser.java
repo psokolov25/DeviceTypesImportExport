@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
 import ru.aritmos.dtt.exception.DttFormatException;
+import ru.aritmos.dtt.archive.DttIconSupport;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,7 +30,9 @@ public class DefaultEquipmentProfileJsonParser implements EquipmentProfileJsonPa
                         node.path("id").asText(typeId),
                         node.path("name").asText(typeId),
                         node.path("displayName").asText(node.path("name").asText(typeId)),
-                        node.path("description").asText("")
+                        node.path("description").asText(""),
+                        node.path("version").isNull() ? null : node.path("version").asText(null),
+                        DttIconSupport.resolveOrDefault(node.path("imageBase64").asText(null))
                 );
                 final Map<String, Object> values = objectMapper.convertValue(
                         node.path("deviceTypeParamValues"),
