@@ -182,6 +182,25 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 .hasMessageContaining("Unknown branchIds");
     }
 
+
+    @Test
+    void shouldImportDttSetToProfileAndBranchWithMetadataInheritance() {
+        final DttArchiveTemplate template = template();
+        final byte[] bytes = facade.writeDtt(template);
+
+        final var result = facade.importDttSetToProfileAndBranchWithMetadata(
+                List.of(bytes),
+                List.of("branch-1"),
+                Map.of("display", new DeviceTypeMetadata("display", "Display Profile", "Display Profile", "profile-desc")),
+                Map.of("branch-1", Map.of("display", new DeviceTypeMetadata("display", "Display Branch", "Display Branch", "branch-desc"))),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        assertThat(result.profile().deviceTypes().get("display").metadata().name()).isEqualTo("Display Profile");
+        assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display").template().metadata().name())
+                .isEqualTo("Display Branch");
+    }
+
     @Test
     void shouldSupportBase64AndZipFacadeModes() throws Exception {
         final DttArchiveTemplate template = template();

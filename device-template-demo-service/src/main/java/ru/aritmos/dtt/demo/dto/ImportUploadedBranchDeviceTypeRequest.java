@@ -7,11 +7,6 @@ import java.util.Map;
 
 /**
  * Описание одного DTT-файла внутри загруженного zip-архива для сборки branch equipment JSON.
- *
- * @param archiveEntryName имя .dtt файла внутри zip-архива
- * @param deviceTypeParamValues override-значения параметров типа устройства
- * @param devices override-описания устройств данного типа
- * @param kind override поля {@code type} в branch JSON
  */
 @Schema(description = "Описание одного DTT файла из zip-архива для сборки branch equipment JSON")
 public record ImportUploadedBranchDeviceTypeRequest(
@@ -20,6 +15,8 @@ public record ImportUploadedBranchDeviceTypeRequest(
         String archiveEntryName,
         @Schema(description = "Override-значения параметров типа устройства")
         Map<String, Object> deviceTypeParamValues,
+        @Schema(description = "Override метаданных типа устройства на уровне branch")
+        ImportDeviceTypeMetadataOverrideRequest metadataOverride,
         @Schema(description = "Override-описания устройств данного типа")
         List<ImportBranchDeviceRequest> devices,
         @Schema(description = "Override поля type для branch JSON")

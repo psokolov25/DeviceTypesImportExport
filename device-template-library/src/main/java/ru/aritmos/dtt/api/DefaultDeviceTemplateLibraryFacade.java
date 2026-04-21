@@ -7,6 +7,7 @@ import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
+import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.ValidationResult;
 import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
@@ -371,6 +372,57 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         return previewDttSetToBranch(readDttFilesFromZip(zipPayload), branchIds, mergeStrategy);
     }
 
+
+    @Override
+    public ProfileBranchAssemblyResult importDttSetToProfileAndBranchWithMetadata(List<byte[]> archives,
+                                                                                   List<String> branchIds,
+                                                                                   Map<String, DeviceTypeMetadata> profileMetadataOverridesByDeviceTypeId,
+                                                                                   Map<String, Map<String, DeviceTypeMetadata>> branchMetadataOverridesByBranchIdAndDeviceTypeId,
+                                                                                   MergeStrategy mergeStrategy) {
+        final EquipmentProfile profile = importDttSetToProfile(archives, mergeStrategy);
+        final Map<String, DeviceTypeTemplate> profileWithOverrides = new LinkedHashMap<>();
+        profile.deviceTypes().forEach((deviceTypeId, template) -> {
+            final DeviceTypeMetadata profileMetadata = mergeMetadata(
+                    template.metadata(),
+                    profileMetadataOverridesByDeviceTypeId == null ? null : profileMetadataOverridesByDeviceTypeId.get(deviceTypeId)
+            );
+            profileWithOverrides.put(deviceTypeId, new DeviceTypeTemplate(profileMetadata, template.deviceTypeParamValues()));
+        });
+        final EquipmentProfile resolvedProfile = new EquipmentProfile(profileWithOverrides);
+
+        final List<BranchImportRequest> branches = branchIds.stream()
+                .map(branchId -> new BranchImportRequest(
+                        branchId,
+                        branchId,
+                        profileWithOverrides.entrySet().stream()
+                                .map(entry -> {
+                                    final DeviceTypeMetadata branchMetadata = mergeMetadata(
+                                            entry.getValue().metadata(),
+                                            resolveBranchMetadataOverride(branchMetadataOverridesByBranchIdAndDeviceTypeId, branchId, entry.getKey())
+                                    );
+                                    return new BranchDeviceTypeImportRequest(
+                                            new EquipmentProfileDeviceTypeRequest(
+                                                    new DeviceTypeTemplate(branchMetadata, entry.getValue().deviceTypeParamValues()),
+                                                    true
+                                            ),
+                                            List.of(),
+                                            null,
+                                            null,
+                                            null,
+                                            null,
+                                            null,
+                                            null,
+                                            Map.of(),
+                                            Map.of()
+                                    );
+                                })
+                                .toList()
+                ))
+                .toList();
+        final BranchEquipment branchEquipment = assembleBranch(new BranchEquipmentAssemblyRequest(branches, mergeStrategy));
+        return new ProfileBranchAssemblyResult(resolvedProfile, branchEquipment);
+    }
+
     @Override
     public byte[] exportProfileToDttZip(ProfileExportRequest request) {
         return writeDttZip(exportDttSetFromProfile(request).archivesByDeviceTypeId());
@@ -433,6 +485,49 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 ))
                 .toList();
         return new BranchEquipmentAssemblyRequest(branches, mergeStrategy);
+    }
+
+
+    private DeviceTypeMetadata mergeMetadata(DeviceTypeMetadata base, DeviceTypeMetadata override) {
+        if (override == null) {
+            return base;
+        }
+        final String id = firstNonBlank(override.id(), base == null ? null : base.id());
+        final String name = firstNonBlank(override.name(), base == null ? null : base.name(), id);
+        final String displayName = firstNonBlank(override.displayName(), base == null ? null : base.displayName(), name);
+        return new DeviceTypeMetadata(
+                id,
+                name,
+                displayName,
+                firstNonBlank(override.description(), base == null ? null : base.description(), ""),
+                firstNonBlank(override.version(), base == null ? null : base.version()),
+                firstNonBlank(override.iconBase64(), base == null ? null : base.iconBase64())
+        );
+    }
+
+    private DeviceTypeMetadata resolveBranchMetadataOverride(Map<String, Map<String, DeviceTypeMetadata>> overrides,
+                                                             String branchId,
+                                                             String deviceTypeId) {
+        if (overrides == null || overrides.isEmpty()) {
+            return null;
+        }
+        final Map<String, DeviceTypeMetadata> branchOverrides = overrides.get(branchId);
+        if (branchOverrides == null || branchOverrides.isEmpty()) {
+            return null;
+        }
+        return branchOverrides.get(deviceTypeId);
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private DttArchiveTemplate toArchiveTemplate(String typeId, DeviceTypeTemplate deviceType, String dttVersion) {
