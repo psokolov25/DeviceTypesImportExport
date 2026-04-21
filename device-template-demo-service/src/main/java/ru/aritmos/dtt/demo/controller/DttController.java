@@ -20,6 +20,10 @@ import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.archive.DttFileNames;
 import ru.aritmos.dtt.demo.dto.DemoErrorResponse;
 import ru.aritmos.dtt.demo.dto.DttInspectionResponse;
+import ru.aritmos.dtt.demo.dto.DttMetadataBatchResponse;
+import ru.aritmos.dtt.demo.dto.DttVersionComparisonResponse;
+import ru.aritmos.dtt.demo.dto.ProfilePreviewDetailedResponse;
+import ru.aritmos.dtt.demo.dto.BranchPreviewDetailedResponse;
 import ru.aritmos.dtt.demo.dto.DttValidationResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchRequest;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchResponse;
@@ -96,6 +100,34 @@ public class DttController {
     }
 
     /**
+     * Возвращает базовые метаданные одного DTT или zip-набора DTT.
+     *
+     * @param payload бинарный .dtt или zip-архив, содержащий один/несколько .dtt
+     * @return список базовых метаданных типов устройств
+     */
+    @Post(uri = "/metadata", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Извлечь базовые metadata из DTT или DTT-set zip")
+    @ApiResponse(responseCode = "200", description = "Список metadata типов устройств")
+    public DttMetadataBatchResponse metadata(@Body byte[] payload) {
+        return demoService.extractMetadata(payload);
+    }
+
+    /**
+     * Сравнивает введённую версию и версию, сохранённую в DTT.
+     *
+     * @param archiveBytes бинарный DTT-архив
+     * @param inputVersion версия из входного параметра
+     * @return результат сравнения версий
+     */
+    @Post(uri = "/version/compare{?inputVersion}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Сравнить введённую версию и версию из DTT")
+    @ApiResponse(responseCode = "200", description = "Результат сравнения версий")
+    public DttVersionComparisonResponse compareVersion(@Body byte[] archiveBytes,
+                                                       @QueryValue(defaultValue = "1.0") String inputVersion) {
+        return demoService.compareDttVersion(archiveBytes, inputVersion);
+    }
+
+    /**
      * Импортирует один или несколько DTT-архивов в JSON профиля оборудования.
      *
      * @param request запрос с Base64-представлением архивов и merge-стратегией
@@ -165,6 +197,16 @@ public class DttController {
             return demoService.previewDttSetToProfile(request);
         }
         return demoService.previewDttSetToProfileBase64(request.archivesBase64(), request.mergeStrategy());
+    }
+
+    @Post(uri = "/preview/profile/detailed", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Детальный preview profile JSON с defaults/overrides")
+    @ApiResponse(responseCode = "200", description = "Preview profile JSON с расчётом defaults/overrides")
+    public ProfilePreviewDetailedResponse previewProfileDetailed(@Body ImportDttSetToProfileRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        return demoService.previewProfileDetailed(request);
     }
 
     /**
@@ -358,6 +400,16 @@ public class DttController {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
         return demoService.previewDttSetToBranchBase64(request.archivesBase64(), request.branchIds(), request.mergeStrategy());
+    }
+
+    @Post(uri = "/preview/branch/detailed", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Детальный preview branch JSON с defaults/overrides")
+    @ApiResponse(responseCode = "200", description = "Preview branch JSON с расчётом defaults/overrides")
+    public BranchPreviewDetailedResponse previewBranchDetailed(@Body ImportDttSetToBranchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        return demoService.previewBranchDetailed(request);
     }
 
     /**

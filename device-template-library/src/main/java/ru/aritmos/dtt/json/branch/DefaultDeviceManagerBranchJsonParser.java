@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
 import ru.aritmos.dtt.exception.DttFormatException;
+import ru.aritmos.dtt.archive.DttIconSupport;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,8 +25,15 @@ public class DefaultDeviceManagerBranchJsonParser implements DeviceManagerBranch
         try {
             final JsonNode root = objectMapper.readTree(json);
             final Map<String, BranchNode> branches = new LinkedHashMap<>();
+            final List<BranchDeviceTypeMetadata> metadataList = objectMapper.convertValue(
+                    root.path("metadata"),
+                    new TypeReference<List<BranchDeviceTypeMetadata>>() { }
+            );
             root.fields().forEachRemaining(branchEntry -> {
                 final String branchId = branchEntry.getKey();
+                if ("metadata".equals(branchId)) {
+                    return;
+                }
                 final JsonNode branchNode = branchEntry.getValue();
                 final String resolvedBranchId = branchNode.path("id").asText(branchId);
                 final String displayName = branchNode.path("displayName").asText(resolvedBranchId);
@@ -34,17 +42,19 @@ public class DefaultDeviceManagerBranchJsonParser implements DeviceManagerBranch
                 deviceTypesNode.fields().forEachRemaining(typeEntry -> {
                     final String typeId = typeEntry.getKey();
                     final JsonNode typeNode = typeEntry.getValue();
-                    final DeviceTypeMetadata metadata = new DeviceTypeMetadata(
+                    final DeviceTypeMetadata typeMetadata = new DeviceTypeMetadata(
                             typeNode.path("id").asText(typeId),
                             typeNode.path("name").asText(typeId),
                             typeNode.path("displayName").asText(typeNode.path("name").asText(typeId)),
-                            typeNode.path("description").asText("")
+                            typeNode.path("description").asText(""),
+                            typeNode.path("version").isNull() ? null : typeNode.path("version").asText(null),
+                            DttIconSupport.resolveOrDefault(typeNode.path("imageBase64").asText(null))
                     );
                     final Map<String, Object> values = objectMapper.convertValue(
                             typeNode.path("deviceTypeParamValues"),
                             new TypeReference<Map<String, Object>>() { }
                     );
-                    final DeviceTypeTemplate template = new DeviceTypeTemplate(metadata, values == null ? Map.of() : values);
+                    final DeviceTypeTemplate template = new DeviceTypeTemplate(typeMetadata, values == null ? Map.of() : values);
                     final Map<String, DeviceInstanceTemplate> devices = objectMapper.convertValue(
                             typeNode.path("devices"),
                             new TypeReference<Map<String, DeviceInstanceTemplate>>() { }
@@ -82,7 +92,7 @@ public class DefaultDeviceManagerBranchJsonParser implements DeviceManagerBranch
                 });
                 branches.put(branchId, new BranchNode(resolvedBranchId, displayName, deviceTypes));
             });
-            return new BranchEquipment(branches);
+            return new BranchEquipment(branches, metadataList == null ? List.of() : metadataList);
         } catch (JsonProcessingException exception) {
             throw new DttFormatException("Ошибка парсинга branch equipment JSON", exception);
         }

@@ -39,6 +39,7 @@ class DefaultDttArchiveReaderWriterTest {
         assertThat(restored.onStartEvent()).isEqualTo("println 'start'");
         assertThat(restored.defaultValues()).containsEntry("ip", "127.0.0.1");
         assertThat(restored.templateOrigin()).containsEntry("sourceKind", "PROFILE_JSON");
+        assertThat(restored.metadata().iconBase64()).isNotBlank();
     }
 
     @Test
@@ -51,7 +52,8 @@ class DefaultDttArchiveReaderWriterTest {
         assertThat(zipEntries).containsKeys(
                 "examples/profile-values-example.yml",
                 "examples/branch-values-example.yml",
-                "README-IN-ARCHIVE.md"
+                "README-IN-ARCHIVE.md",
+                "icon.png"
         );
         assertThat(zipEntries.get("examples/profile-values-example.yml")).contains("ip: \"192.168.0.10\"");
         assertThat(zipEntries.get("examples/branch-values-example.yml")).contains("display-type");

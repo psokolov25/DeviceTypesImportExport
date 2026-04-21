@@ -436,7 +436,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     private DttArchiveTemplate toArchiveTemplate(String typeId, DeviceTypeTemplate deviceType, String dttVersion) {
-        final String effectiveVersion = normalizeDttVersion(dttVersion);
+        final String effectiveVersion = resolveEffectiveVersion(deviceType.metadata(), dttVersion);
         final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
         final Map<String, Object> deviceTypeSchema = buildDeviceTypeParameterSchema(deviceType.deviceTypeParamValues());
         final Map<String, Object> exampleValues = extractExampleValues(deviceType.deviceTypeParamValues());
@@ -464,7 +464,7 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                                                  String branchId,
                                                  String dttVersion) {
         final DeviceTypeTemplate deviceType = branchDeviceType.template();
-        final String effectiveVersion = normalizeDttVersion(dttVersion);
+        final String effectiveVersion = resolveEffectiveVersion(deviceType.metadata(), dttVersion);
         final DeviceTypeMetadata metadata = appendVersionToDescription(deviceType.metadata(), effectiveVersion);
         final Map<String, Object> deviceTypeSchema = buildDeviceTypeParameterSchema(deviceType.deviceTypeParamValues());
         final Map<String, Object> exampleValues = extractExampleValues(deviceType.deviceTypeParamValues());
@@ -739,10 +739,13 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     private String normalizeDttVersion(String dttVersion) {
-        if (dttVersion == null || dttVersion.isBlank()) {
-            return "1.0";
-        }
-        return dttVersion.trim();
+        return DttVersionSupport.normalize(dttVersion);
+    }
+
+    private String resolveEffectiveVersion(DeviceTypeMetadata metadata, String requestedVersion) {
+        final String requested = normalizeDttVersion(requestedVersion);
+        final String fromTemplate = metadata == null ? null : metadata.version();
+        return DttVersionSupport.max(requested, fromTemplate);
     }
 
     private Map<String, Object> buildTemplateOrigin(String sourceKind, String sourceSummary) {
@@ -872,7 +875,9 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 firstNonNull(toNullableString(metadata.get("id")), fallback.id()),
                 firstNonNull(toNullableString(metadata.get("name")), fallback.name()),
                 firstNonNull(toNullableString(metadata.get("displayName")), fallback.displayName()),
-                firstNonNull(toNullableString(metadata.get("description")), fallback.description())
+                firstNonNull(toNullableString(metadata.get("description")), fallback.description()),
+                firstNonNull(toNullableString(metadata.get("version")), fallback.version()),
+                firstNonNull(toNullableString(metadata.get("iconBase64")), fallback.iconBase64())
         );
     }
 
@@ -1063,7 +1068,9 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 metadata.id(),
                 metadata.name(),
                 metadata.displayName(),
-                normalizedDescription
+                normalizedDescription,
+                dttVersion,
+                metadata.iconBase64()
         );
     }
 

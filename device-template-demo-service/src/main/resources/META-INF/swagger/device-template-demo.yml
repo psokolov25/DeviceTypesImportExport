@@ -54,6 +54,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DttInspectionResponse'
+  /api/dtt/metadata:
+    post:
+      tags: [DTT]
+      summary: Извлечь базовые metadata из DTT или DTT-set zip
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Список metadata типов устройств
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DttMetadataBatchResponse'
+  /api/dtt/version/compare:
+    post:
+      tags: [DTT]
+      summary: Сравнить введённую версию и версию из DTT
+      parameters:
+        - in: query
+          name: inputVersion
+          schema:
+            type: string
+            default: "1.0"
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Результат сравнения версий
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DttVersionComparisonResponse'
   /api/dtt/import/profile:
     post:
       tags: [DTT]
@@ -129,18 +171,62 @@ components:
     DttInspectionResponse:
       type: object
       properties:
+        formatName:
+          type: string
+        formatVersion:
+          type: string
         deviceTypeId:
           type: string
-        manifestDeviceTypeName:
+        deviceTypeName:
           type: string
-        containsLifecycleScripts:
-          type: boolean
-        containsEventHandlers:
-          type: boolean
-        containsCommands:
-          type: boolean
+        deviceTypeVersion:
+          type: string
+        deviceTypeDescription:
+          type: string
+        imageBase64:
+          type: string
+        eventHandlersCount:
+          type: integer
+          format: int32
+        commandsCount:
+          type: integer
+          format: int32
       required:
-        [deviceTypeId, manifestDeviceTypeName, containsLifecycleScripts, containsEventHandlers, containsCommands]
+        [formatName, formatVersion, deviceTypeId, deviceTypeName, imageBase64, eventHandlersCount, commandsCount]
+    DeviceTypeBasicMetadataResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        imageBase64:
+          type: string
+      required: [id, name, imageBase64]
+    DttMetadataBatchResponse:
+      type: object
+      properties:
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceTypeBasicMetadataResponse'
+      required: [metadata]
+    DttVersionComparisonResponse:
+      type: object
+      properties:
+        inputVersion:
+          type: string
+        dttVersion:
+          type: string
+        greaterVersion:
+          type: string
+        greaterSource:
+          type: string
+      required: [inputVersion, dttVersion, greaterVersion, greaterSource]
     ImportDttSetToProfileRequest:
       type: object
       properties:
@@ -160,7 +246,8 @@ components:
           type: integer
           format: int32
         profileJson:
-          type: string
+          type: object
+          additionalProperties: true
       required: [deviceTypesCount, profileJson]
     ExportAllDttFromProfileRequest:
       type: object

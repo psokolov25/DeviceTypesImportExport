@@ -46,7 +46,9 @@ public class DefaultDttArchiveReader implements DttArchiveReader {
                 Objects.toString(deviceType.get("id"), descriptor.deviceTypeId()),
                 Objects.toString(deviceType.get("name"), "unknown"),
                 Objects.toString(deviceType.get("displayName"), Objects.toString(deviceType.get("name"), "unknown")),
-                Objects.toString(deviceType.get("description"), "")
+                Objects.toString(deviceType.get("description"), ""),
+                descriptor.deviceTypeVersion(),
+                readIcon(entries)
         );
 
         return new DttArchiveTemplate(
@@ -121,5 +123,13 @@ public class DefaultDttArchiveReader implements DttArchiveReader {
             }
         });
         return scripts;
+    }
+
+    private String readIcon(Map<String, byte[]> entries) {
+        final byte[] iconBytes = entries.get(DttIconSupport.ICON_FILE_NAME);
+        if (iconBytes == null || iconBytes.length == 0) {
+            return DttIconSupport.DEFAULT_ICON_BASE64;
+        }
+        return DttIconSupport.encode(iconBytes);
     }
 }

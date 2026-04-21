@@ -74,6 +74,57 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldExtractMetadataFromSingleDtt() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+
+        final var response = controller.metadata(bytes);
+
+        assertThat(response.metadata()).hasSize(1);
+        assertThat(response.metadata().get(0).id()).isEqualTo("display");
+        assertThat(response.metadata().get(0).imageBase64()).isNotBlank();
+    }
+
+    @Test
+    void shouldCompareInputVersionWithVersionFromDtt() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+
+        final var response = controller.compareVersion(bytes, "2.0.0");
+
+        assertThat(response.inputVersion()).isEqualTo("2.0.0");
+        assertThat(response.dttVersion()).isEqualTo("1.0");
+        assertThat(response.greaterVersion()).isEqualTo("2.0.0");
+        assertThat(response.greaterSource()).isEqualTo("INPUT");
+    }
+
+    @Test
+    void shouldReturnDetailedProfilePreview() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportDttSetToProfileRequest request = new ImportDttSetToProfileRequest(
+                List.of(Base64.getEncoder().encodeToString(bytes)),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var response = controller.previewProfileDetailed(request);
+
+        assertThat(response.profileJson().toString()).contains("display");
+        assertThat(response.computationsByDeviceType()).containsKey("display");
+    }
+
+    @Test
+    void shouldReturnDetailedBranchPreview() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportDttSetToBranchRequest request = new ImportDttSetToBranchRequest(
+                List.of(Base64.getEncoder().encodeToString(bytes)),
+                List.of("branch-1"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var response = controller.previewBranchDetailed(request);
+
+        assertThat(response.branchJson().toString()).contains("branch-1");
+    }
+
+    @Test
     void shouldImportDttSetToProfileJson() {
         final byte[] bytes = createArchiveBytes("display", "println 'ok'");
         final ImportDttSetToProfileRequest request = new ImportDttSetToProfileRequest(

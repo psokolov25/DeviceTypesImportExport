@@ -9,6 +9,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param formatVersion версия формата
  * @param deviceTypeId идентификатор типа устройства
  * @param deviceTypeName имя типа устройства
+ * @param deviceTypeVersion версия типа устройства
+ * @param deviceTypeDescription описание типа устройства
+ * @param imageBase64 иконка типа устройства в PNG Base64
  * @param eventHandlersCount количество event handlers
  * @param commandsCount количество commands
  */
@@ -18,6 +21,9 @@ public record DttInspectionResponse(
         String formatVersion,
         String deviceTypeId,
         String deviceTypeName,
+        String deviceTypeVersion,
+        String deviceTypeDescription,
+        String imageBase64,
         int eventHandlersCount,
         int commandsCount
 ) {
