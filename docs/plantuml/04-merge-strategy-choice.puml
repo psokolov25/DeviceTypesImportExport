@@ -1,0 +1,26 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam activityBorderColor #1f2937
+skinparam activityBackgroundColor #f8fafc
+skinparam diamondBackgroundColor #eef2ff
+skinparam diamondBorderColor #1f2937
+
+title Выбор merge-стратегии
+
+start
+:Определить сценарий конфликта;
+if (Тип должен быть уникален?) then (да)
+  :FAIL_IF_EXISTS;
+elseif (Нужно полное замещение?) then (да)
+  :REPLACE;
+elseif (Нужно дозаполнение null-полей?) then (да)
+  :MERGE_NON_NULLS;
+elseif (Нельзя терять существующие значения?) then (да)
+  :MERGE_PRESERVE_EXISTING;
+else
+  :CREATE_COPY_WITH_SUFFIX;
+endif
+stop
+@enduml

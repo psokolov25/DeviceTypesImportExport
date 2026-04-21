@@ -315,6 +315,603 @@ String profileJson = facade.toProfileJson(
 3. Отсутствие ошибки резолва `device-template-library:0.1.0-SNAPSHOT` в demo-модуле;
 4. Корректная генерация OpenAPI/Micronaut артефактов при сборке.
 
+## Руководство для разработчика, использующего библиотеку
+
+Ниже описана работа именно с `device-template-library` как с встраиваемой Java-библиотекой. Считайте, что вы пишете свою службу-потребитель с нуля и не опираетесь на demo-service. Demo-service полезен только как референсный интеграционный пример и ручной стенд для Swagger UI.
+
+Полная самостоятельная версия руководства вынесена в отдельный документ: [`docs/developer-guide.md`](docs/developer-guide.md).
+
+### Архитектура интеграции
+
+Исходники PlantUML расположены в каталоге [`docs/plantuml`](docs/plantuml), а визуализированные SVG-иллюстрации — в [`docs/plantuml/svg`](docs/plantuml/svg).
+
+#### 1. Архитектура библиотеки
+
+![Архитектура библиотеки](docs/plantuml/svg/01-library-architecture.svg)
+
+PlantUML: [`docs/plantuml/01-library-architecture.puml`](docs/plantuml/01-library-architecture.puml)
+
+#### 2. Алгоритм интегратора
+
+![Алгоритм интегратора](docs/plantuml/svg/02-import-export-algorithm.svg)
+
+PlantUML: [`docs/plantuml/02-import-export-algorithm.puml`](docs/plantuml/02-import-export-algorithm.puml)
+
+#### 3. Один DTT → несколько производных типов / наборов устройств
+
+![Один DTT -> несколько производных шаблонов](docs/plantuml/svg/03-derived-device-types.svg)
+
+PlantUML: [`docs/plantuml/03-derived-device-types.puml`](docs/plantuml/03-derived-device-types.puml)
+
+#### 4. Выбор merge-стратегии
+
+![Выбор merge-стратегии](docs/plantuml/svg/04-merge-strategy-choice.svg)
+
+PlantUML: [`docs/plantuml/04-merge-strategy-choice.puml`](docs/plantuml/04-merge-strategy-choice.puml)
+
+### Быстрый старт для своей службы
+
+#### 1. Подключение зависимости
+
+Если библиотека публикуется в ваш внутренний Maven-репозиторий, прикладной сервису достаточно подключить модуль `device-template-library`:
+
+```xml
+<dependency>
+    <groupId>ru.aritmos.dtt</groupId>
+    <artifactId>device-template-library</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+#### 2. Инициализация фасада
+
+```java
+import ru.aritmos.dtt.api.DeviceTemplateLibrary;
+import ru.aritmos.dtt.api.DeviceTemplateLibraryFacade;
+
+DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade();
+```
+
+Это основной вход в библиотеку. Если вашей службе нужны подмены сериализаторов, валидаторов или low-level сервисов, используйте `DeviceTemplateLibrary.createFacadeBuilder()`.
+
+### Основные уровни использования библиотеки
+
+#### Уровень A. Low-level: прочитать, проверить, изменить и записать один DTT
+
+Этот уровень нужен, когда ваша служба должна программно модифицировать шаблон, не собирая ещё profile или branch equipment.
+
+```java
+import ru.aritmos.dtt.api.DeviceTemplateLibrary;
+import ru.aritmos.dtt.api.DeviceTemplateLibraryFacade;
+import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
+import ru.aritmos.dtt.api.dto.ValidationResult;
+import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade();
+
+byte[] sourceBytes = Files.readAllBytes(Path.of("Display WD3264.dtt"));
+DttArchiveTemplate source = facade.readDtt(sourceBytes);
+
+ValidationResult validation = facade.validate(source);
+if (!validation.valid()) {
+    throw new IllegalStateException("DTT не прошёл валидацию: " + validation.errors());
+}
+
+Map<String, Object> patchedDefaults = new LinkedHashMap<>(source.defaultValues());
+patchedDefaults.put("TicketZone", "5");
+
+DttArchiveTemplate patched = new DttArchiveTemplate(
+        source.descriptor(),
+        new DeviceTypeMetadata(
+                "display-wd3264-red-window",
+                "Display WD3264 Красное окно",
+                "Display WD3264 Красное окно",
+                "Производный шаблон для красного окна"
+        ),
+        source.deviceTypeParametersSchema(),
+        source.deviceParametersSchema(),
+        source.bindingHints(),
+        patchedDefaults,
+        source.exampleValues(),
+        source.templateOrigin(),
+        source.onStartEvent(),
+        source.onStopEvent(),
+        source.onPublicStartEvent(),
+        source.onPublicFinishEvent(),
+        source.deviceTypeFunctions(),
+        source.eventHandlers(),
+        source.commands()
+);
+
+byte[] patchedBytes = facade.writeDtt(patched);
+Files.write(Path.of("Display WD3264 Красное окно.dtt"), patchedBytes);
+```
+
+#### Уровень B. Mid-level: собрать профиль оборудования из шаблонов
+
+Этот сценарий подходит, когда ваша служба хранит шаблоны отдельно, а профиль оборудования собирает динамически.
+
+```java
+import ru.aritmos.dtt.api.DeviceTemplateLibrary;
+import ru.aritmos.dtt.api.DeviceTemplateLibraryFacade;
+import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
+import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
+import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
+import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
+import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.TemplateValueOverride;
+import ru.aritmos.dtt.json.profile.EquipmentProfile;
+
+import java.util.List;
+import java.util.Map;
+
+DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade();
+
+DeviceTypeTemplate terminal = new DeviceTypeTemplate(
+        new DeviceTypeMetadata("terminal", "Terminal", "Terminal", "Киоск самообслуживания"),
+        Map.of(
+                "prefix", "TVR",
+                "printerServiceURL", "http://127.0.0.1:8084"
+        )
+);
+
+EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+        List.of(new EquipmentProfileDeviceTypeRequest(terminal, true)),
+        List.of(new TemplateValueOverride(
+                "terminal",
+                Map.of("prefix", "MSK")
+        )),
+        MergeStrategy.FAIL_IF_EXISTS
+));
+
+String profileJson = facade.toProfileJson(profile);
+```
+
+#### Уровень C. Mid-level: собрать branch equipment с типами и устройствами
+
+Это основной прикладной путь, если вашей службе нужен итоговый `DeviceManager.json` для конкретных отделений.
+
+```java
+import ru.aritmos.dtt.api.DeviceTemplateLibrary;
+import ru.aritmos.dtt.api.DeviceTemplateLibraryFacade;
+import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
+import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
+import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
+import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
+import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
+import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
+import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
+import ru.aritmos.dtt.json.branch.BranchEquipment;
+
+import java.util.List;
+import java.util.Map;
+
+DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade();
+
+DeviceTypeTemplate displayTemplate = new DeviceTypeTemplate(
+        new DeviceTypeMetadata(
+                "display-wd3264-red-window",
+                "Display WD3264 Красное окно",
+                "Display WD3264 Красное окно",
+                "Производный тип для красного окна"
+        ),
+        Map.of(
+                "TicketZone", "5",
+                "ServicePointNameZone", "1",
+                "ServicePointNumberZone", "2"
+        )
+);
+
+BranchEquipment branchEquipment = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+        List.of(new BranchImportRequest(
+                "branch-msk-01",
+                "Москва, отделение 01",
+                List.of(new BranchDeviceTypeImportRequest(
+                        new EquipmentProfileDeviceTypeRequest(displayTemplate, true),
+                        List.of(
+                                new DeviceInstanceImportRequest(
+                                        "display-red-1",
+                                        "display-red-1",
+                                        "Красный дисплей 1",
+                                        "Дисплей для окна 101",
+                                        Map.of(
+                                                "IP", "10.10.10.11",
+                                                "Port", 22224,
+                                                "ServicePointId", "sp-101",
+                                                "ServicePointDisplayName", "ОКНО 101",
+                                                "showOnStart", true
+                                        )
+                                ),
+                                new DeviceInstanceImportRequest(
+                                        "display-red-2",
+                                        "display-red-2",
+                                        "Красный дисплей 2",
+                                        "Дисплей для окна 102",
+                                        Map.of(
+                                                "IP", "10.10.10.12",
+                                                "Port", 22224,
+                                                "ServicePointId", "sp-102",
+                                                "ServicePointDisplayName", "ОКНО 102",
+                                                "showOnStart", true
+                                        )
+                                )
+                        ),
+                        "Display",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of(),
+                        Map.of()
+                ))
+        )),
+        MergeStrategy.FAIL_IF_EXISTS
+));
+
+String branchJson = facade.toBranchJson(branchEquipment);
+```
+
+#### Уровень D. High-level: batch import/export набора DTT
+
+Это удобно, если ваша служба оперирует уже набором архивов и не хочет вручную раскладывать каждый шаблон по DTO.
+
+Импорт zip-набора в profile:
+
+```java
+byte[] zipPayload = Files.readAllBytes(Path.of("branch-dtt-set.zip"));
+EquipmentProfile profile = facade.importDttZipToProfile(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+```
+
+Импорт zip-набора в отделения:
+
+```java
+byte[] zipPayload = Files.readAllBytes(Path.of("branch-dtt-set.zip"));
+BranchEquipment branchEquipment = facade.importDttZipToBranch(
+        zipPayload,
+        List.of("branch-msk-01", "branch-msk-02"),
+        MergeStrategy.MERGE_NON_NULLS
+);
+```
+
+Экспорт набора DTT из существующего `DeviceManager.json`:
+
+```java
+import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
+import ru.aritmos.dtt.json.branch.BranchEquipment;
+
+BranchEquipment existing = facade.parseBranchJson(Files.readString(Path.of("DeviceManager.json")));
+byte[] zipBytes = facade.exportBranchToDttZip(new BranchEquipmentExportRequest(
+        existing,
+        List.of("branch-msk-01"),
+        List.of(),
+        MergeStrategy.MERGE_NON_NULLS,
+        "2.1.0"
+));
+Files.write(Path.of("branch-msk-01-dtt.zip"), zipBytes);
+```
+
+### Практический алгоритм интеграции в своей службе
+
+#### Сценарий A. Проверить входной DTT и безопасно импортировать его в профиль
+
+1. Прочитать архив `readDtt(bytes)`.
+2. Выполнить `validate(...)`.
+3. При необходимости модифицировать `defaultValues`, `exampleValues`, metadata и binding hints.
+4. Собрать `EquipmentProfile` через `assembleProfile(...)` или batch-импорт `importDttSetToProfile(...)`.
+5. Сериализовать результат через `toProfileJson(...)` либо сохранить типизированную модель.
+
+```java
+byte[] dttBytes = Files.readAllBytes(Path.of("Terminal.dtt"));
+DttArchiveTemplate archive = facade.readDtt(dttBytes);
+ValidationResult validation = facade.validate(archive);
+if (!validation.valid()) {
+    throw new IllegalStateException("Ошибки валидации DTT: " + validation.errors());
+}
+
+EquipmentProfile profile = facade.importDttSetToProfile(
+        List.of(dttBytes),
+        MergeStrategy.FAIL_IF_EXISTS
+);
+```
+
+#### Сценарий B. Экспортировать DTT из канонического `DeviceManager.json`
+
+1. Получить `BranchEquipment` как типизированную модель через `parseBranchJson(...)`.
+2. Сформировать `BranchEquipmentExportRequest`.
+3. Вызвать `exportDttSetFromBranch(...)`, `exportDttSetFromBranchBase64(...)` или `exportBranchToDttZip(...)`.
+4. Сохранить результат в файловое хранилище, отправить по REST, положить в MinIO или Git-репозиторий артефактов.
+
+```java
+BranchEquipment branchEquipment = facade.parseBranchJson(
+        Files.readString(Path.of("DeviceManager.json"))
+);
+
+BranchEquipmentExportRequest request = new BranchEquipmentExportRequest(
+        branchEquipment,
+        List.of("branch-msk-01"),
+        List.of("display-wd3264-red-window"),
+        MergeStrategy.MERGE_NON_NULLS,
+        "2.1.0"
+);
+
+Map<String, String> base64ByDeviceType = facade.exportDttSetFromBranchBase64(request);
+```
+
+### Примечания по алгоритмам и extension points
+
+- `readDtt/writeDtt` — low-level extension point для служб, которые сами управляют жизненным циклом одного шаблона.
+- `assembleProfile/assembleBranch` — основной прикладной слой, если вы сами строите типизированную модель результата.
+- `importDttSetToProfile/importDttSetToBranch/importDttZip...` — high-level слой для batch-операций.
+- `parseProfileJson/parseBranchJson` и `toProfileJson/toBranchJson` удобны как адаптер между вашей доменной моделью и каноническими JSON-представлениями.
+- `preview...`-методы полезны, если ваша служба сначала показывает diff/диагностику пользователю, а уже затем фиксирует импорт.
+- Для сложных производных типов почти всегда удобнее сначала собрать производные DTT, а затем импортировать их как обычный batch-набор.
+
+### Anti-patterns и практические замечания
+
+- Не стройте собственный ZIP writer для `.dtt`, если вам важна детерминированность архива. Используйте `writeDtt(...)` и `export...ToDttZip(...)`.
+- Не копируйте код из `DttDemoService` в прикладной сервис. Для интегратора правильная зависимость — это `DeviceTemplateLibraryFacade`.
+- Не используйте `REPLACE` как значение merge-стратегии по умолчанию. Для производственных batch-импортов обычно безопаснее `FAIL_IF_EXISTS` или `MERGE_NON_NULLS`.
+- Не редактируйте YAML/Groovy внутри zip вручную без последующей `validate(...)`.
+- Не делайте DTT единственным runtime-источником истины для branch-конфигурации. DTT — переносимый шаблон/артефакт обмена, а не полноценная замена канонического `DeviceManager.json`.
+
+### Отдельный сценарий: один DTT → несколько производных типов устройств / наборов устройств
+
+Это ключевой прикладной паттерн для службы, которая хочет держать в Git один базовый шаблон, а на лету получать из него несколько производных типов, отличающихся metadata, значениями параметров типа устройства и набором устройств.
+
+#### Важная идея
+
+Надёжная последовательность состоит из трёх фаз:
+
+1. Прочитать базовый DTT через `readDtt(...)`.
+2. Клонировать его в несколько `DttArchiveTemplate` с разными metadata/default values/example values.
+3. Либо сохранить эти производные DTT как отдельные артефакты, либо сразу импортировать их в `EquipmentProfile`/`BranchEquipment`.
+
+#### Шаг 1. Сконструировать два производных DTT из одного базового
+
+```java
+DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade();
+byte[] baseBytes = Files.readAllBytes(Path.of("Display WD3264.dtt"));
+DttArchiveTemplate base = facade.readDtt(baseBytes);
+
+Map<String, Object> redDefaults = new LinkedHashMap<>(base.defaultValues());
+redDefaults.put("FirstZoneColor", "red");
+redDefaults.put("TicketZone", "5");
+
+Map<String, Object> blueDefaults = new LinkedHashMap<>(base.defaultValues());
+blueDefaults.put("FirstZoneColor", "blue");
+blueDefaults.put("TicketZone", "6");
+
+DttArchiveTemplate red = new DttArchiveTemplate(
+        base.descriptor(),
+        new DeviceTypeMetadata(
+                "display-wd3264-red-window",
+                "Display WD3264 Красное окно",
+                "Display WD3264 Красное окно",
+                "Производный шаблон для красного окна"
+        ),
+        base.deviceTypeParametersSchema(),
+        base.deviceParametersSchema(),
+        base.bindingHints(),
+        redDefaults,
+        base.exampleValues(),
+        base.templateOrigin(),
+        base.onStartEvent(),
+        base.onStopEvent(),
+        base.onPublicStartEvent(),
+        base.onPublicFinishEvent(),
+        base.deviceTypeFunctions(),
+        base.eventHandlers(),
+        base.commands()
+);
+
+DttArchiveTemplate blue = new DttArchiveTemplate(
+        base.descriptor(),
+        new DeviceTypeMetadata(
+                "display-wd3264-blue-window",
+                "Display WD3264 Синее окно",
+                "Display WD3264 Синее окно",
+                "Производный шаблон для синего окна"
+        ),
+        base.deviceTypeParametersSchema(),
+        base.deviceParametersSchema(),
+        base.bindingHints(),
+        blueDefaults,
+        base.exampleValues(),
+        base.templateOrigin(),
+        base.onStartEvent(),
+        base.onStopEvent(),
+        base.onPublicStartEvent(),
+        base.onPublicFinishEvent(),
+        base.deviceTypeFunctions(),
+        base.eventHandlers(),
+        base.commands()
+);
+
+byte[] redBytes = facade.writeDtt(red);
+byte[] blueBytes = facade.writeDtt(blue);
+```
+
+#### Шаг 2. Собрать branch equipment напрямую из библиотеки
+
+```java
+DeviceTypeTemplate redTemplate = new DeviceTypeTemplate(
+        red.metadata(),
+        Map.of(
+                "FirstZoneColor", "red",
+                "TicketZone", "5"
+        )
+);
+DeviceTypeTemplate blueTemplate = new DeviceTypeTemplate(
+        blue.metadata(),
+        Map.of(
+                "FirstZoneColor", "blue",
+                "TicketZone", "6"
+        )
+);
+
+BranchEquipment branchEquipment = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+        List.of(new BranchImportRequest(
+                "branch-custom",
+                "Отделение custom",
+                List.of(
+                        new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(redTemplate, true),
+                                List.of(
+                                        new DeviceInstanceImportRequest(
+                                                "red-1",
+                                                "red-1",
+                                                "Red 1",
+                                                "Красный дисплей 1",
+                                                Map.of("IP", "10.10.10.11", "Port", 22224)
+                                        ),
+                                        new DeviceInstanceImportRequest(
+                                                "red-2",
+                                                "red-2",
+                                                "Red 2",
+                                                "Красный дисплей 2",
+                                                Map.of("IP", "10.10.10.12", "Port", 22224)
+                                        )
+                                ),
+                                "Display",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                Map.of(),
+                                Map.of()
+                        ),
+                        new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(blueTemplate, true),
+                                List.of(
+                                        new DeviceInstanceImportRequest(
+                                                "blue-1",
+                                                "blue-1",
+                                                "Blue 1",
+                                                "Синий дисплей 1",
+                                                Map.of("IP", "10.10.10.21", "Port", 22224)
+                                        ),
+                                        new DeviceInstanceImportRequest(
+                                                "blue-2",
+                                                "blue-2",
+                                                "Blue 2",
+                                                "Синий дисплей 2",
+                                                Map.of("IP", "10.10.10.22", "Port", 22224)
+                                        ),
+                                        new DeviceInstanceImportRequest(
+                                                "blue-3",
+                                                "blue-3",
+                                                "Blue 3",
+                                                "Синий дисплей 3",
+                                                Map.of("IP", "10.10.10.23", "Port", 22224)
+                                        )
+                                ),
+                                "Display",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                Map.of(),
+                                Map.of()
+                        )
+                )
+        )),
+        MergeStrategy.FAIL_IF_EXISTS
+));
+```
+
+#### Шаг 3. Аналогично собрать профиль оборудования
+
+```java
+EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+        List.of(
+                new EquipmentProfileDeviceTypeRequest(redTemplate, true),
+                new EquipmentProfileDeviceTypeRequest(blueTemplate, true)
+        ),
+        List.of(),
+        MergeStrategy.FAIL_IF_EXISTS
+));
+```
+
+#### JSON-представление этого же сценария
+
+Пример того, как может выглядеть итоговая прикладная конфигурация, если ваша служба хранит её в собственном JSON и затем преобразует в DTO библиотеки:
+
+```json
+{
+  "derivedDeviceTypes": [
+    {
+      "templateFile": "Display WD3264.dtt",
+      "deviceType": {
+        "id": "display-wd3264-red-window",
+        "name": "Display WD3264 Красное окно",
+        "displayName": "Display WD3264 Красное окно",
+        "description": "Производный шаблон для красного окна"
+      },
+      "deviceTypeParamValues": {
+        "FirstZoneColor": "red",
+        "TicketZone": "5"
+      },
+      "devices": [
+        {"id": "red-1", "name": "red-1", "displayName": "Red 1", "deviceParamValues": {"IP": "10.10.10.11", "Port": 22224}},
+        {"id": "red-2", "name": "red-2", "displayName": "Red 2", "deviceParamValues": {"IP": "10.10.10.12", "Port": 22224}}
+      ]
+    },
+    {
+      "templateFile": "Display WD3264.dtt",
+      "deviceType": {
+        "id": "display-wd3264-blue-window",
+        "name": "Display WD3264 Синее окно",
+        "displayName": "Display WD3264 Синее окно",
+        "description": "Производный шаблон для синего окна"
+      },
+      "deviceTypeParamValues": {
+        "FirstZoneColor": "blue",
+        "TicketZone": "6"
+      },
+      "devices": [
+        {"id": "blue-1", "name": "blue-1", "displayName": "Blue 1", "deviceParamValues": {"IP": "10.10.10.21", "Port": 22224}},
+        {"id": "blue-2", "name": "blue-2", "displayName": "Blue 2", "deviceParamValues": {"IP": "10.10.10.22", "Port": 22224}},
+        {"id": "blue-3", "name": "blue-3", "displayName": "Blue 3", "deviceParamValues": {"IP": "10.10.10.23", "Port": 22224}}
+      ]
+    }
+  ]
+}
+```
+
+#### Когда использовать именно этот паттерн
+
+Используйте его, если одновременно нужны:
+
+- один базовый исходник DTT в Git;
+- несколько стабильных производных типов устройств с разными metadata;
+- разные наборы устройств на уровне branch equipment;
+- воспроизводимый экспорт этих производных типов назад в отдельные `.dtt`.
+
+#### Что важно проверить тестами
+
+- `base DTT -> derived DTT -> import -> export` round-trip;
+- корректность `metadata.id/name/displayName` у производных типов;
+- корректность `deviceTypeParamValues` и `deviceParamValues` в итоговом profile/branch JSON;
+- поведение merge-стратегии при повторном импорте тех же производных типов;
+- стабильность имён файлов DTT и содержимого `manifest.yml`.
+
+### Где смотреть дальше
+
+- Полное отдельное руководство: [`docs/developer-guide.md`](docs/developer-guide.md)
+- PlantUML-исходники: [`docs/plantuml`](docs/plantuml)
+- SVG-диаграммы: [`docs/plantuml/svg`](docs/plantuml/svg)
+- Референсный demo-service: `device-template-demo-service`
+
 ## Тесты
 
 Запуск полного набора тестов:

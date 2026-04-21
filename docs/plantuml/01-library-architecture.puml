@@ -1,0 +1,60 @@
+@startuml
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam ArrowColor #4b5563
+skinparam ComponentBorderColor #1f2937
+skinparam ComponentBackgroundColor #f8fafc
+skinparam DatabaseBorderColor #1f2937
+skinparam DatabaseBackgroundColor #eef2ff
+
+title Архитектура библиотеки DeviceTypesImportExport
+
+package "Приложение-интегратор" {
+  [DeviceTemplateLibraryFacade]
+как Facade
+}
+
+package "device-template-library" {
+  [DttArchiveReader/Writer]
+ZIP + YAML + Groovy
+  [TemplateValidationService]
+валидация шаблона
+  [TemplateAssemblyService]
+сборка profile/branch
+  [Profile/Branch JSON Parsers]
+parse/generate JSON
+  [Canonical mappers]
+archive <-> canonical <-> projection
+}
+
+database "DTT archive" as DTT
+collections "EquipmentProfile / BranchEquipment" as MODELS
+collections "profile JSON / branch JSON" as JSON
+
+[DeviceTemplateLibraryFacade]
+как Facade --> [DttArchiveReader/Writer]
+ZIP + YAML + Groovy : read/write DTT
+[DeviceTemplateLibraryFacade]
+как Facade --> [TemplateValidationService]
+валидация шаблона : validate
+[DeviceTemplateLibraryFacade]
+как Facade --> [TemplateAssemblyService]
+сборка profile/branch : assemble/import/preview
+[DeviceTemplateLibraryFacade]
+как Facade --> [Profile/Branch JSON Parsers]
+parse/generate JSON : parse/toJson/exportFromJson
+[DttArchiveReader/Writer]
+ZIP + YAML + Groovy --> DTT
+[TemplateAssemblyService]
+сборка profile/branch --> MODELS
+[Profile/Branch JSON Parsers]
+parse/generate JSON --> JSON
+[Canonical mappers]
+archive <-> canonical <-> projection ..> [DttArchiveReader/Writer]
+ZIP + YAML + Groovy
+[Canonical mappers]
+archive <-> canonical <-> projection ..> [TemplateAssemblyService]
+сборка profile/branch
+@enduml

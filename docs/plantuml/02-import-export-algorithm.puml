@@ -1,0 +1,34 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam activityBorderColor #1f2937
+skinparam activityBackgroundColor #f8fafc
+skinparam diamondBackgroundColor #eef2ff
+skinparam diamondBorderColor #1f2937
+
+title Алгоритм работы интегратора с библиотекой
+
+start
+:Получить DTT bytes
+или profile/branch JSON;
+if (Вход = DTT?) then (да)
+  :Facade.readDtt(...);
+  :Facade.validate(...);
+  if (Нужна сборка profile?) then (да)
+    :Facade.import/previewDttSetToProfile(...);
+  else (branch)
+    :Facade.import/previewDttSetToBranch(...);
+  endif
+else (нет)
+  if (Вход = object model?) then (да)
+    :Facade.exportDttSetFromProfile/Branch(...);
+  else (строковый JSON)
+    :Facade.parseProfileJson/parseBranchJson
+или export...From...Json(...);
+  endif
+endif
+:Сериализовать результат
+или записать DTT zip;
+stop
+@enduml

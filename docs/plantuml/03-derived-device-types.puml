@@ -1,0 +1,32 @@
+@startuml
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam rectangleBorderColor #1f2937
+skinparam rectangleBackgroundColor #f8fafc
+skinparam ArrowColor #4b5563
+
+title Один DTT -> несколько производных типов / наборов устройств
+
+rectangle "Исходный шаблон
+Display WD3264.dtt" as Base
+rectangle "Шаг 1
+Facade.readDtt(bytes)" as Read
+rectangle "Шаг 2
+Клонировать metadata
+и значения параметров" as Clone
+rectangle "Display WD3264 Красное окно.dtt" as Red
+rectangle "Display WD3264 Синее окно.dtt" as Blue
+rectangle "Шаг 3
+Собрать zip из нескольких .dtt" as Zip
+rectangle "Шаг 4
+Импортировать в profile/branch
+с override devices" as Import
+
+Base --> Read --> Clone
+Clone --> Red
+Clone --> Blue
+Red --> Zip
+Blue --> Zip
+Zip --> Import
+@enduml
