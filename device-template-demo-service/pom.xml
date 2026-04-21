@@ -109,6 +109,21 @@
                 <configuration>
                     <mainClass>ru.aritmos.dtt.demo.DemoApplication</mainClass>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>postprocess-openapi-examples</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>ru.aritmos.dtt.demo.openapi.OpenApiExamplesPostProcessor</mainClass>
+                            <arguments>
+                                <argument>${project.build.outputDirectory}/META-INF/swagger/device-template-demo.yml</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>io.micronaut.maven</groupId>

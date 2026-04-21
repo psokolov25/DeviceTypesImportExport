@@ -1,5 +1,8 @@
 package ru.aritmos.dtt.demo;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.runtime.server.EmbeddedServer;
 import org.junit.jupiter.api.Test;
@@ -40,6 +43,9 @@ class OpenApiSpecContractTest {
 
             final String spec = response.body();
             assertThat(spec).contains("openapi:");
+
+            final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+            final JsonNode root = yamlMapper.readTree(spec);
             assertThat(spec).contains("/api/dtt/import/profile");
             assertThat(spec).contains("/api/dtt/import/profile/upload");
             assertThat(spec).contains("/api/dtt/import/branch");
@@ -52,6 +58,14 @@ class OpenApiSpecContractTest {
             assertThat(spec).contains("/api/dtt/export/branch/one/download");
             assertThat(spec).contains("/api/dtt/preview/export/branch/one");
             assertThat(spec).contains("/api/dtt/export/branch/all");
+
+            assertThat(root.at("/paths/~1api~1dtt~1export~1branch~1all/post/requestBody/content/application~1json/examples/autoResolveMostComplete/value").isObject()).isTrue();
+            assertThat(root.at("/paths/~1api~1dtt~1export~1branch~1all/post/requestBody/content/application~1json/examples/failIfExists/value").isObject()).isTrue();
+            assertThat(root.at("/paths/~1api~1dtt~1export~1branch~1all~1download/post/requestBody/content/application~1json/examples/autoResolveMostComplete/value").isObject()).isTrue();
+            assertThat(root.at("/paths/~1api~1dtt~1import~1branch~1merge/post/requestBody/content/application~1json/examples/example/value").isObject()).isTrue();
+            assertThat(root.at("/paths/~1api~1dtt~1import~1profile~1upload~1multipart/post/requestBody/content/multipart~1form-data/schema/properties/metadataJson/example").asText()).contains("\"mergeStrategy\"");
+            assertThat(root.at("/components/schemas/ExportAllDttFromBranchRequest/properties/branchJson/type").asText()).isEqualTo("object");
+            assertThat(root.at("/components/schemas/ImportDttSetToProfileResponse/properties/profileJson/type").asText()).isEqualTo("object");
 
             assertThat(spec).contains("DemoErrorResponse:");
             assertThat(spec).contains("DttValidationResponse:");

@@ -25,7 +25,6 @@ import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
 import ru.aritmos.dtt.demo.dto.ExportSingleDttResponse;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
-import ru.aritmos.dtt.demo.dto.ImportDeviceTypeMetadataOverrideRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
@@ -505,12 +504,11 @@ public class DttDemoService {
     private EquipmentProfileDeviceTypeRequest toProfileDeviceTypeRequest(Map<String, byte[]> archivesByEntryName,
                                                                         ImportUploadedProfileDeviceTypeRequest request) {
         final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
-        final DeviceTypeTemplate template = applyDeviceTypeOverrides(
-                toDeviceTypeTemplate(archive),
-                request.deviceTypeMetadata(),
-                request.deviceTypeParamValues()
+        final DeviceTypeTemplate template = toDeviceTypeTemplate(archive);
+        return new EquipmentProfileDeviceTypeRequest(
+                new DeviceTypeTemplate(template.metadata(), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
+                true
         );
-        return new EquipmentProfileDeviceTypeRequest(template, true);
     }
 
     private BranchEquipmentAssemblyRequest toStructuredBranchAssemblyRequest(byte[] zipBytes,
@@ -578,15 +576,15 @@ public class DttDemoService {
                                                                                     ImportUploadedBranchDeviceTypeRequest request) {
         final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
         final BranchDeviceTypeImportRequest base = toBranchDeviceTypeImportRequest(archive, branchId);
-        final DeviceTypeTemplate overriddenTemplate = applyDeviceTypeOverrides(
-                base.deviceTypeRequest().template(),
-                request.deviceTypeMetadata(),
-                request.deviceTypeParamValues()
+        final DeviceTypeTemplate baseTemplate = base.deviceTypeRequest().template();
+        final DeviceTypeTemplate overriddenTemplate = new DeviceTypeTemplate(
+                baseTemplate.metadata(),
+                mergeValues(baseTemplate.deviceTypeParamValues(), request.deviceTypeParamValues())
         );
         final String kind = firstNonBlank(request.kind(), base.kind());
         return new BranchDeviceTypeImportRequest(
                 new EquipmentProfileDeviceTypeRequest(overriddenTemplate, true),
-                mergeDeviceInstances(base.deviceInstances(), request.devices(), Boolean.TRUE.equals(request.replaceDevices())),
+                mergeDeviceInstances(base.deviceInstances(), request.devices()),
                 kind,
                 base.onStartEvent(),
                 base.onStopEvent(),
@@ -675,12 +673,11 @@ public class DttDemoService {
 
     private EquipmentProfileDeviceTypeRequest toProfileDeviceTypeRequest(ImportProfileDeviceTypeRequest request) {
         final DttArchiveTemplate archive = facade.readDtt(decodeBase64Archive(request.archiveBase64()));
-        final DeviceTypeTemplate template = applyDeviceTypeOverrides(
-                toDeviceTypeTemplate(archive),
-                request.deviceTypeMetadata(),
-                request.deviceTypeParamValues()
+        final DeviceTypeTemplate template = toDeviceTypeTemplate(archive);
+        return new EquipmentProfileDeviceTypeRequest(
+                new DeviceTypeTemplate(template.metadata(), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
+                true
         );
-        return new EquipmentProfileDeviceTypeRequest(template, true);
     }
 
     private BranchEquipmentAssemblyRequest toStructuredBranchAssemblyRequest(ImportDttSetToBranchRequest request) {
@@ -751,15 +748,15 @@ public class DttDemoService {
     private BranchDeviceTypeImportRequest toStructuredBranchDeviceTypeImportRequest(String branchId, ImportBranchDeviceTypeRequest request) {
         final DttArchiveTemplate archive = facade.readDtt(decodeBase64Archive(request.archiveBase64()));
         final BranchDeviceTypeImportRequest base = toBranchDeviceTypeImportRequest(archive, branchId);
-        final DeviceTypeTemplate overriddenTemplate = applyDeviceTypeOverrides(
-                base.deviceTypeRequest().template(),
-                request.deviceTypeMetadata(),
-                request.deviceTypeParamValues()
+        final DeviceTypeTemplate baseTemplate = base.deviceTypeRequest().template();
+        final DeviceTypeTemplate overriddenTemplate = new DeviceTypeTemplate(
+                baseTemplate.metadata(),
+                mergeValues(baseTemplate.deviceTypeParamValues(), request.deviceTypeParamValues())
         );
         final String kind = firstNonBlank(request.kind(), base.kind());
         return new BranchDeviceTypeImportRequest(
                 new EquipmentProfileDeviceTypeRequest(overriddenTemplate, true),
-                mergeDeviceInstances(base.deviceInstances(), request.devices(), Boolean.TRUE.equals(request.replaceDevices())),
+                mergeDeviceInstances(base.deviceInstances(), request.devices()),
                 kind,
                 base.onStartEvent(),
                 base.onStopEvent(),
@@ -771,53 +768,10 @@ public class DttDemoService {
         );
     }
 
-    private DeviceTypeTemplate applyDeviceTypeOverrides(DeviceTypeTemplate template,
-                                                     ImportDeviceTypeMetadataOverrideRequest metadataOverride,
-                                                     Map<String, Object> paramValueOverrides) {
-        final DeviceTypeMetadata metadata = applyDeviceTypeMetadataOverride(template.metadata(), metadataOverride);
-        return new DeviceTypeTemplate(metadata, mergeValues(template.deviceTypeParamValues(), paramValueOverrides));
-    }
-
-    private DeviceTypeMetadata applyDeviceTypeMetadataOverride(DeviceTypeMetadata metadata,
-                                                               ImportDeviceTypeMetadataOverrideRequest override) {
-        if (override == null) {
-            return metadata;
-        }
-        final String name = firstNonBlank(override.name(), metadata.name());
-        final String displayName = firstNonBlank(override.displayName(), name, metadata.displayName(), metadata.name());
-        final String description = firstNonBlank(override.description(), metadata.description());
-        final String id = firstNonBlank(override.id(), deriveDeviceTypeId(metadata.id(), override.name(), override.displayName()), metadata.id());
-        return new DeviceTypeMetadata(id, name, displayName, description);
-    }
-
-    private String deriveDeviceTypeId(String sourceId, String name, String displayName) {
-        final String candidate = firstNonBlank(name, displayName);
-        if (candidate == null || candidate.isBlank()) {
-            return sourceId;
-        }
-        final String slug = candidate
-                .trim()
-                .toLowerCase()
-                .replaceAll("[^\\p{L}\\p{N}]+", "-")
-                .replaceAll("^-+", "")
-                .replaceAll("-+$", "");
-        if (slug.isBlank()) {
-            return sourceId;
-        }
-        if (sourceId == null || sourceId.isBlank()) {
-            return slug;
-        }
-        if (slug.equalsIgnoreCase(sourceId)) {
-            return sourceId;
-        }
-        return sourceId + "__" + slug;
-    }
-
     private List<DeviceInstanceImportRequest> mergeDeviceInstances(List<DeviceInstanceImportRequest> defaults,
-                                                                   List<ImportBranchDeviceRequest> overrides,
-                                                                   boolean replaceDevices) {
+                                                                   List<ImportBranchDeviceRequest> overrides) {
         final Map<String, DeviceInstanceImportRequest> merged = new LinkedHashMap<>();
-        if (!replaceDevices && defaults != null) {
+        if (defaults != null) {
             defaults.forEach(item -> merged.put(resolveDeviceId(item.id(), item.name()), item));
         }
         if (overrides == null || overrides.isEmpty()) {

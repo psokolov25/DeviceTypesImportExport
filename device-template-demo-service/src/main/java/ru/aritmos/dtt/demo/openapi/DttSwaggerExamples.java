@@ -21,67 +21,30 @@ public final class DttSwaggerExamples {
             }
             """;
 
-    public static final String IMPORT_PROFILE_REQUEST_STRUCTURED_FULL =
-            "{\n" +
-            "  \"mergeStrategy\": \"FAIL_IF_EXISTS\",\n" +
-            "  \"deviceTypes\": [\n" +
-            "    {\n" +
-            "      \"archiveBase64\": \"" + SAMPLE_DTT_RECEPTION_BASE64 + "\",\n" +
-            "      \"deviceTypeMetadata\": {\n" +
-            "        \"id\": \"display-wd3264-red-window\",\n" +
-            "        \"name\": \"Display WD3264 Красное окно\",\n" +
-            "        \"displayName\": \"Display WD3264 Красное окно\",\n" +
-            "        \"description\": \"Красное окно\"\n" +
-            "      },\n" +
-            "      \"deviceTypeParamValues\": {\n" +
-            "        \"FirstZoneColor\": \"red\",\n" +
-            "        \"TemplateTheme\": \"red-window\"\n" +
-            "      }\n" +
-            "    },\n" +
-            "    {\n" +
-            "      \"archiveBase64\": \"" + SAMPLE_DTT_RECEPTION_BASE64 + "\",\n" +
-            "      \"deviceTypeMetadata\": {\n" +
-            "        \"id\": \"display-wd3264-blue-window\",\n" +
-            "        \"name\": \"Display WD3264 Синее окно\",\n" +
-            "        \"displayName\": \"Display WD3264 Синее окно\",\n" +
-            "        \"description\": \"Синее окно\"\n" +
-            "      },\n" +
-            "      \"deviceTypeParamValues\": {\n" +
-            "        \"FirstZoneColor\": \"blue\",\n" +
-            "        \"TemplateTheme\": \"blue-window\"\n" +
-            "      }\n" +
-            "    }\n" +
-            "  ]\n" +
-            "}";
+    public static final String IMPORT_PROFILE_REQUEST_STRUCTURED_FULL = """
+            {
+              "mergeStrategy": "FAIL_IF_EXISTS",
+              "deviceTypes": [
+                {
+                  "archiveBase64": "UEsDBBQAAAAIAAAAIQBcBbHLWwEAAHICAAAMAAAAbWFuaWZlc3QueW1sbVLJTsMwEL37K6Kc4FCUnhC50aYVEaiqlNADF2SciWrhTV4KucFvcOQLuCAhtm9w/wg3XdQFyZI9897MvJlxLTXHdoQ5pFFWlqhu7QloQ6VIo+5JgogGbKE6t2kUd89Ok07SDadMkrQ9N/Ga0WvSqIIZJdCxwBULvg6jdxrrBq3uTWIn7oV8EGjJLxsFeZVGFjSnArMt91JaeQhk1IQSzRL3r/59/uS//Yf/8W/+KzryL+H9O3/2n8fbQWCIpsq2GvaDtniXVAQ5IKxubpWkwiLjlJLamv6UsipriSaNaswMICKFxVSYK1oDaQiDoi1ygA9mIeMFFhULY9gH+5LzAB34s42ooRNkoXxDUViH7sPQCjIFjne2VkGNHbMTzByYXBDmKlhMWDtA8IjDeuBfbN3nWMuaMsj5wtrDehoLMt2FpNNkNbbrUTEe9PNhPshW/sKF3nT4HnGM/gBQSwMEFAAAAAgAAAAhAL1McL1PAAAAZQAAABgAAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWzLTLFSKEktys3MS8zhykvMTbVSCIFxUzKLC3ISK/3AohcWXdh6seHCngs7Luy9sOHCbgWNC7OA7H0XGy/s0uRKSS1OLsosKMnMz8NUygUAUEsDBBQAAAAIAAAAIQCEhcHsQAAAAEkAAAAjAAAAdGVtcGxhdGUvZGV2aWNlLXR5cGUtcGFyYW1ldGVycy55bWwrKEpNy6yw4lJQKEvMKU21UvB2DOEqKMrMK0ktCk4tKstMTg0N8kGSV8ooKSmw0tc3NDLXMwBCQysLAwsTJS4AUEsDBBQAAAAIAAAAIQCTBtcyAwAAAAEAAAAlAAAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbOMCAFBLAwQUAAAACAAAACEAdljr1RoAAAAYAAAAHAAAAHRlbXBsYXRlL3RlbXBsYXRlLW9yaWdpbi55bWwrzi8tSk71zsxLsVII9QsOcHX2dPN0deECAFBLAwQUAAAACAAAACEA1xtdvx4AAAAcAAAAGgAAAHRlbXBsYXRlL2JpbmRpbmctaGludHMueW1sS0kty0xODaksSPXOzEuxUkjNKymqjC/Iz8wr4QIAUEsDBBQAAAAIAAAAIQCEhcHsQAAAAEkAAAAbAAAAdGVtcGxhdGUvZGVmYXVsdC12YWx1ZXMueW1sKyhKTcussOJSUChLzClNtVLwdgzhKijKzCtJLQpOLSrLTE4NDfJBklfKKCkpsNLXNzQy1zMAQkMrCwMLEyUuAFBLAwQUAAAACAAAACEAN7IDPD0AAABLAAAAGwAAAHRlbXBsYXRlL2V4YW1wbGUtdmFsdWVzLnltbCsoSk3LrLDiUlAoS8wpTbVS8A8L4iooyswrSS0KTi0qy0xODQ3yQZJXyigpKbDS1zc00IMhKwsDCxMlLgBQSwMEFAAAAAgAAAAhADeyAzw9AAAASwAAACMAAABleGFtcGxlcy9wcm9maWxlLXZhbHVlcy1leGFtcGxlLnltbCsoSk3LrLDiUlAoS8wpTbVS8A8L4iooyswrSS0KTi0qy0xODQ3yQZJXyigpKbDS1zc00IMhKwsDCxMlLgBQSwMEFAAAAAgAAAAhADSvyzdmAAAAogAAACIAAABleGFtcGxlcy9icmFuY2gtdmFsdWVzLWV4YW1wbGUueW1sSypKzEvOSC224lJQSAKzdQ1BbAWFlNSyzOTUkMoCiCQIlKQW5WbmJebA+AoKBUWpaZkVCL6CQlliTmmqlYJ/WBCSosw8oNbg1CKQiaFBPljUK2WUlBRY6esbGujBkJWFgYWJEhcAUEsDBBQAAAAIAAAAIQAXcSNNEAAAAA4AAAAUAAAAUkVBRE1FLUlOLUFSQ0hJVkUubWRTVnAJCVFwLErOyCxL5QIAUEsBAhQDFAAAAAgAAAAhAFwFsctbAQAAcgIAAAwAAAAAAAAAAAAAAIABAAAAAG1hbmlmZXN0LnltbFBLAQIUAxQAAAAIAAAAIQC9THC9TwAAAGUAAAAYAAAAAAAAAAAAAACAAYUBAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWxQSwECFAMUAAAACAAAACEAhIXB7EAAAABJAAAAIwAAAAAAAAAAAAAAgAEKAgAAdGVtcGxhdGUvZGV2aWNlLXR5cGUtcGFyYW1ldGVycy55bWxQSwECFAMUAAAACAAAACEAkwbXMgMAAAABAAAAJQAAAAAAAAAAAAAAgAGLAgAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbFBLAQIUAxQAAAAIAAAAIQB2WOvVGgAAABgAAAAcAAAAAAAAAAAAAACAAdECAAB0ZW1wbGF0ZS90ZW1wbGF0ZS1vcmlnaW4ueW1sUEsBAhQDFAAAAAgAAAAhANcbXb8eAAAAHAAAABoAAAAAAAAAAAAAAIABJQMAAHRlbXBsYXRlL2JpbmRpbmctaGludHMueW1sUEsBAhQDFAAAAAgAAAAhAISFwexAAAAASQAAABsAAAAAAAAAAAAAAIABewMAAHRlbXBsYXRlL2RlZmF1bHQtdmFsdWVzLnltbFBLAQIUAxQAAAAIAAAAIQA3sgM8PQAAAEsAAAAbAAAAAAAAAAAAAACAAfQDAAB0ZW1wbGF0ZS9leGFtcGxlLXZhbHVlcy55bWxQSwECFAMUAAAACAAAACEAN7IDPD0AAABLAAAAIwAAAAAAAAAAAAAAgAFqBAAAZXhhbXBsZXMvcHJvZmlsZS12YWx1ZXMtZXhhbXBsZS55bWxQSwECFAMUAAAACAAAACEANK/LN2YAAACiAAAAIgAAAAAAAAAAAAAAgAHoBAAAZXhhbXBsZXMvYnJhbmNoLXZhbHVlcy1leGFtcGxlLnltbFBLAQIUAxQAAAAIAAAAIQAXcSNNEAAAAA4AAAAUAAAAAAAAAAAAAACAAY4FAABSRUFETUUtSU4tQVJDSElWRS5tZFBLBQYAAAAACwALACsDAADQBQAAAAA=",
+                  "deviceTypeParamValues": {
+                    "prefix": "OVR",
+                    "printerServiceURL": "http://10.10.10.10:8084"
+                  }
+                }
+              ]
+            }
+            """;
 
     public static final String IMPORT_PROFILE_UPLOAD_METADATA_EXAMPLE = """
             {
               "mergeStrategy": "FAIL_IF_EXISTS",
               "deviceTypes": [
                 {
-                  "archiveEntryName": "Display WD3264.dtt",
-                  "deviceTypeMetadata": {
-                    "id": "display-wd3264-red-window",
-                    "name": "Display WD3264 Красное окно",
-                    "displayName": "Display WD3264 Красное окно",
-                    "description": "Красное окно"
-                  },
+                  "archiveEntryName": "Terminal.dtt",
                   "deviceTypeParamValues": {
-                    "FirstZoneColor": "red",
-                    "TemplateTheme": "red-window"
-                  }
-                },
-                {
-                  "archiveEntryName": "Display WD3264.dtt",
-                  "deviceTypeMetadata": {
-                    "id": "display-wd3264-blue-window",
-                    "name": "Display WD3264 Синее окно",
-                    "displayName": "Display WD3264 Синее окно",
-                    "description": "Синее окно"
-                  },
-                  "deviceTypeParamValues": {
-                    "FirstZoneColor": "blue",
-                    "TemplateTheme": "blue-window"
+                    "prefix": "OVR",
+                    "printerServiceURL": "http://10.10.10.10:8084"
                   }
                 }
               ]
@@ -114,102 +77,41 @@ public final class DttSwaggerExamples {
             }
             """;
 
-    public static final String IMPORT_BRANCH_REQUEST_STRUCTURED_FULL =
-            "{\n" +
-            "  \"mergeStrategy\": \"FAIL_IF_EXISTS\",\n" +
-            "  \"branches\": [\n" +
-            "    {\n" +
-            "      \"branchId\": \"branch-custom\",\n" +
-            "      \"displayName\": \"Отделение custom\",\n" +
-            "      \"deviceTypes\": [\n" +
-            "        {\n" +
-            "          \"archiveBase64\": \"" + SAMPLE_DTT_DISPLAY_BASE64 + "\",\n" +
-            "          \"deviceTypeMetadata\": {\n" +
-            "            \"id\": \"display-wd3264-red-window\",\n" +
-            "            \"name\": \"Display WD3264 Красное окно\",\n" +
-            "            \"displayName\": \"Display WD3264 Красное окно\",\n" +
-            "            \"description\": \"Красное окно\"\n" +
-            "          },\n" +
-            "          \"kind\": \"display\",\n" +
-            "          \"deviceTypeParamValues\": {\n" +
-            "            \"FirstZoneColor\": \"red\",\n" +
-            "            \"ServicePointNameZone\": \"1\"\n" +
-            "          },\n" +
-            "          \"replaceDevices\": true,\n" +
-            "          \"devices\": [\n" +
-            "            {\n" +
-            "              \"id\": \"red-1\",\n" +
-            "              \"name\": \"red-1\",\n" +
-            "              \"displayName\": \"Red 1\",\n" +
-            "              \"description\": \"Красный дисплей 1\",\n" +
-            "              \"deviceParamValues\": {\n" +
-            "                \"IP\": \"10.10.10.11\",\n" +
-            "                \"Port\": 22224\n" +
-            "              }\n" +
-            "            },\n" +
-            "            {\n" +
-            "              \"id\": \"red-2\",\n" +
-            "              \"name\": \"red-2\",\n" +
-            "              \"displayName\": \"Red 2\",\n" +
-            "              \"description\": \"Красный дисплей 2\",\n" +
-            "              \"deviceParamValues\": {\n" +
-            "                \"IP\": \"10.10.10.12\",\n" +
-            "                \"Port\": 22224\n" +
-            "              }\n" +
-            "            }\n" +
-            "          ]\n" +
-            "        },\n" +
-            "        {\n" +
-            "          \"archiveBase64\": \"" + SAMPLE_DTT_DISPLAY_BASE64 + "\",\n" +
-            "          \"deviceTypeMetadata\": {\n" +
-            "            \"id\": \"display-wd3264-blue-window\",\n" +
-            "            \"name\": \"Display WD3264 Синее окно\",\n" +
-            "            \"displayName\": \"Display WD3264 Синее окно\",\n" +
-            "            \"description\": \"Синее окно\"\n" +
-            "          },\n" +
-            "          \"kind\": \"display\",\n" +
-            "          \"deviceTypeParamValues\": {\n" +
-            "            \"FirstZoneColor\": \"blue\",\n" +
-            "            \"ServicePointNameZone\": \"2\"\n" +
-            "          },\n" +
-            "          \"replaceDevices\": true,\n" +
-            "          \"devices\": [\n" +
-            "            {\n" +
-            "              \"id\": \"blue-1\",\n" +
-            "              \"name\": \"blue-1\",\n" +
-            "              \"displayName\": \"Blue 1\",\n" +
-            "              \"description\": \"Синий дисплей 1\",\n" +
-            "              \"deviceParamValues\": {\n" +
-            "                \"IP\": \"10.10.10.21\",\n" +
-            "                \"Port\": 22224\n" +
-            "              }\n" +
-            "            },\n" +
-            "            {\n" +
-            "              \"id\": \"blue-2\",\n" +
-            "              \"name\": \"blue-2\",\n" +
-            "              \"displayName\": \"Blue 2\",\n" +
-            "              \"description\": \"Синий дисплей 2\",\n" +
-            "              \"deviceParamValues\": {\n" +
-            "                \"IP\": \"10.10.10.22\",\n" +
-            "                \"Port\": 22224\n" +
-            "              }\n" +
-            "            },\n" +
-            "            {\n" +
-            "              \"id\": \"blue-3\",\n" +
-            "              \"name\": \"blue-3\",\n" +
-            "              \"displayName\": \"Blue 3\",\n" +
-            "              \"description\": \"Синий дисплей 3\",\n" +
-            "              \"deviceParamValues\": {\n" +
-            "                \"IP\": \"10.10.10.23\",\n" +
-            "                \"Port\": 22224\n" +
-            "              }\n" +
-            "            }\n" +
-            "          ]\n" +
-            "        }\n" +
-            "      ]\n" +
-            "    }\n" +
-            "  ]\n" +
-            "}";
+    public static final String IMPORT_BRANCH_REQUEST_STRUCTURED_FULL = """
+            {
+              "mergeStrategy": "FAIL_IF_EXISTS",
+              "branches": [
+                {
+                  "branchId": "branch-custom",
+                  "displayName": "Отделение custom",
+                  "deviceTypes": [
+                    {
+                      "archiveBase64": "UEsDBBQAAAAIAAAAIQAOrtvrRgEAAGkCAAAMAAAAbWFuaWZlc3QueW1shZLdSsMwGIbPcxWl55VORbFnbt2wKGPQOsGzmHxlwfyU/Gz20HvwVgTFA2+h3tGyrpv7EYRA+L7nzcf7JimVFtiOsYAkSIsClW09BW2YkknQO4kR0YAt0GubBGHv6jKO4p5fRRwn7XoMN4p+nQQU5oxAZEFU3Pcizp401jXq9u1gJ5+lWki01hd1BRn1p5nxx+poQc9OL853YGdwjYOH9AB34D8VGKJZZVsDzVvz8fPafDdfzXvzuaO6ZfLXCTKuqpS2ZjBjnKatyCRBibkBRJS0mElzx0ogNeGQt+OP+HAO0t5gSblPfwgHSgiPjvrp1tDISbLyvJVUWPugFnROZiDw3mNRKLHjdoq5A5NJwh0FH8dqBwhesH8V+JNtck60KhmHTKyqA9bXWJLZPlJOk+7K7sf5ZDjIRtkw7fq589m0/xVhiJZQSwMEFAAAAAgAAAAhAIh00stEAAAAYAAAABgAAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWzLTLFSSMksLshJrNQtTzE2MjPhykvMTbVScIEIKoS7gAWhavywyqUWJxdlFpRk5udZKVyYcmHHxcYL+y/svrD1wk4uAFBLAwQUAAAACAAAACEA+Ft3By0AAAA4AAAAIwAAAHRlbXBsYXRlL2RldmljZS10eXBlLXBhcmFtZXRlcnMueW1sC8lMzk4ticrPS7XiUlAoS8wpTbVSMOYKTi0qy0xODcjPzCvxS8xNRVNgyAUAUEsDBBQAAAAIAAAAIQCTBtcyAwAAAAEAAAAlAAAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbOMCAFBLAwQUAAAACAAAACEAdljr1RoAAAAYAAAAHAAAAHRlbXBsYXRlL3RlbXBsYXRlLW9yaWdpbi55bWwrzi8tSk71zsxLsVII9QsOcHX2dPN0deECAFBLAwQUAAAACAAAACEAJTJkbBoAAAAYAAAAGgAAAHRlbXBsYXRlL2JpbmRpbmctaGludHMueW1sS0kty0xODaksSPXOzEuxUkjJLC7ISazkAgBQSwMEFAAAAAgAAAAhAPhbdwctAAAAOAAAABsAAAB0ZW1wbGF0ZS9kZWZhdWx0LXZhbHVlcy55bWwLyUzOTi2Jys9LteJSUChLzClNtVIw5gpOLSrLTE4NyM/MK/FLzE1FU2DIBQBQSwMEFAAAAAgAAAAhACzTf4ktAAAAOAAAABsAAAB0ZW1wbGF0ZS9leGFtcGxlLXZhbHVlcy55bWwLyUzOTi2Jys9LteJSUChLzClNtVKw5ApOLSrLTE4NyM/MK/FLzE1FU2DIBQBQSwMEFAAAAAgAAAAhACzTf4ktAAAAOAAAACMAAABleGFtcGxlcy9wcm9maWxlLXZhbHVlcy1leGFtcGxlLnltbAvJTM5OLYnKz0u14lJQKEvMKU21UrDkCk4tKstMTg3Iz8wr8UvMTUVTYMgFAFBLAwQUAAAACAAAACEAY9l9o14AAACVAAAAIgAAAGV4YW1wbGVzL2JyYW5jaC12YWx1ZXMtZXhhbXBsZS55bWxLKkrMS85ILbbiUlBIArN1DUFsBYWU1LLM5NSQygKIJFgos7ggJ7FStzzF2MjMBCaqoBCSmZydWhKVn5eKEFNQKEvMKU21UrCECwWnFoGMDMjPzCvxS8xNxaHBkAsAUEsDBBQAAAAIAAAAIQAXcSNNEAAAAA4AAAAUAAAAUkVBRE1FLUlOLUFSQ0hJVkUubWRTVnAJCVFwLErOyCxL5QIAUEsBAhQDFAAAAAgAAAAhAA6u2+tGAQAAaQIAAAwAAAAAAAAAAAAAAIABAAAAAG1hbmlmZXN0LnltbFBLAQIUAxQAAAAIAAAAIQCIdNLLRAAAAGAAAAAYAAAAAAAAAAAAAACAAXABAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWxQSwECFAMUAAAACAAAACEA+Ft3By0AAAA4AAAAIwAAAAAAAAAAAAAAgAHqAQAAdGVtcGxhdGUvZGV2aWNlLXR5cGUtcGFyYW1ldGVycy55bWxQSwECFAMUAAAACAAAACEAkwbXMgMAAAABAAAAJQAAAAAAAAAAAAAAgAFYAgAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbFBLAQIUAxQAAAAIAAAAIQB2WOvVGgAAABgAAAAcAAAAAAAAAAAAAACAAZ4CAAB0ZW1wbGF0ZS90ZW1wbGF0ZS1vcmlnaW4ueW1sUEsBAhQDFAAAAAgAAAAhACUyZGwaAAAAGAAAABoAAAAAAAAAAAAAAIAB8gIAAHRlbXBsYXRlL2JpbmRpbmctaGludHMueW1sUEsBAhQDFAAAAAgAAAAhAPhbdwctAAAAOAAAABsAAAAAAAAAAAAAAIABRAMAAHRlbXBsYXRlL2RlZmF1bHQtdmFsdWVzLnltbFBLAQIUAxQAAAAIAAAAIQAs03+JLQAAADgAAAAbAAAAAAAAAAAAAACAAaoDAAB0ZW1wbGF0ZS9leGFtcGxlLXZhbHVlcy55bWxQSwECFAMUAAAACAAAACEALNN/iS0AAAA4AAAAIwAAAAAAAAAAAAAAgAEQBAAAZXhhbXBsZXMvcHJvZmlsZS12YWx1ZXMtZXhhbXBsZS55bWxQSwECFAMUAAAACAAAACEAY9l9o14AAACVAAAAIgAAAAAAAAAAAAAAgAF+BAAAZXhhbXBsZXMvYnJhbmNoLXZhbHVlcy1leGFtcGxlLnltbFBLAQIUAxQAAAAIAAAAIQAXcSNNEAAAAA4AAAAUAAAAAAAAAAAAAACAARwFAABSRUFETUUtSU4tQVJDSElWRS5tZFBLBQYAAAAACwALACsDAABeBQAAAAA=",
+                      "kind": "display",
+                      "deviceTypeParamValues": {
+                        "TicketZone": "9",
+                        "ServicePointNameZone": "1"
+                      },
+                      "devices": [
+                        {
+                          "id": "display-1",
+                          "name": "display-1",
+                          "displayName": "Display 1",
+                          "description": "Demo display",
+                          "deviceParamValues": {
+                            "IP": "10.10.10.10",
+                            "Port": 22224,
+                            "ServicePointDisplayName": "OKHO 1"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
+
     public static final String IMPORT_BRANCH_UPLOAD_METADATA_EXAMPLE = """
             {
               "mergeStrategy": "FAIL_IF_EXISTS",
@@ -220,93 +122,38 @@ public final class DttSwaggerExamples {
                   "deviceTypes": [
                     {
                       "archiveEntryName": "Display WD3264.dtt",
-                      "deviceTypeMetadata": {
-                        "id": "display-wd3264-red-window",
-                        "name": "Display WD3264 Красное окно",
-                        "displayName": "Display WD3264 Красное окно",
-                        "description": "Красное окно"
-                      },
                       "kind": "display",
                       "deviceTypeParamValues": {
-                        "FirstZoneColor": "red",
+                        "TicketZone": "9",
                         "ServicePointNameZone": "1"
                       },
-                      "replaceDevices": true,
                       "devices": [
                         {
-                          "id": "red-1",
-                          "name": "red-1",
-                          "displayName": "Red 1",
-                          "description": "Красный дисплей 1",
+                          "id": "display-1",
+                          "name": "display-1",
+                          "displayName": "Display 1",
+                          "description": "Demo display",
                           "deviceParamValues": {
-                            "IP": "10.10.10.11",
-                            "Port": 22224
-                          }
-                        },
-                        {
-                          "id": "red-2",
-                          "name": "red-2",
-                          "displayName": "Red 2",
-                          "description": "Красный дисплей 2",
-                          "deviceParamValues": {
-                            "IP": "10.10.10.12",
-                            "Port": 22224
+                            "IP": "10.10.10.10",
+                            "Port": 22224,
+                            "ServicePointDisplayName": "OKHO 1"
                           }
                         }
                       ]
                     },
                     {
-                      "archiveEntryName": "Display WD3264.dtt",
-                      "deviceTypeMetadata": {
-                        "id": "display-wd3264-blue-window",
-                        "name": "Display WD3264 Синее окно",
-                        "displayName": "Display WD3264 Синее окно",
-                        "description": "Синее окно"
-                      },
-                      "kind": "display",
+                      "archiveEntryName": "Terminal.dtt",
                       "deviceTypeParamValues": {
-                        "FirstZoneColor": "blue",
-                        "ServicePointNameZone": "2"
-                      },
-                      "replaceDevices": true,
-                      "devices": [
-                        {
-                          "id": "blue-1",
-                          "name": "blue-1",
-                          "displayName": "Blue 1",
-                          "description": "Синий дисплей 1",
-                          "deviceParamValues": {
-                            "IP": "10.10.10.21",
-                            "Port": 22224
-                          }
-                        },
-                        {
-                          "id": "blue-2",
-                          "name": "blue-2",
-                          "displayName": "Blue 2",
-                          "description": "Синий дисплей 2",
-                          "deviceParamValues": {
-                            "IP": "10.10.10.22",
-                            "Port": 22224
-                          }
-                        },
-                        {
-                          "id": "blue-3",
-                          "name": "blue-3",
-                          "displayName": "Blue 3",
-                          "description": "Синий дисплей 3",
-                          "deviceParamValues": {
-                            "IP": "10.10.10.23",
-                            "Port": 22224
-                          }
-                        }
-                      ]
+                        "prefix": "OVR",
+                        "printerServiceURL": "http://10.10.10.10:8084"
+                      }
                     }
                   ]
                 }
               ]
             }
             """;
+
     public static final String IMPORT_BRANCH_MERGE_UPLOAD_METADATA_EXAMPLE = """
             {
               "existingBranchJson": "{\n  \\"branch-custom\\": {\n    \\"id\\": \\"branch-custom\\",\n    \\"displayName\\": \\"Отделение custom\\",\n    \\"deviceTypes\\": {}\n  }\n}",
