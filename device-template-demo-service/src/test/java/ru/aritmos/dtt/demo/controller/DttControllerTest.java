@@ -16,6 +16,10 @@ import ru.aritmos.dtt.demo.dto.ExportSingleDttFromProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
+import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataRequest;
+import ru.aritmos.dtt.demo.dto.ImportDeviceTypeMetadataOverrideRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeMetadataOverrideRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchMetadataRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
@@ -122,6 +126,32 @@ class DttControllerTest {
         final var response = controller.previewBranchDetailed(request);
 
         assertThat(response.branchJson().toString()).contains("branch-1");
+    }
+
+
+    @Test
+    void shouldImportProfileAndBranchWithMetadataInheritance() {
+        final byte[] bytes = createArchiveBytes("display", "println 'ok'");
+        final ImportProfileBranchWithMetadataRequest request = new ImportProfileBranchWithMetadataRequest(
+                List.of(new ImportProfileDeviceTypeRequest(
+                        Base64.getEncoder().encodeToString(bytes),
+                        Map.of("ip", "10.0.0.1"),
+                        new ImportDeviceTypeMetadataOverrideRequest("display", "Profile Display", "Profile Display", "profile")
+                )),
+                List.of(new ImportBranchMetadataRequest(
+                        "branch-1",
+                        List.of(new ImportBranchDeviceTypeMetadataOverrideRequest(
+                                "display",
+                                new ImportDeviceTypeMetadataOverrideRequest("display", "Branch Display", "Branch Display", "branch")
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var response = controller.importProfileBranchWithMetadata(request);
+
+        assertThat(response.profileJson().toString()).contains("Profile Display");
+        assertThat(response.branchJson().toString()).contains("Branch Display");
     }
 
     @Test
@@ -680,7 +710,8 @@ class DttControllerTest {
                 MergeStrategy.FAIL_IF_EXISTS,
                 List.of(new ImportProfileDeviceTypeRequest(
                         Base64.getEncoder().encodeToString(bytes),
-                        Map.of("printerServiceURL", "http://override.local:8084", "prefix", "OVR")
+                        Map.of("printerServiceURL", "http://override.local:8084", "prefix", "OVR"),
+                        null
                 ))
         );
 
@@ -705,6 +736,7 @@ class DttControllerTest {
                         List.of(new ImportBranchDeviceTypeRequest(
                                 Base64.getEncoder().encodeToString(bytes),
                                 Map.of("TicketZone", "9"),
+                                null,
                                 List.of(new ImportBranchDeviceRequest(
                                         "display-1",
                                         "display-1",

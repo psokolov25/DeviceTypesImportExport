@@ -19,6 +19,8 @@ public record ImportBranchDeviceTypeRequest(
         String archiveBase64,
         @Schema(description = "Override-значения параметров типа устройства")
         Map<String, Object> deviceTypeParamValues,
+        @Schema(description = "Override метаданных типа устройства на уровне branch")
+        ImportDeviceTypeMetadataOverrideRequest metadataOverride,
         @Schema(description = "Override-описания устройств данного типа")
         List<ImportBranchDeviceRequest> devices,
         @Schema(description = "Override поля type для branch JSON")

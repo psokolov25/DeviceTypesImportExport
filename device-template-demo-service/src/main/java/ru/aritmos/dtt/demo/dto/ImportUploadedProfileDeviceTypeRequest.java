@@ -6,9 +6,6 @@ import java.util.Map;
 
 /**
  * Описание одного DTT-файла внутри загруженного zip-архива для сборки профиля оборудования.
- *
- * @param archiveEntryName имя .dtt файла внутри zip-архива
- * @param deviceTypeParamValues override-значения параметров типа устройства
  */
 @Schema(description = "Описание одного DTT файла из zip-архива для сборки профиля оборудования")
 public record ImportUploadedProfileDeviceTypeRequest(
@@ -16,6 +13,8 @@ public record ImportUploadedProfileDeviceTypeRequest(
                 example = "Terminal.dtt")
         String archiveEntryName,
         @Schema(description = "Override-значения параметров типа устройства")
-        Map<String, Object> deviceTypeParamValues
+        Map<String, Object> deviceTypeParamValues,
+        @Schema(description = "Override метаданных типа устройства на уровне profile")
+        ImportDeviceTypeMetadataOverrideRequest metadataOverride
 ) {
 }

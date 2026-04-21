@@ -11,6 +11,11 @@ import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeMetadataOverrideRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchMetadataRequest;
+import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataResponse;
+import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataRequest;
+import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
@@ -33,6 +38,7 @@ import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
 import ru.aritmos.dtt.demo.dto.ExportSingleDttResponse;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
+import ru.aritmos.dtt.demo.dto.ImportDeviceTypeMetadataOverrideRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
@@ -207,6 +213,44 @@ public class DttDemoService {
         return new ProfilePreviewDetailedResponse(
                 toJsonNode(facade.toProfileJson(preview)),
                 computeProfilePreview(request)
+        );
+    }
+
+
+    /**
+     * Одновременно собирает profile JSON и branch equipment JSON из DTT с metadata inheritance.
+     */
+    public ImportProfileBranchWithMetadataResponse importProfileAndBranchWithMetadata(ImportProfileBranchWithMetadataRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        final List<byte[]> archives = request.deviceTypes().stream()
+                .map(ImportProfileDeviceTypeRequest::archiveBase64)
+                .map(this::decodeBase64Archive)
+                .toList();
+        final Map<String, DeviceTypeMetadata> profileMetadataOverrides = new LinkedHashMap<>();
+        request.deviceTypes().forEach(deviceType -> {
+            final DttArchiveTemplate archive = facade.readDtt(decodeBase64Archive(deviceType.archiveBase64()));
+            final String deviceTypeId = archive.metadata().id();
+            profileMetadataOverrides.put(deviceTypeId, applyMetadataOverride(archive.metadata(), deviceType.metadataOverride()));
+        });
+        final Map<String, Map<String, DeviceTypeMetadata>> branchOverrides = new LinkedHashMap<>();
+        final List<String> branchIds = request.branches().stream().map(ImportBranchMetadataRequest::branchId).toList();
+        request.branches().forEach(branch -> {
+            final Map<String, DeviceTypeMetadata> byType = new LinkedHashMap<>();
+            if (branch.metadataOverrides() != null) {
+                branch.metadataOverrides().forEach(override -> byType.put(override.deviceTypeId(), applyMetadataOverride(null, override.metadata())));
+            }
+            branchOverrides.put(branch.branchId(), byType);
+        });
+        final ProfileBranchAssemblyResult result = facade.importDttSetToProfileAndBranchWithMetadata(
+                archives,
+                branchIds,
+                profileMetadataOverrides,
+                branchOverrides,
+                request.mergeStrategy()
+        );
+        return new ImportProfileBranchWithMetadataResponse(
+                toJsonNode(facade.toProfileJson(result.profile())),
+                toJsonNode(facade.toBranchJson(result.branchEquipment()))
         );
     }
 
@@ -620,7 +664,7 @@ public class DttDemoService {
         final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
         final DeviceTypeTemplate template = toDeviceTypeTemplate(archive);
         return new EquipmentProfileDeviceTypeRequest(
-                new DeviceTypeTemplate(template.metadata(), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
+                new DeviceTypeTemplate(applyMetadataOverride(template.metadata(), request.metadataOverride()), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
                 true
         );
     }
@@ -692,7 +736,7 @@ public class DttDemoService {
         final BranchDeviceTypeImportRequest base = toBranchDeviceTypeImportRequest(archive, branchId);
         final DeviceTypeTemplate baseTemplate = base.deviceTypeRequest().template();
         final DeviceTypeTemplate overriddenTemplate = new DeviceTypeTemplate(
-                baseTemplate.metadata(),
+                applyMetadataOverride(baseTemplate.metadata(), request.metadataOverride()),
                 mergeValues(baseTemplate.deviceTypeParamValues(), request.deviceTypeParamValues())
         );
         final String kind = firstNonBlank(request.kind(), base.kind());
@@ -789,7 +833,7 @@ public class DttDemoService {
         final DttArchiveTemplate archive = facade.readDtt(decodeBase64Archive(request.archiveBase64()));
         final DeviceTypeTemplate template = toDeviceTypeTemplate(archive);
         return new EquipmentProfileDeviceTypeRequest(
-                new DeviceTypeTemplate(template.metadata(), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
+                new DeviceTypeTemplate(applyMetadataOverride(template.metadata(), request.metadataOverride()), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
                 true
         );
     }
@@ -864,7 +908,7 @@ public class DttDemoService {
         final BranchDeviceTypeImportRequest base = toBranchDeviceTypeImportRequest(archive, branchId);
         final DeviceTypeTemplate baseTemplate = base.deviceTypeRequest().template();
         final DeviceTypeTemplate overriddenTemplate = new DeviceTypeTemplate(
-                baseTemplate.metadata(),
+                applyMetadataOverride(baseTemplate.metadata(), request.metadataOverride()),
                 mergeValues(baseTemplate.deviceTypeParamValues(), request.deviceTypeParamValues())
         );
         final String kind = firstNonBlank(request.kind(), base.kind());
@@ -1426,6 +1470,24 @@ public class DttDemoService {
                 mergeStrategy,
                 dttVersion
         ));
+    }
+
+
+    private DeviceTypeMetadata applyMetadataOverride(DeviceTypeMetadata base, ImportDeviceTypeMetadataOverrideRequest override) {
+        if (override == null) {
+            return base;
+        }
+        final String id = firstNonBlank(override.id(), base == null ? null : base.id());
+        final String name = firstNonBlank(override.name(), base == null ? null : base.name(), id);
+        final String displayName = firstNonBlank(override.displayName(), base == null ? null : base.displayName(), name);
+        return new DeviceTypeMetadata(
+                id,
+                name,
+                displayName,
+                firstNonBlank(override.description(), base == null ? null : base.description(), ""),
+                base == null ? null : base.version(),
+                base == null ? null : base.iconBase64()
+        );
     }
 
     private String toCompactJson(JsonNode node) {

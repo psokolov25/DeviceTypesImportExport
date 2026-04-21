@@ -4,6 +4,7 @@ import ru.aritmos.dtt.api.dto.BatchDttExportResult;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
+import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.ValidationResult;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
@@ -284,6 +285,27 @@ public interface DeviceTemplateLibraryFacade {
      * Выполняет preview-сборку branch equipment из zip-архива с `.dtt` файлами.
      */
     BranchEquipment previewDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
+
+
+    /**
+     * Импортирует один или несколько DTT одновременно в profile JSON и branch equipment JSON c поддержкой metadata override.
+     *
+     * <p>Metadata для branch наследуются от metadata profile и могут быть переопределены
+     * через {@code branchMetadataOverridesByBranchIdAndDeviceTypeId}.
+     *
+     * @param archives bytes-архивы DTT
+     * @param branchIds список branch, для которых строится branch equipment
+     * @param profileMetadataOverridesByDeviceTypeId metadata override уровня profile по ключу deviceTypeId
+     * @param branchMetadataOverridesByBranchIdAndDeviceTypeId metadata override уровня branch
+     *                                                         по ключам branchId -> deviceTypeId
+     * @param mergeStrategy стратегия merge
+     * @return профиль и branch equipment в одном результате
+     */
+    ProfileBranchAssemblyResult importDttSetToProfileAndBranchWithMetadata(List<byte[]> archives,
+                                                                            List<String> branchIds,
+                                                                            Map<String, ru.aritmos.dtt.api.dto.DeviceTypeMetadata> profileMetadataOverridesByDeviceTypeId,
+                                                                            Map<String, Map<String, ru.aritmos.dtt.api.dto.DeviceTypeMetadata>> branchMetadataOverridesByBranchIdAndDeviceTypeId,
+                                                                            MergeStrategy mergeStrategy);
 
     /**
      * Экспортирует набор DTT-архивов профиля в zip-представление.

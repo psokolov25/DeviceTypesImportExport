@@ -40,6 +40,8 @@ import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttZipToProfileUploadRequest;
+import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataResponse;
+import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataRequest;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
 import ru.aritmos.dtt.demo.openapi.DttSwaggerExamples;
 import ru.aritmos.dtt.demo.service.DttDemoService;
@@ -207,6 +209,17 @@ public class DttController {
             throw new IllegalArgumentException("request must not be null");
         }
         return demoService.previewProfileDetailed(request);
+    }
+
+
+    /**
+     * Импортирует один/несколько DTT сразу в profile JSON и branch equipment JSON с наследованием metadata.
+     */
+    @Post(uri = "/import/profile-branch", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать DTT сразу в profile и branch с metadata inheritance")
+    @ApiResponse(responseCode = "200", description = "Собранные profile JSON и branch equipment JSON")
+    public ImportProfileBranchWithMetadataResponse importProfileBranchWithMetadata(@Body ImportProfileBranchWithMetadataRequest request) {
+        return demoService.importProfileAndBranchWithMetadata(request);
     }
 
     /**
