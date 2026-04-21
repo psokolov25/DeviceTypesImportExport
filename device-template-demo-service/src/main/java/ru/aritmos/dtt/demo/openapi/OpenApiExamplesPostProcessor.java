@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.MissingNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -27,7 +28,10 @@ import java.util.Map;
  */
 public final class OpenApiExamplesPostProcessor {
 
-    private static final ObjectMapper YAML = new ObjectMapper(new YAMLFactory());
+    private static final ObjectMapper YAML = new ObjectMapper(YAMLFactory.builder()
+            .disable(YAMLGenerator.Feature.SPLIT_LINES)
+            .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+            .build());
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private OpenApiExamplesPostProcessor() {
@@ -164,12 +168,20 @@ public final class OpenApiExamplesPostProcessor {
         setRequestExample(root, "/api/dtt/export/branch/all/download", "jsonStringFiltered", buildExportAllBranchFilteredExample());
 
         setRequestExample(root, "/api/dtt/import/branch/merge", "example", buildImportBranchMergeExample());
+        setRequestBodyDescription(root, "/api/dtt/import/branch/merge", "Запрос с исходным branch JSON, Base64-архивами и merge-стратегией.");
     }
 
     private static void setRequestExample(ObjectNode root, String path, String exampleName, JsonNode value) {
         final JsonNode node = nodeAt(root, "paths", path, "post", "requestBody", "content", "application/json", "examples", exampleName);
         if (node instanceof ObjectNode exampleNode) {
             exampleNode.set("value", value);
+        }
+    }
+
+    private static void setRequestBodyDescription(ObjectNode root, String path, String description) {
+        final JsonNode node = nodeAt(root, "paths", path, "post", "requestBody");
+        if (node instanceof ObjectNode requestBodyNode) {
+            requestBodyNode.put("description", description);
         }
     }
 
@@ -277,7 +289,7 @@ public final class OpenApiExamplesPostProcessor {
         branch.put("displayName", "test kate");
         final ArrayNode deviceTypes = branch.putArray("deviceTypes");
         final ObjectNode display = deviceTypes.addObject();
-        display.put("archiveBase64", DttSwaggerExamples.SAMPLE_DTT_DISPLAY_BASE64);
+        display.put("archiveBase64", "UEsDBBQ...BASE64_DTT_ARCHIVE...AA==");
         display.put("kind", "display");
         display.putObject("deviceTypeParamValues").put("TicketZone", "9");
         final ArrayNode devices = display.putArray("devices");
@@ -313,7 +325,7 @@ public final class OpenApiExamplesPostProcessor {
         terminal.putObject("deviceTypeParamValues")
                 .put("prefix", "OVR")
                 .put("printerServiceURL", "http://10.10.10.10:8084");
-        return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        return JSON.writeValueAsString(root);
     }
 
     private static String buildBranchUploadMetadata() throws IOException {
@@ -344,7 +356,7 @@ public final class OpenApiExamplesPostProcessor {
         terminal.putObject("deviceTypeParamValues")
                 .put("prefix", "OVR")
                 .put("printerServiceURL", "http://10.10.10.10:8084");
-        return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        return JSON.writeValueAsString(root);
     }
 
     private static String buildExistingBranchUploadMetadata() throws IOException {
@@ -370,7 +382,7 @@ public final class OpenApiExamplesPostProcessor {
         device.put("name", "display-1");
         device.put("displayName", "Display 1");
         device.putObject("deviceParamValues").put("IP", "10.10.10.10").put("Port", 22224);
-        return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+        return JSON.writeValueAsString(root);
     }
 
     private static void patchJsonNodeSchemas(ObjectNode root) {
