@@ -1,0 +1,2498 @@
+---
+openapi: "3.0.1"
+info:
+  title: "device-template-demo-service"
+  version: "1.0.0"
+paths:
+  /api/dtt/export/branch/all:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать все DTT из branch equipment JSON"
+      description: "Экспортирует все DTT-архивы из branch equipment JSON."
+      operationId: "exportAllFromBranch"
+      requestBody:
+        description: "запрос с branch JSON и merge-стратегией"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportAllDttFromBranchRequest"
+            examples:
+              autoResolveMostComplete:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        prefix: "KAT"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Приёмная"
+                            description: "Приёмная"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              multiService:
+                                value: true
+                              showQueues:
+                                value: true
+                            devices:
+                              "14124427-9723-4faf-9a67-105dd4431a16":
+                                id: "14124427-9723-4faf-9a67-105dd4431a16"
+                                name: "reception 1"
+                                displayName: "reception 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                      "37493d1c-8282-4417-a729-dceac1f3e2b4":
+                        id: "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                        displayName: "Отделение на Тверской"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Reception"
+                            description: "Устройство озвучивания"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              phrase:
+                                value: "\\eFПосетитель с номером{ticketId}"
+                              URL:
+                                value: "http://192.168.1.8:8080/unnamed/rest/play"
+                            devices: {}
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "MERGE_NON_NULLS"
+                  dttVersion: "2.1.0"
+              failIfExists:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        prefix: "KAT"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Приёмная"
+                            description: "Приёмная"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              multiService:
+                                value: true
+                              showQueues:
+                                value: true
+                            devices:
+                              "14124427-9723-4faf-9a67-105dd4431a16":
+                                id: "14124427-9723-4faf-9a67-105dd4431a16"
+                                name: "reception 1"
+                                displayName: "reception 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                      "37493d1c-8282-4417-a729-dceac1f3e2b4":
+                        id: "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                        displayName: "Отделение на Тверской"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Reception"
+                            description: "Устройство озвучивания"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              phrase:
+                                value: "\\eFПосетитель с номером{ticketId}"
+                              URL:
+                                value: "http://192.168.1.8:8080/unnamed/rest/play"
+                            devices: {}
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "FAIL_IF_EXISTS"
+                  dttVersion: "2.1.0"
+              jsonStringFiltered:
+                value:
+                  branchJson:
+                    ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                      id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                      displayName: "test kate"
+                      prefix: "KAT"
+                      deviceTypes:
+                        ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                          id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                          name: "Terminal"
+                          displayName: "Терминал (Киоск)"
+                          description: "Терминал (Киоск)"
+                          type: "entry_point"
+                          deviceTypeParamValues:
+                            printerServiceURL:
+                              value: "http://192.168.7.20:8084"
+                            prefix:
+                              value: "SSS"
+                            translatorURL:
+                              value: "http://192.168.7.20:8104?prefix=SSS"
+                            templateID:
+                              value: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                            translatorTicket:
+                              value: "http://192.168.7.20:8114/printing"
+                          devices:
+                            "811fb688-546f-495d-be86-58a63c5d560d":
+                              id: "811fb688-546f-495d-be86-58a63c5d560d"
+                              name: "entry_point 1"
+                              displayName: "entry_point 1"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  deviceTypeIds:
+                  - "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  mergeStrategy: "MERGE_NON_NULLS"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "Набор экспортированных DTT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportAllDttFromBranchResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "Either branchEquipment or branchJson must be provided"
+  /api/dtt/export/branch/all/download:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать все DTT из branch equipment JSON в zip (upload-download)"
+      description: "Экспортирует набор DTT из branch equipment JSON в zip-архив (р\
+        ежим upload-download)."
+      operationId: "exportAllFromBranchDownload"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportAllDttFromBranchRequest"
+            examples:
+              autoResolveMostComplete:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        prefix: "KAT"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Приёмная"
+                            description: "Приёмная"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              multiService:
+                                value: true
+                              showQueues:
+                                value: true
+                            devices:
+                              "14124427-9723-4faf-9a67-105dd4431a16":
+                                id: "14124427-9723-4faf-9a67-105dd4431a16"
+                                name: "reception 1"
+                                displayName: "reception 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                      "37493d1c-8282-4417-a729-dceac1f3e2b4":
+                        id: "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                        displayName: "Отделение на Тверской"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Reception"
+                            description: "Устройство озвучивания"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              phrase:
+                                value: "\\eFПосетитель с номером{ticketId}"
+                              URL:
+                                value: "http://192.168.1.8:8080/unnamed/rest/play"
+                            devices: {}
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "MERGE_NON_NULLS"
+                  dttVersion: "2.1.0"
+              failIfExists:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        prefix: "KAT"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Приёмная"
+                            description: "Приёмная"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              multiService:
+                                value: true
+                              showQueues:
+                                value: true
+                            devices:
+                              "14124427-9723-4faf-9a67-105dd4431a16":
+                                id: "14124427-9723-4faf-9a67-105dd4431a16"
+                                name: "reception 1"
+                                displayName: "reception 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                      "37493d1c-8282-4417-a729-dceac1f3e2b4":
+                        id: "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                        displayName: "Отделение на Тверской"
+                        deviceTypes:
+                          ffde364f-5f5a-45e6-86b7-1215a28ae96c:
+                            id: "ffde364f-5f5a-45e6-86b7-1215a28ae96c"
+                            name: "Reception"
+                            displayName: "Reception"
+                            description: "Устройство озвучивания"
+                            type: "reception"
+                            deviceTypeParamValues:
+                              phrase:
+                                value: "\\eFПосетитель с номером{ticketId}"
+                              URL:
+                                value: "http://192.168.1.8:8080/unnamed/rest/play"
+                            devices: {}
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "FAIL_IF_EXISTS"
+                  dttVersion: "2.1.0"
+              jsonStringFiltered:
+                value:
+                  branchJson:
+                    ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                      id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                      displayName: "test kate"
+                      prefix: "KAT"
+                      deviceTypes:
+                        ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                          id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                          name: "Terminal"
+                          displayName: "Терминал (Киоск)"
+                          description: "Терминал (Киоск)"
+                          type: "entry_point"
+                          deviceTypeParamValues:
+                            printerServiceURL:
+                              value: "http://192.168.7.20:8084"
+                            prefix:
+                              value: "SSS"
+                            translatorURL:
+                              value: "http://192.168.7.20:8104?prefix=SSS"
+                            templateID:
+                              value: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                            translatorTicket:
+                              value: "http://192.168.7.20:8114/printing"
+                          devices:
+                            "811fb688-546f-495d-be86-58a63c5d560d":
+                              id: "811fb688-546f-495d-be86-58a63c5d560d"
+                              name: "entry_point 1"
+                              displayName: "entry_point 1"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  deviceTypeIds:
+                  - "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  mergeStrategy: "MERGE_NON_NULLS"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "exportAllFromBranchDownload 200 response"
+          content:
+            application/octet-stream:
+              schema:
+                type: "array"
+                items:
+                  type: "string"
+                  format: "byte"
+  /api/dtt/export/branch/one:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать один DTT из branch equipment JSON"
+      description: "Экспортирует один DTT-архив из branch equipment JSON."
+      operationId: "exportSingleFromBranch"
+      requestBody:
+        description: "запрос с branch equipment JSON и идентификатором типа устрой\
+          ства"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSingleDttFromBranchRequest"
+            examples:
+              branchEquipmentObject:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        deviceTypes:
+                          ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                            id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                            name: "Terminal"
+                            displayName: "Терминал (Киоск)"
+                            description: "Терминал (Киоск)"
+                            type: "entry_point"
+                            deviceTypeParamValues:
+                              printerServiceURL:
+                                value: "http://192.168.7.20:8084"
+                              prefix:
+                                value: "SSS"
+                              translatorURL:
+                                value: "http://192.168.7.20:8104?prefix=SSS"
+                              templateID:
+                                value: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                              translatorTicket:
+                                value: "http://192.168.7.20:8114/printing"
+                            devices:
+                              "811fb688-546f-495d-be86-58a63c5d560d":
+                                id: "811fb688-546f-495d-be86-58a63c5d560d"
+                                name: "entry_point 1"
+                                displayName: "entry_point 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                        prefix: "KAT"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "Экспортированный DTT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportSingleDttResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "deviceTypeId must not be blank"
+  /api/dtt/export/branch/one/download:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать один DTT из branch equipment JSON в download-режиме"
+      description: "Экспортирует один DTT-архив из branch equipment JSON в бинарно\
+        м виде (upload-download режим)."
+      operationId: "exportSingleFromBranchDownload"
+      requestBody:
+        description: "запрос с branch equipment JSON и идентификатором типа устрой\
+          ства"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSingleDttFromBranchRequest"
+            examples:
+              branchEquipmentObject:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        deviceTypes:
+                          ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                            id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                            name: "Terminal"
+                            displayName: "Терминал (Киоск)"
+                            description: "Терминал (Киоск)"
+                            type: "entry_point"
+                            deviceTypeParamValues:
+                              printerServiceURL:
+                                value: "http://192.168.7.20:8084"
+                              prefix:
+                                value: "SSS"
+                              translatorURL:
+                                value: "http://192.168.7.20:8104?prefix=SSS"
+                              templateID:
+                                value: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                              translatorTicket:
+                                value: "http://192.168.7.20:8114/printing"
+                            devices:
+                              "811fb688-546f-495d-be86-58a63c5d560d":
+                                id: "811fb688-546f-495d-be86-58a63c5d560d"
+                                name: "entry_point 1"
+                                displayName: "entry_point 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                        prefix: "KAT"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "бинарный payload одного файла .dtt"
+          content:
+            application/octet-stream:
+              schema:
+                type: "array"
+                items:
+                  type: "string"
+                  format: "byte"
+  /api/dtt/export/profile/all:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать все DTT из profile JSON"
+      description: "Экспортирует все DTT-архивы из profile JSON."
+      operationId: "exportAllFromProfile"
+      requestBody:
+        description: "запрос с profile JSON"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportAllDttFromProfileRequest"
+            examples:
+              objectModel:
+                value:
+                  profile:
+                    deviceTypes:
+                      ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                        metadata:
+                          id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                          name: "Terminal"
+                          displayName: "Терминал (Киоск)"
+                          description: "Терминал (Киоск)"
+                        deviceTypeParamValues:
+                          printerServiceURL: "http://192.168.7.20:8084"
+                          prefix: "SSS"
+              jsonObject:
+                value:
+                  profileJson:
+                    ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                      metadata:
+                        id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                        name: "Terminal"
+                        displayName: "Терминал (Киоск)"
+                        description: "Терминал (Киоск)"
+                      deviceTypeParamValues:
+                        prefix: "SSS"
+                  deviceTypeIds:
+                  - "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+        required: true
+      responses:
+        "200":
+          description: "Набор экспортированных DTT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportAllDttFromProfileResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "Either profile or profileJson must be provided"
+  /api/dtt/export/profile/all/download:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать все DTT из profile JSON в zip (upload-download)"
+      description: "Экспортирует набор DTT из profile JSON в zip-архив (режим upload-download)."
+      operationId: "exportAllFromProfileDownload"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportAllDttFromProfileRequest"
+            examples:
+              objectModel:
+                value:
+                  profileJson:
+                    ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                      metadata:
+                        id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                        name: "Terminal"
+                        displayName: "Терминал (Киоск)"
+                        description: "Терминал (Киоск)"
+                      deviceTypeParamValues:
+                        printerServiceURL: "http://192.168.7.20:8084"
+                        prefix: "SSS"
+                        translatorURL: "http://192.168.7.20:8104?prefix=SSS"
+                        templateID: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                        translatorTicket: "http://192.168.7.20:8114/printing"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "exportAllFromProfileDownload 200 response"
+          content:
+            application/octet-stream:
+              schema:
+                type: "array"
+                items:
+                  type: "string"
+                  format: "byte"
+  /api/dtt/export/profile/one:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать один DTT из profile JSON"
+      description: "Экспортирует один DTT-архив из profile JSON."
+      operationId: "exportSingleFromProfile"
+      requestBody:
+        description: "запрос с profile JSON и идентификатором типа устройства"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSingleDttFromProfileRequest"
+            examples:
+              jsonObject:
+                value:
+                  profileJson:
+                    ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                      metadata:
+                        id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                        name: "Terminal"
+                        displayName: "Терминал (Киоск)"
+                        description: "Терминал (Киоск)"
+                      deviceTypeParamValues:
+                        printerServiceURL: "http://192.168.7.20:8084"
+                        prefix: "SSS"
+                        translatorURL: "http://192.168.7.20:8104?prefix=SSS"
+                        templateID: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                        translatorTicket: "http://192.168.7.20:8114/printing"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "Экспортированный DTT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportSingleDttResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "deviceTypeId must not be blank"
+  /api/dtt/export/profile/one/download:
+    post:
+      tags:
+      - "DTT"
+      summary: "Экспортировать один DTT из profile JSON в download-режиме"
+      description: "Экспортирует один DTT-архив из profile JSON в бинарном виде (upload-download\
+        \ режим)."
+      operationId: "exportSingleFromProfileDownload"
+      requestBody:
+        description: "запрос с profile JSON и идентификатором типа устройства"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSingleDttFromProfileRequest"
+            examples:
+              jsonObject:
+                value:
+                  profileJson:
+                    ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                      metadata:
+                        id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                        name: "Terminal"
+                        displayName: "Терминал (Киоск)"
+                        description: "Терминал (Киоск)"
+                      deviceTypeParamValues:
+                        printerServiceURL: "http://192.168.7.20:8084"
+                        prefix: "SSS"
+                        translatorURL: "http://192.168.7.20:8104?prefix=SSS"
+                        templateID: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                        translatorTicket: "http://192.168.7.20:8114/printing"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "бинарный payload одного файла .dtt"
+          content:
+            application/octet-stream:
+              schema:
+                type: "array"
+                items:
+                  type: "string"
+                  format: "byte"
+  /api/dtt/import/branch:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать набор DTT в branch equipment JSON"
+      description: "Импортирует один или несколько DTT-архивов в branch equipment\
+        \ JSON."
+      operationId: "importToBranch"
+      requestBody:
+        description: "запрос с Base64-архивами, branch и merge-стратегией"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToBranchRequest"
+            examples:
+              mergeNonNullsLegacyBase64Full:
+                value:
+                  archivesBase64:
+                  - "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"
+                  - "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"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "MERGE_NON_NULLS"
+              createCopyWithSuffixLegacyBase64Full:
+                value:
+                  archivesBase64:
+                  - "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"
+                  branchIds:
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "CREATE_COPY_WITH_SUFFIX"
+              structuredWithOverrides:
+                value:
+                  mergeStrategy: "FAIL_IF_EXISTS"
+                  branches:
+                  - branchId: "branch-custom"
+                    displayName: "Отделение custom"
+                    deviceTypes:
+                    - archiveBase64: "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"
+                      kind: "display"
+                      deviceTypeParamValues:
+                        TicketZone: "9"
+                        ServicePointNameZone: "1"
+                      devices:
+                      - id: "display-1"
+                        name: "display-1"
+                        displayName: "Display 1"
+                        description: "Demo display"
+                        deviceParamValues:
+                          IP: "10.10.10.10"
+                          Port: 22224
+                          ServicePointDisplayName: "OKHO 1"
+        required: true
+      responses:
+        "200":
+          description: "Собранное оборудование отделений"
+          content:
+            application/json:
+              examples:
+                example:
+                  value:
+                    branchesCount: 1
+                    branchJson:
+                      branch-custom:
+                        id: "branch-custom"
+                        displayName: "Отделение custom"
+                        deviceTypes:
+                          display-wd3264:
+                            id: "display-wd3264"
+                            name: "Display WD3264"
+                            deviceTypeParamValues:
+                              TicketZone:
+                                value: "9"
+                              ServicePointNameZone:
+                                value: "1"
+                            devices:
+                              display-1:
+                                deviceParamValues:
+                                  IP:
+                                    value: "10.10.10.10"
+                                  Port:
+                                    value: 22224
+                                  ServicePointDisplayName:
+                                    value: "OKHO 1"
+        "400":
+          description: "Ошибка входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "branchIds must contain at least one branch id"
+  /api/dtt/import/branch/merge:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать набор DTT в существующий branch equipment JSON"
+      description: "Импортирует один или несколько DTT-архивов в уже существующий\
+        \ branch equipment JSON."
+      operationId: "importToExistingBranch"
+      requestBody:
+        description: "запрос с исходным branch JSON, Base64-архивами, branch и merge-с\
+          тратегией"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToExistingBranchRequest"
+            examples:
+              example:
+                value:
+                  existingBranchJson: "{\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\":{\"\
+                    id\":\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\",\"displayName\"\
+                    :\"test kate\",\"deviceTypes\":{\"terminal\":{\"id\":\"terminal\"\
+                    ,\"name\":\"Terminal\",\"deviceTypeParamValues\":{\"prefix\":{\"\
+                    value\":\"KAT\"}},\"devices\":{}}}}}"
+                  mergeStrategy: "MERGE_NON_NULLS"
+                  branches:
+                  - branchId: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                    displayName: "test kate"
+                    deviceTypes:
+                    - archiveBase64: "UEsDBBQAAAAIAAAAIQAOrtvrRgEAAGkCAAAMAAAAbWFuaWZlc3QueW1shZLdSsMwGIbPcxWl55VORbFnbt2wKGPQOsGzmHxlwfyU/Gz20HvwVgTFA2+h3tGyrpv7EYRA+L7nzcf7JimVFtiOsYAkSIsClW09BW2YkknQO4kR0YAt0GubBGHv6jKO4p5fRRwn7XoMN4p+nQQU5oxAZEFU3Pcizp401jXq9u1gJ5+lWki01hd1BRn1p5nxx+poQc9OL853YGdwjYOH9AB34D8VGKJZZVsDzVvz8fPafDdfzXvzuaO6ZfLXCTKuqpS2ZjBjnKatyCRBibkBRJS0mElzx0ogNeGQt+OP+HAO0t5gSblPfwgHSgiPjvrp1tDISbLyvJVUWPugFnROZiDw3mNRKLHjdoq5A5NJwh0FH8dqBwhesH8V+JNtck60KhmHTKyqA9bXWJLZPlJOk+7K7sf5ZDjIRtkw7fq589m0/xVhiJZQSwMEFAAAAAgAAAAhAIh00stEAAAAYAAAABgAAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWzLTLFSSMksLshJrNQtTzE2MjPhykvMTbVScIEIKoS7gAWhavywyqUWJxdlFpRk5udZKVyYcmHHxcYL+y/svrD1wk4uAFBLAwQUAAAACAAAACEA+Ft3By0AAAA4AAAAIwAAAHRlbXBsYXRlL2RldmljZS10eXBlLXBhcmFtZXRlcnMueW1sC8lMzk4ticrPS7XiUlAoS8wpTbVSMOYKTi0qy0xODcjPzCvxS8xNRVNgyAUAUEsDBBQAAAAIAAAAIQCTBtcyAwAAAAEAAAAlAAAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbOMCAFBLAwQUAAAACAAAACEAdljr1RoAAAAYAAAAHAAAAHRlbXBsYXRlL3RlbXBsYXRlLW9yaWdpbi55bWwrzi8tSk71zsxLsVII9QsOcHX2dPN0deECAFBLAwQUAAAACAAAACEAJTJkbBoAAAAYAAAAGgAAAHRlbXBsYXRlL2JpbmRpbmctaGludHMueW1sS0kty0xODaksSPXOzEuxUkjJLC7ISazkAgBQSwMEFAAAAAgAAAAhAPhbdwctAAAAOAAAABsAAAB0ZW1wbGF0ZS9kZWZhdWx0LXZhbHVlcy55bWwLyUzOTi2Jys9LteJSUChLzClNtVIw5gpOLSrLTE4NyM/MK/FLzE1FU2DIBQBQSwMEFAAAAAgAAAAhACzTf4ktAAAAOAAAABsAAAB0ZW1wbGF0ZS9leGFtcGxlLXZhbHVlcy55bWwLyUzOTi2Jys9LteJSUChLzClNtVKw5ApOLSrLTE4NyM/MK/FLzE1FU2DIBQBQSwMEFAAAAAgAAAAhACzTf4ktAAAAOAAAACMAAABleGFtcGxlcy9wcm9maWxlLXZhbHVlcy1leGFtcGxlLnltbAvJTM5OLYnKz0u14lJQKEvMKU21UrDkCk4tKstMTg3Iz8wr8UvMTUVTYMgFAFBLAwQUAAAACAAAACEAY9l9o14AAACVAAAAIgAAAGV4YW1wbGVzL2JyYW5jaC12YWx1ZXMtZXhhbXBsZS55bWxLKkrMS85ILbbiUlBIArN1DUFsBYWU1LLM5NSQygKIJFgos7ggJ7FStzzF2MjMBCaqoBCSmZydWhKVn5eKEFNQKEvMKU21UrCECwWnFoGMDMjPzCvxS8xNxaHBkAsAUEsDBBQAAAAIAAAAIQAXcSNNEAAAAA4AAAAUAAAAUkVBRE1FLUlOLUFSQ0hJVkUubWRTVnAJCVFwLErOyCxL5QIAUEsBAhQDFAAAAAgAAAAhAA6u2+tGAQAAaQIAAAwAAAAAAAAAAAAAAIABAAAAAG1hbmlmZXN0LnltbFBLAQIUAxQAAAAIAAAAIQCIdNLLRAAAAGAAAAAYAAAAAAAAAAAAAACAAXABAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWxQSwECFAMUAAAACAAAACEA+Ft3By0AAAA4AAAAIwAAAAAAAAAAAAAAgAHqAQAAdGVtcGxhdGUvZGV2aWNlLXR5cGUtcGFyYW1ldGVycy55bWxQSwECFAMUAAAACAAAACEAkwbXMgMAAAABAAAAJQAAAAAAAAAAAAAAgAFYAgAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbFBLAQIUAxQAAAAIAAAAIQB2WOvVGgAAABgAAAAcAAAAAAAAAAAAAACAAZ4CAAB0ZW1wbGF0ZS90ZW1wbGF0ZS1vcmlnaW4ueW1sUEsBAhQDFAAAAAgAAAAhACUyZGwaAAAAGAAAABoAAAAAAAAAAAAAAIAB8gIAAHRlbXBsYXRlL2JpbmRpbmctaGludHMueW1sUEsBAhQDFAAAAAgAAAAhAPhbdwctAAAAOAAAABsAAAAAAAAAAAAAAIABRAMAAHRlbXBsYXRlL2RlZmF1bHQtdmFsdWVzLnltbFBLAQIUAxQAAAAIAAAAIQAs03+JLQAAADgAAAAbAAAAAAAAAAAAAACAAaoDAAB0ZW1wbGF0ZS9leGFtcGxlLXZhbHVlcy55bWxQSwECFAMUAAAACAAAACEALNN/iS0AAAA4AAAAIwAAAAAAAAAAAAAAgAEQBAAAZXhhbXBsZXMvcHJvZmlsZS12YWx1ZXMtZXhhbXBsZS55bWxQSwECFAMUAAAACAAAACEAY9l9o14AAACVAAAAIgAAAAAAAAAAAAAAgAF+BAAAZXhhbXBsZXMvYnJhbmNoLXZhbHVlcy1leGFtcGxlLnltbFBLAQIUAxQAAAAIAAAAIQAXcSNNEAAAAA4AAAAUAAAAAAAAAAAAAACAARwFAABSRUFETUUtSU4tQVJDSElWRS5tZFBLBQYAAAAACwALACsDAABeBQAAAAA="
+                      kind: "display"
+                      deviceTypeParamValues:
+                        TicketZone: "9"
+                      devices:
+                      - id: "display-1"
+                        name: "display-1"
+                        displayName: "Display 1"
+                        deviceParamValues:
+                          IP: "10.10.10.10"
+                          Port: 22224
+        required: true
+      responses:
+        "200":
+          description: "Обновлённое оборудование отделений"
+          content:
+            application/json:
+              examples:
+                example:
+                  value:
+                    branchesCount: 1
+                    branchJson:
+                      branch-custom:
+                        id: "branch-custom"
+                        displayName: "Отделение custom"
+                        deviceTypes:
+                          display-wd3264:
+                            id: "display-wd3264"
+                            name: "Display WD3264"
+                            deviceTypeParamValues:
+                              TicketZone:
+                                value: "9"
+                              ServicePointNameZone:
+                                value: "1"
+                            devices:
+                              display-1:
+                                deviceParamValues:
+                                  IP:
+                                    value: "10.10.10.10"
+                                  Port:
+                                    value: 22224
+                                  ServicePointDisplayName:
+                                    value: "OKHO 1"
+        "400":
+          description: "Ошибка входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "existingBranchJson must not be blank"
+  /api/dtt/import/branch/merge/upload/multipart:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать zip DTT в существующий branch equipment JSON через multipart/form-data"
+      description: "Выполняет merge-импорт zip-архива с файлами .dtt в существующи\
+        й DeviceManager.json через multipart/form-data."
+      operationId: "importToExistingBranchUploadMultipart"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                zipPayload:
+                  type: "string"
+                  description: "ZIP-архив с .dtt файлами"
+                  format: "binary"
+                metadataJson:
+                  type: "string"
+                  description: "JSON-метаданные merge-импорта branch upload"
+                  example: "{\r\n  \"existingBranchJson\" : \"{\\\"branch-custom\\\
+                    \":{\\\"id\\\":\\\"branch-custom\\\",\\\"displayName\\\":\\\"О\
+                    тделение custom\\\",\\\"deviceTypes\\\":{}}}\",\r\n  \"mergeStrategy\"\
+                    \ : \"MERGE_NON_NULLS\",\r\n  \"branches\" : [ {\r\n    \"branchId\"\
+                    \ : \"branch-custom\",\r\n    \"displayName\" : \"Отделение custom\"\
+                    ,\r\n    \"deviceTypes\" : [ {\r\n      \"archiveEntryName\" :\
+                    \ \"Display WD3264.dtt\",\r\n      \"deviceTypeParamValues\" :\
+                    \ {\r\n        \"TicketZone\" : \"9\"\r\n      },\r\n      \"\
+                    devices\" : [ {\r\n        \"id\" : \"display-1\",\r\n       \
+                    \ \"name\" : \"display-1\",\r\n        \"displayName\" : \"Display\
+                    \ 1\",\r\n        \"deviceParamValues\" : {\r\n          \"IP\"\
+                    \ : \"10.10.10.10\",\r\n          \"Port\" : 22224\r\n       \
+                    \ }\r\n      } ]\r\n    } ]\r\n  } ]\r\n}"
+            encoding: {}
+        required: true
+      responses:
+        "200":
+          description: "branch JSON после merge-импорта"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToBranchResponse"
+  /api/dtt/import/branch/upload:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать zip DTT в branch equipment JSON (upload-download)"
+      description: "Импортирует zip-архив с файлами .dtt в branch equipment JSON (р\
+        ежим upload-download)."
+      operationId: "importToBranchUpload"
+      parameters:
+      - name: "branchIds"
+        in: "query"
+        description: "branch-ы назначения"
+        required: true
+        schema:
+          type: "array"
+          items:
+            type: "string"
+      - name: "mergeStrategy"
+        in: "query"
+        description: "стратегия merge"
+        required: true
+        schema:
+          $ref: "#/components/schemas/MergeStrategy"
+      requestBody:
+        description: "zip-архив с файлами .dtt"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "branch JSON и количество branch"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToBranchResponse"
+  /api/dtt/import/branch/upload/multipart:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать zip DTT в branch equipment JSON через multipart/form-data"
+      description: "Импортирует zip-архив с файлами .dtt в branch equipment JSON ч\
+        ерез multipart/form-data."
+      operationId: "importToBranchUploadMultipart"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                zipPayload:
+                  type: "string"
+                  description: "ZIP-архив с .dtt файлами"
+                  format: "binary"
+                metadataJson:
+                  type: "string"
+                  description: "JSON-метаданные импорта branch upload"
+                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
+                    branches\" : [ {\r\n    \"branchId\" : \"branch-custom\",\r\n\
+                    \    \"displayName\" : \"Отделение custom\",\r\n    \"deviceTypes\"\
+                    \ : [ {\r\n      \"archiveEntryName\" : \"Display WD3264.dtt\"\
+                    ,\r\n      \"kind\" : \"display\",\r\n      \"deviceTypeParamValues\"\
+                    \ : {\r\n        \"TicketZone\" : \"9\",\r\n        \"ServicePointNameZone\"\
+                    \ : \"1\"\r\n      },\r\n      \"devices\" : [ {\r\n        \"\
+                    id\" : \"display-1\",\r\n        \"name\" : \"display-1\",\r\n\
+                    \        \"displayName\" : \"Display 1\",\r\n        \"description\"\
+                    \ : \"Demo display\",\r\n        \"deviceParamValues\" : {\r\n\
+                    \          \"IP\" : \"10.10.10.10\",\r\n          \"Port\" : 22224,\r\
+                    \n          \"ServicePointDisplayName\" : \"OKHO 1\"\r\n     \
+                    \   }\r\n      } ]\r\n    }, {\r\n      \"archiveEntryName\" :\
+                    \ \"Terminal.dtt\",\r\n      \"deviceTypeParamValues\" : {\r\n\
+                    \        \"prefix\" : \"OVR\",\r\n        \"printerServiceURL\"\
+                    \ : \"http://10.10.10.10:8084\"\r\n      }\r\n    } ]\r\n  } ]\r\
+                    \n}"
+            encoding: {}
+        required: true
+      responses:
+        "200":
+          description: "branch JSON и количество branch"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToBranchResponse"
+  /api/dtt/import/profile:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать набор DTT в profile JSON"
+      description: "Импортирует один или несколько DTT-архивов в JSON профиля обор\
+        удования."
+      operationId: "importToProfile"
+      requestBody:
+        description: "запрос с Base64-представлением архивов и merge-стратегией"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToProfileRequest"
+            examples:
+              legacyBase64Full:
+                value:
+                  archivesBase64:
+                  - "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"
+                  mergeStrategy: "FAIL_IF_EXISTS"
+              structuredWithOverrides:
+                value:
+                  mergeStrategy: "FAIL_IF_EXISTS"
+                  deviceTypes:
+                  - archiveBase64: "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"
+                    deviceTypeParamValues:
+                      prefix: "OVR"
+                      printerServiceURL: "http://10.10.10.10:8084"
+        required: true
+      responses:
+        "200":
+          description: "Собранный профиль оборудования"
+          content:
+            application/json:
+              examples:
+                example:
+                  value:
+                    deviceTypesCount: 1
+                    profileJson:
+                      display: {}
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "Invalid Base64 DTT archive payload at index 0"
+  /api/dtt/import/profile-branch:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать DTT сразу в profile и branch с metadata inheritance"
+      description: "Импортирует один/несколько DTT сразу в profile JSON и branch equipment\
+        \ JSON с наследованием metadata."
+      operationId: "importProfileBranchWithMetadata"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportProfileBranchWithMetadataRequest"
+        required: true
+      responses:
+        "200":
+          description: "Собранные profile JSON и branch equipment JSON"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportProfileBranchWithMetadataResponse"
+  /api/dtt/import/profile/upload:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать zip DTT в profile JSON (upload-download)"
+      description: "Импортирует zip-архив с файлами .dtt в profile JSON (режим upload-download)."
+      operationId: "importToProfileUpload"
+      parameters:
+      - name: "mergeStrategy"
+        in: "query"
+        description: "стратегия merge"
+        required: true
+        schema:
+          $ref: "#/components/schemas/MergeStrategy"
+      requestBody:
+        description: "zip-архив с файлами .dtt"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "profile JSON и количество типов устройств"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToProfileResponse"
+  /api/dtt/import/profile/upload/multipart:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать zip DTT в profile JSON через multipart/form-data"
+      description: "Импортирует zip-архив с файлами .dtt в profile JSON через multipart/form-data."
+      operationId: "importToProfileUploadMultipart"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                zipPayload:
+                  type: "string"
+                  description: "ZIP-архив с .dtt файлами"
+                  format: "binary"
+                metadataJson:
+                  type: "string"
+                  description: "JSON-метаданные импорта profile upload"
+                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
+                    deviceTypes\" : [ {\r\n    \"archiveEntryName\" : \"Terminal.dtt\"\
+                    ,\r\n    \"deviceTypeParamValues\" : {\r\n      \"prefix\" : \"\
+                    OVR\",\r\n      \"printerServiceURL\" : \"http://10.10.10.10:8084\"\
+                    \r\n    }\r\n  } ]\r\n}"
+            encoding: {}
+        required: true
+      responses:
+        "200":
+          description: "profile JSON и количество типов устройств"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToProfileResponse"
+  /api/dtt/inspect:
+    post:
+      tags:
+      - "DTT"
+      summary: "Инспектировать DTT"
+      description: "Возвращает краткую инспекцию DTT-архива."
+      operationId: "inspect"
+      requestBody:
+        description: "бинарный DTT-архив"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "Краткая информация о DTT"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DttInspectionResponse"
+  /api/dtt/metadata:
+    post:
+      tags:
+      - "DTT"
+      summary: "Извлечь базовые metadata из DTT или DTT-set zip"
+      description: "Возвращает базовые метаданные одного DTT или zip-набора DTT."
+      operationId: "metadata"
+      requestBody:
+        description: "бинарный .dtt или zip-архив, содержащий один/несколько .dtt"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "Список metadata типов устройств"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DttMetadataBatchResponse"
+  /api/dtt/preview/branch:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview сборки branch equipment JSON из набора DTT"
+      description: "Выполняет preview-сборку branch equipment JSON из одного или н\
+        ескольких DTT-архивов."
+      operationId: "previewBranch"
+      requestBody:
+        description: "запрос с Base64-архивами, branch и merge-стратегией"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToBranchRequest"
+            examples:
+              mergeNonNullsLegacyBase64Full:
+                value:
+                  archivesBase64:
+                  - "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"
+                  - "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"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "MERGE_NON_NULLS"
+              createCopyWithSuffixLegacyBase64Full:
+                value:
+                  archivesBase64:
+                  - "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"
+                  branchIds:
+                  - "37493d1c-8282-4417-a729-dceac1f3e2b4"
+                  mergeStrategy: "CREATE_COPY_WITH_SUFFIX"
+              structuredWithOverrides:
+                value:
+                  mergeStrategy: "FAIL_IF_EXISTS"
+                  branches:
+                  - branchId: "branch-custom"
+                    displayName: "Отделение custom"
+                    deviceTypes:
+                    - archiveBase64: "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"
+                      kind: "display"
+                      deviceTypeParamValues:
+                        TicketZone: "9"
+                        ServicePointNameZone: "1"
+                      devices:
+                      - id: "display-1"
+                        name: "display-1"
+                        displayName: "Display 1"
+                        description: "Demo display"
+                        deviceParamValues:
+                          IP: "10.10.10.10"
+                          Port: 22224
+                          ServicePointDisplayName: "OKHO 1"
+        required: true
+      responses:
+        "200":
+          description: "Preview branch equipment JSON"
+          content:
+            application/json:
+              examples:
+                example:
+                  value:
+                    branchesCount: 1
+                    branchJson:
+                      branch-custom:
+                        id: "branch-custom"
+                        displayName: "Отделение custom"
+                        deviceTypes:
+                          display-wd3264:
+                            id: "display-wd3264"
+                            name: "Display WD3264"
+                            deviceTypeParamValues:
+                              TicketZone:
+                                value: "9"
+                              ServicePointNameZone:
+                                value: "1"
+                            devices:
+                              display-1:
+                                deviceParamValues:
+                                  IP:
+                                    value: "10.10.10.10"
+                                  Port:
+                                    value: 22224
+                                  ServicePointDisplayName:
+                                    value: "OKHO 1"
+        "400":
+          description: "Ошибка входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "branchIds must contain at least one branch id"
+  /api/dtt/preview/branch/detailed:
+    post:
+      tags:
+      - "DTT"
+      summary: "Детальный preview branch JSON с defaults/overrides"
+      operationId: "previewBranchDetailed"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToBranchRequest"
+        required: true
+      responses:
+        "200":
+          description: "Preview branch JSON с расчётом defaults/overrides"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BranchPreviewDetailedResponse"
+  /api/dtt/preview/branch/upload:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview branch equipment JSON из zip DTT (upload-download)"
+      description: "Выполняет preview-сборку branch equipment JSON из zip-архива с\
+        \ файлами .dtt (режим upload-download)."
+      operationId: "previewBranchUpload"
+      parameters:
+      - name: "branchIds"
+        in: "query"
+        description: "branch-ы назначения"
+        required: true
+        schema:
+          type: "array"
+          items:
+            type: "string"
+      - name: "mergeStrategy"
+        in: "query"
+        description: "стратегия merge"
+        required: true
+        schema:
+          $ref: "#/components/schemas/MergeStrategy"
+      requestBody:
+        description: "zip-архив с файлами .dtt"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "preview branch JSON и количество branch"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToBranchResponse"
+  /api/dtt/preview/branch/upload/multipart:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview branch equipment JSON из zip DTT через multipart/form-data"
+      description: "Выполняет preview-сборку branch equipment JSON из zip-архива с\
+        \ файлами .dtt через multipart/form-data."
+      operationId: "previewBranchUploadMultipart"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                zipPayload:
+                  type: "string"
+                  description: "ZIP-архив с .dtt файлами"
+                  format: "binary"
+                metadataJson:
+                  type: "string"
+                  description: "JSON-метаданные preview branch upload"
+                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
+                    branches\" : [ {\r\n    \"branchId\" : \"branch-custom\",\r\n\
+                    \    \"displayName\" : \"Отделение custom\",\r\n    \"deviceTypes\"\
+                    \ : [ {\r\n      \"archiveEntryName\" : \"Display WD3264.dtt\"\
+                    ,\r\n      \"kind\" : \"display\",\r\n      \"deviceTypeParamValues\"\
+                    \ : {\r\n        \"TicketZone\" : \"9\",\r\n        \"ServicePointNameZone\"\
+                    \ : \"1\"\r\n      },\r\n      \"devices\" : [ {\r\n        \"\
+                    id\" : \"display-1\",\r\n        \"name\" : \"display-1\",\r\n\
+                    \        \"displayName\" : \"Display 1\",\r\n        \"description\"\
+                    \ : \"Demo display\",\r\n        \"deviceParamValues\" : {\r\n\
+                    \          \"IP\" : \"10.10.10.10\",\r\n          \"Port\" : 22224,\r\
+                    \n          \"ServicePointDisplayName\" : \"OKHO 1\"\r\n     \
+                    \   }\r\n      } ]\r\n    }, {\r\n      \"archiveEntryName\" :\
+                    \ \"Terminal.dtt\",\r\n      \"deviceTypeParamValues\" : {\r\n\
+                    \        \"prefix\" : \"OVR\",\r\n        \"printerServiceURL\"\
+                    \ : \"http://10.10.10.10:8084\"\r\n      }\r\n    } ]\r\n  } ]\r\
+                    \n}"
+            encoding: {}
+        required: true
+      responses:
+        "200":
+          description: "preview branch JSON и количество branch"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToBranchResponse"
+  /api/dtt/preview/export/branch/one:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview single-export DTT из branch equipment JSON"
+      description: "Выполняет preview single-export из branch equipment JSON с диа\
+        гностикой merge-конфликтов."
+      operationId: "previewSingleExportFromBranch"
+      requestBody:
+        description: "запрос с branch equipment JSON и идентификатором типа устрой\
+          ства"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSingleDttFromBranchRequest"
+            examples:
+              branchEquipmentObject:
+                value:
+                  branchEquipment:
+                    branches:
+                      ec8d252d-deb9-4ebb-accf-0ef7994bf17b:
+                        id: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                        displayName: "test kate"
+                        deviceTypes:
+                          ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                            id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                            name: "Terminal"
+                            displayName: "Терминал (Киоск)"
+                            description: "Терминал (Киоск)"
+                            type: "entry_point"
+                            deviceTypeParamValues:
+                              printerServiceURL:
+                                value: "http://192.168.7.20:8084"
+                              prefix:
+                                value: "SSS"
+                              translatorURL:
+                                value: "http://192.168.7.20:8104?prefix=SSS"
+                              templateID:
+                                value: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                              translatorTicket:
+                                value: "http://192.168.7.20:8114/printing"
+                            devices:
+                              "811fb688-546f-495d-be86-58a63c5d560d":
+                                id: "811fb688-546f-495d-be86-58a63c5d560d"
+                                name: "entry_point 1"
+                                displayName: "entry_point 1"
+                            onPublicFinishEvent:
+                              inputParameters: {}
+                              outputParameters: []
+                        prefix: "KAT"
+                  branchIds:
+                  - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "Preview результата single-export"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDttExportPreviewResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "deviceTypeId must not be blank"
+  /api/dtt/preview/export/profile/one:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview single-export DTT из profile JSON"
+      description: "Выполняет preview single-export из profile JSON с диагностикой\
+        \ конфликтов."
+      operationId: "previewSingleExportFromProfile"
+      requestBody:
+        description: "запрос с profile JSON и идентификатором типа устройства"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportSingleDttFromProfileRequest"
+            examples:
+              jsonObject:
+                value:
+                  profileJson:
+                    ed650d7d-6201-42fb-a4c3-b9efb93dda0c:
+                      metadata:
+                        id: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                        name: "Terminal"
+                        displayName: "Терминал (Киоск)"
+                        description: "Терминал (Киоск)"
+                      deviceTypeParamValues:
+                        printerServiceURL: "http://192.168.7.20:8084"
+                        prefix: "SSS"
+                        translatorURL: "http://192.168.7.20:8104?prefix=SSS"
+                        templateID: "90ef9bba-e5b6-4d5f-a928-3bf9c7a9e297"
+                        translatorTicket: "http://192.168.7.20:8114/printing"
+                  deviceTypeId: "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+                  dttVersion: "2.1.0"
+        required: true
+      responses:
+        "200":
+          description: "Preview результата single-export"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleDttExportPreviewResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "deviceTypeId must not be blank"
+  /api/dtt/preview/profile:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview сборки profile JSON из набора DTT"
+      description: "Выполняет preview-сборку profile JSON из одного или нескольких\
+        \ DTT-архивов."
+      operationId: "previewProfile"
+      requestBody:
+        description: "запрос с Base64-представлением архивов и merge-стратегией"
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToProfileRequest"
+            examples:
+              legacyBase64Full:
+                value:
+                  archivesBase64:
+                  - "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"
+                  mergeStrategy: "FAIL_IF_EXISTS"
+              structuredWithOverrides:
+                value:
+                  mergeStrategy: "FAIL_IF_EXISTS"
+                  deviceTypes:
+                  - archiveBase64: "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"
+                    deviceTypeParamValues:
+                      prefix: "OVR"
+                      printerServiceURL: "http://10.10.10.10:8084"
+        required: true
+      responses:
+        "200":
+          description: "Preview profile JSON"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToProfileResponse"
+        "400":
+          description: "Ошибка валидации входных данных"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoErrorResponse"
+              examples:
+                example:
+                  value:
+                    code: "BAD_REQUEST"
+                    message: "Invalid Base64 DTT archive payload at index 0"
+  /api/dtt/preview/profile/detailed:
+    post:
+      tags:
+      - "DTT"
+      summary: "Детальный preview profile JSON с defaults/overrides"
+      operationId: "previewProfileDetailed"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportDttSetToProfileRequest"
+        required: true
+      responses:
+        "200":
+          description: "Preview profile JSON с расчётом defaults/overrides"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfilePreviewDetailedResponse"
+  /api/dtt/preview/profile/upload:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview profile JSON из zip DTT (upload-download)"
+      description: "Выполняет preview-сборку profile JSON из zip-архива с файлами\
+        \ .dtt (режим upload-download)."
+      operationId: "previewProfileUpload"
+      parameters:
+      - name: "mergeStrategy"
+        in: "query"
+        description: "стратегия merge"
+        required: true
+        schema:
+          $ref: "#/components/schemas/MergeStrategy"
+      requestBody:
+        description: "zip-архив с файлами .dtt"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "preview profile JSON и количество типов устройств"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToProfileResponse"
+  /api/dtt/preview/profile/upload/multipart:
+    post:
+      tags:
+      - "DTT"
+      summary: "Preview profile JSON из zip DTT через multipart/form-data"
+      description: "Выполняет preview-сборку profile JSON из zip-архива с файлами\
+        \ .dtt через multipart/form-data."
+      operationId: "previewProfileUploadMultipart"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                zipPayload:
+                  type: "string"
+                  description: "ZIP-архив с .dtt файлами"
+                  format: "binary"
+                metadataJson:
+                  type: "string"
+                  description: "JSON-метаданные preview profile upload"
+                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
+                    deviceTypes\" : [ {\r\n    \"archiveEntryName\" : \"Terminal.dtt\"\
+                    ,\r\n    \"deviceTypeParamValues\" : {\r\n      \"prefix\" : \"\
+                    OVR\",\r\n      \"printerServiceURL\" : \"http://10.10.10.10:8084\"\
+                    \r\n    }\r\n  } ]\r\n}"
+            encoding: {}
+        required: true
+      responses:
+        "200":
+          description: "preview profile JSON и количество типов устройств"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToProfileResponse"
+  /api/dtt/validate:
+    post:
+      tags:
+      - "DTT"
+      summary: "Валидировать DTT"
+      description: "Валидирует DTT-архив, включая синтаксис Groovy-скриптов."
+      operationId: "validate"
+      requestBody:
+        description: "бинарный DTT-архив"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "Результат валидации"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DttValidationResponse"
+  /api/dtt/version/compare:
+    post:
+      tags:
+      - "DTT"
+      summary: "Сравнить введённую версию и версию из DTT"
+      description: "Сравнивает введённую версию и версию, сохранённую в DTT."
+      operationId: "compareVersion"
+      parameters:
+      - name: "inputVersion"
+        in: "query"
+        description: "версия из входного параметра"
+        required: true
+        schema:
+          type: "string"
+          default: "1.0"
+      requestBody:
+        description: "бинарный DTT-архив"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "Результат сравнения версий"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DttVersionComparisonResponse"
+  /api/system/health:
+    get:
+      tags:
+      - "System"
+      summary: "Проверить доступность demo-service"
+      description: "Возвращает состояние demo-service."
+      operationId: "health"
+      responses:
+        "200":
+          description: "Сервис доступен"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+components:
+  schemas:
+    BranchDeviceType:
+      type: "object"
+      properties:
+        template:
+          $ref: "#/components/schemas/DeviceTypeTemplate"
+        devices:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/DeviceInstanceTemplate"
+        kind:
+          type: "string"
+        onStartEvent:
+          $ref: "#/components/schemas/BranchScript"
+        onStopEvent:
+          $ref: "#/components/schemas/BranchScript"
+        onPublicStartEvent:
+          $ref: "#/components/schemas/BranchScript"
+        onPublicFinishEvent:
+          $ref: "#/components/schemas/BranchScript"
+        deviceTypeFunctions:
+          type: "string"
+        eventHandlers:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/BranchScript"
+        commands:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/BranchScript"
+    BranchDeviceTypeMetadata:
+      required:
+      - "description"
+      - "deviceTypeId"
+      - "imageBase64"
+      - "name"
+      - "version"
+      type: "object"
+      properties:
+        deviceTypeId:
+          type: "string"
+        name:
+          type: "string"
+        version:
+          type: "string"
+        description:
+          type: "string"
+        imageBase64:
+          type: "string"
+    BranchEquipment:
+      required:
+      - "branches"
+      - "metadata"
+      type: "object"
+      properties:
+        branches:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/BranchNode"
+        metadata:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/BranchDeviceTypeMetadata"
+      description: "Модель branch equipment JSON"
+    BranchNode:
+      required:
+      - "deviceTypes"
+      - "displayName"
+      - "id"
+      type: "object"
+      properties:
+        id:
+          type: "string"
+        displayName:
+          type: "string"
+        deviceTypes:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/BranchDeviceType"
+    BranchPreviewDetailedResponse:
+      type: "object"
+      properties:
+        branchJson:
+          type: "array"
+          description: "Preview branch equipment JSON как объект"
+          items:
+            type: "object"
+        computationsByTarget:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/PreviewComputationEntry"
+          description: "Сводка defaults/overrides по ключу branchId:deviceTypeId"
+      description: "Детальный preview branch equipment JSON с расчётом defaults/overrides"
+    BranchScript:
+      required:
+      - "inputParameters"
+      - "outputParameters"
+      - "scriptCode"
+      type: "object"
+      properties:
+        inputParameters:
+          type: "object"
+          additionalProperties: true
+        outputParameters:
+          type: "array"
+          items:
+            type: "object"
+        scriptCode:
+          type: "string"
+    DemoErrorResponse:
+      type: "object"
+      properties:
+        code:
+          type: "string"
+          example: "BAD_REQUEST"
+        message:
+          type: "string"
+          example: "archivesBase64 must contain at least one DTT archive"
+      description: "Структурированная ошибка demo API"
+    DeviceInstanceTemplate:
+      required:
+      - "description"
+      - "deviceParamValues"
+      - "displayName"
+      - "id"
+      - "name"
+      type: "object"
+      properties:
+        id:
+          type: "string"
+        name:
+          type: "string"
+        displayName:
+          type: "string"
+        description:
+          type: "string"
+        deviceParamValues:
+          type: "object"
+          additionalProperties: true
+    DeviceTypeBasicMetadataResponse:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          description: "Идентификатор типа устройства"
+          example: "display"
+        name:
+          type: "string"
+          description: "Название типа устройства"
+          example: "Display"
+        version:
+          type: "string"
+          description: "Версия типа устройства"
+          example: "1.0.0"
+        description:
+          type: "string"
+          description: "Описание типа устройства"
+          example: "Экран электронной очереди"
+        imageBase64:
+          type: "string"
+          description: "PNG-иконка в Base64"
+      description: "Базовые метаданные типа устройства"
+    DeviceTypeMetadata:
+      required:
+      - "description"
+      - "displayName"
+      - "iconBase64"
+      - "id"
+      - "name"
+      - "version"
+      type: "object"
+      properties:
+        id:
+          type: "string"
+        name:
+          type: "string"
+        displayName:
+          type: "string"
+        description:
+          type: "string"
+        version:
+          type: "string"
+        iconBase64:
+          type: "string"
+    DeviceTypeTemplate:
+      required:
+      - "deviceTypeParamValues"
+      - "metadata"
+      type: "object"
+      properties:
+        metadata:
+          $ref: "#/components/schemas/DeviceTypeMetadata"
+        deviceTypeParamValues:
+          type: "object"
+          additionalProperties: true
+    DttInspectionResponse:
+      required:
+      - "commandsCount"
+      - "deviceTypeDescription"
+      - "deviceTypeId"
+      - "deviceTypeName"
+      - "deviceTypeVersion"
+      - "eventHandlersCount"
+      - "formatName"
+      - "formatVersion"
+      - "imageBase64"
+      type: "object"
+      properties:
+        formatName:
+          type: "string"
+        formatVersion:
+          type: "string"
+        deviceTypeId:
+          type: "string"
+        deviceTypeName:
+          type: "string"
+        deviceTypeVersion:
+          type: "string"
+        deviceTypeDescription:
+          type: "string"
+        imageBase64:
+          type: "string"
+        eventHandlersCount:
+          type: "integer"
+          format: "int32"
+        commandsCount:
+          type: "integer"
+          format: "int32"
+      description: "Краткая информация о DTT-архиве"
+    DttMetadataBatchResponse:
+      type: "object"
+      properties:
+        metadata:
+          type: "array"
+          description: "Список базовых метаданных типов устройств"
+          items:
+            $ref: "#/components/schemas/DeviceTypeBasicMetadataResponse"
+      description: "Список базовых метаданных типов устройств из DTT/DTT-set"
+    DttValidationIssueResponse:
+      type: "object"
+      properties:
+        code:
+          type: "string"
+          example: "GROOVY_SYNTAX_ERROR"
+        path:
+          type: "string"
+          example: "scripts/onStartEvent.groovy"
+        message:
+          type: "string"
+          example: "Groovy-скрипт не компилируется"
+      description: "Диагностическая проблема валидации DTT"
+    DttValidationResponse:
+      required:
+      - "issues"
+      type: "object"
+      properties:
+        valid:
+          type: "boolean"
+          example: true
+        issues:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/DttValidationIssueResponse"
+      description: "Результат валидации DTT"
+    DttVersionComparisonResponse:
+      type: "object"
+      properties:
+        inputVersion:
+          type: "string"
+          description: "Введённая версия"
+          example: "2.1.0"
+        dttVersion:
+          type: "string"
+          description: "Версия из DTT"
+          example: "2.0.5"
+        greaterVersion:
+          type: "string"
+          description: "Большая версия"
+          example: "2.1.0"
+        greaterSource:
+          type: "string"
+          description: "Источник большей версии: INPUT, DTT или EQUAL"
+          example: "INPUT"
+      description: "Результат сравнения версии из DTT и версии из параметра"
+    EquipmentProfile:
+      required:
+      - "deviceTypes"
+      type: "object"
+      properties:
+        deviceTypes:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/DeviceTypeTemplate"
+      description: "Модель profile JSON"
+    ExportAllDttFromBranchRequest:
+      type: "object"
+      properties:
+        branchEquipment:
+          description: "Модель branch equipment JSON"
+          allOf:
+          - $ref: "#/components/schemas/BranchEquipment"
+        branchJson:
+          type: "object"
+          description: "Branch equipment JSON как объект (альтернативно branchEquipment)"
+          additionalProperties: true
+        branchIds:
+          type: "array"
+          description: "Опциональный список branchId для выборочного экспорта"
+          example:
+          - "branch-1"
+          - "branch-2"
+          items:
+            type: "string"
+        deviceTypeIds:
+          type: "array"
+          description: "Опциональный список deviceTypeId для выборочного экспорта"
+          example:
+          - "display"
+          items:
+            type: "string"
+        mergeStrategy:
+          description: "Стратегия merge при повторении deviceTypeId"
+          example: "FAIL_IF_EXISTS"
+          allOf:
+          - $ref: "#/components/schemas/MergeStrategy"
+        dttVersion:
+          type: "string"
+          description: "Версия DTT, которая фиксируется в архиве"
+          example: "2.1.0"
+      description: "Запрос на экспорт набора DTT из branch equipment JSON"
+    ExportAllDttFromBranchResponse:
+      type: "object"
+      properties:
+        archivesBase64ByDeviceTypeId:
+          type: "object"
+          additionalProperties:
+            type: "string"
+          description: "Карта архивов DTT в Base64 по deviceTypeId"
+        exportedCount:
+          type: "integer"
+          description: "Количество экспортированных DTT"
+          format: "int32"
+          example: 2
+      description: "Результат экспорта всех DTT из branch equipment JSON"
+    ExportAllDttFromProfileRequest:
+      type: "object"
+      properties:
+        profile:
+          description: "Модель profile JSON"
+          allOf:
+          - $ref: "#/components/schemas/EquipmentProfile"
+        profileJson:
+          type: "object"
+          description: "Profile JSON как объект (альтернативно profile)"
+          additionalProperties: true
+        deviceTypeIds:
+          type: "array"
+          description: "Опциональный список deviceTypeId для выборочного экспорта"
+          example:
+          - "display"
+          - "cashbox"
+          items:
+            type: "string"
+        dttVersion:
+          type: "string"
+          description: "Версия DTT, которая фиксируется в архиве"
+          example: "2.1.0"
+      description: "Запрос на экспорт всех DTT из profile JSON"
+    ExportAllDttFromProfileResponse:
+      type: "object"
+      properties:
+        archivesBase64ByDeviceTypeId:
+          type: "object"
+          additionalProperties:
+            type: "string"
+          description: "Карта архивов в Base64 по deviceTypeId"
+        exportedCount:
+          type: "integer"
+          description: "Количество экспортированных архивов"
+          format: "int32"
+          example: 2
+      description: "Результат экспорта набора DTT из profile JSON"
+    ExportSingleDttFromBranchRequest:
+      type: "object"
+      properties:
+        branchEquipment:
+          description: "Модель branch equipment JSON"
+          allOf:
+          - $ref: "#/components/schemas/BranchEquipment"
+        branchJson:
+          type: "object"
+          description: "Branch equipment JSON как объект (альтернатива branchEquipment)"
+          additionalProperties: true
+        branchIds:
+          type: "array"
+          description: "Опциональный фильтр branchId"
+          example:
+          - "branch-1"
+          items:
+            type: "string"
+        deviceTypeId:
+          type: "string"
+          description: "Идентификатор экспортируемого типа устройства"
+          example: "display"
+        mergeStrategy:
+          description: "Стратегия merge при конфликте deviceTypeId"
+          example: "FAIL_IF_EXISTS"
+          allOf:
+          - $ref: "#/components/schemas/MergeStrategy"
+        dttVersion:
+          type: "string"
+          description: "Версия DTT, которая фиксируется в архиве"
+          example: "2.1.0"
+      description: "Запрос на экспорт одного DTT из branch equipment JSON"
+    ExportSingleDttFromProfileRequest:
+      type: "object"
+      properties:
+        profile:
+          description: "Модель profile JSON"
+          allOf:
+          - $ref: "#/components/schemas/EquipmentProfile"
+        profileJson:
+          type: "object"
+          description: "Profile JSON как объект (альтернатива profile)"
+          additionalProperties: true
+        deviceTypeId:
+          type: "string"
+          description: "Идентификатор экспортируемого типа устройства"
+          example: "display"
+        dttVersion:
+          type: "string"
+          description: "Версия DTT, которая фиксируется в архиве"
+          example: "2.1.0"
+      description: "Запрос на экспорт одного DTT из profile JSON"
+    ExportSingleDttResponse:
+      type: "object"
+      properties:
+        deviceTypeId:
+          type: "string"
+          description: "Идентификатор экспортированного типа устройства"
+          example: "display"
+        archiveBase64:
+          type: "string"
+          description: "DTT-архив в Base64"
+      description: "Результат экспорта одного DTT-архива"
+    HealthResponse:
+      type: "object"
+      properties:
+        status:
+          type: "string"
+          description: "Статус сервиса"
+          example: "UP"
+      description: "Результат проверки доступности demo-service"
+    ImportBranchDeviceRequest:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          description: "Идентификатор устройства"
+        name:
+          type: "string"
+          description: "Системное имя устройства"
+        displayName:
+          type: "string"
+          description: "Отображаемое имя устройства"
+        description:
+          type: "string"
+          description: "Описание устройства"
+        deviceParamValues:
+          type: "object"
+          additionalProperties: true
+          description: "Override-значения параметров устройства"
+      description: "Override-описание устройства при импорте DTT в отделение"
+    ImportBranchDeviceTypeMetadataOverrideRequest:
+      required:
+      - "deviceTypeId"
+      - "metadata"
+      type: "object"
+      properties:
+        deviceTypeId:
+          type: "string"
+          description: "Идентификатор типа устройства"
+        metadata:
+          description: "Значения metadata override"
+          allOf:
+          - $ref: "#/components/schemas/ImportDeviceTypeMetadataOverrideRequest"
+      description: "Metadata override для типа устройства в конкретном branch"
+    ImportBranchDeviceTypeRequest:
+      required:
+      - "archiveBase64"
+      type: "object"
+      properties:
+        archiveBase64:
+          type: "string"
+          description: "DTT-архив в Base64"
+        deviceTypeParamValues:
+          type: "object"
+          additionalProperties: true
+          description: "Override-значения параметров типа устройства"
+        metadataOverride:
+          description: "Override метаданных типа устройства на уровне branch"
+          allOf:
+          - $ref: "#/components/schemas/ImportDeviceTypeMetadataOverrideRequest"
+        devices:
+          type: "array"
+          description: "Override-описания устройств данного типа"
+          items:
+            $ref: "#/components/schemas/ImportBranchDeviceRequest"
+        kind:
+          type: "string"
+          description: "Override поля type для branch JSON"
+      description: "Импорт одного DTT в отделение с override-значениями типа устро\
+        йства и устройств"
+    ImportBranchMetadataRequest:
+      required:
+      - "branchId"
+      type: "object"
+      properties:
+        branchId:
+          type: "string"
+          description: "Идентификатор отделения"
+        metadataOverrides:
+          type: "array"
+          description: "Metadata override типов устройств в отделении"
+          items:
+            $ref: "#/components/schemas/ImportBranchDeviceTypeMetadataOverrideRequest"
+      description: "Параметры branch c metadata override"
+    ImportBranchRequest:
+      required:
+      - "branchId"
+      - "deviceTypes"
+      type: "object"
+      properties:
+        branchId:
+          type: "string"
+          description: "Идентификатор отделения"
+        displayName:
+          type: "string"
+          description: "Отображаемое имя отделения"
+        deviceTypes:
+          type: "array"
+          description: "Список типов устройств для импорта в отделение"
+          items:
+            $ref: "#/components/schemas/ImportBranchDeviceTypeRequest"
+      description: "Запрос на сборку одного отделения из набора DTT с override-зна\
+        чениями"
+    ImportDeviceTypeMetadataOverrideRequest:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          description: "Целевой идентификатор типа устройства"
+          example: "display-wd3264-red-window"
+        name:
+          type: "string"
+          description: "Целевое системное имя типа устройства"
+          example: "Display WD3264 Красное окно"
+        displayName:
+          type: "string"
+          description: "Целевое отображаемое имя типа устройства"
+          example: "Display WD3264 Красное окно"
+        description:
+          type: "string"
+          description: "Целевое описание типа устройства"
+          example: "Шаблон красного окна"
+      description: "Переопределение метаданных типа устройства при импорте DTT"
+    ImportDttSetToBranchRequest:
+      type: "object"
+      properties:
+        archivesBase64:
+          type: "array"
+          description: "Список DTT-архивов в Base64 (legacy-формат без override-зн\
+            ачений)"
+          example:
+          - "UEsDB..."
+          items:
+            type: "string"
+        branchIds:
+          type: "array"
+          description: "Список идентификаторов отделений для legacy-формата"
+          example:
+          - "branch-1"
+          - "branch-2"
+          items:
+            type: "string"
+        mergeStrategy:
+          description: "Стратегия merge"
+          example: "FAIL_IF_EXISTS"
+          allOf:
+          - $ref: "#/components/schemas/MergeStrategy"
+        branches:
+          type: "array"
+          description: "Структурированные запросы по отделениям с override-значени\
+            ями"
+          items:
+            $ref: "#/components/schemas/ImportBranchRequest"
+      description: "Запрос на импорт набора DTT в branch equipment JSON"
+    ImportDttSetToBranchResponse:
+      type: "object"
+      properties:
+        branchJson:
+          type: "object"
+          description: "Собранный branch equipment JSON (карта branchId -> branch\
+            \ node) как объект"
+          additionalProperties: true
+        branchesCount:
+          type: "integer"
+          description: "Количество отделений"
+          format: "int32"
+          example: 2
+        metadata:
+          type: "array"
+          description: "Метаданные типов устройств"
+          items:
+            $ref: "#/components/schemas/DeviceTypeBasicMetadataResponse"
+      description: "Ответ с branch equipment JSON после импорта набора DTT"
+    ImportDttSetToExistingBranchRequest:
+      required:
+      - "existingBranchJson"
+      type: "object"
+      properties:
+        existingBranchJson:
+          type: "string"
+          description: "Исходный JSON уровня DeviceManager.json"
+        archivesBase64:
+          type: "array"
+          description: "Список DTT архивов в Base64 (legacy-формат без override-зн\
+            ачений)"
+          items:
+            type: "string"
+        branchIds:
+          type: "array"
+          description: "Список branch идентификаторов для legacy-формата"
+          items:
+            type: "string"
+        mergeStrategy:
+          description: "Merge-стратегия"
+          allOf:
+          - $ref: "#/components/schemas/MergeStrategy"
+          default: "FAIL_IF_EXISTS"
+        branches:
+          type: "array"
+          description: "Структурированные запросы по отделениям с override-значени\
+            ями"
+          items:
+            $ref: "#/components/schemas/ImportBranchRequest"
+      description: "Запрос на merge-импорт DTT набора в существующее branch equipment\
+        \ JSON"
+    ImportDttSetToProfileRequest:
+      type: "object"
+      properties:
+        archivesBase64:
+          type: "array"
+          description: "Список DTT-архивов в Base64 (legacy-формат без override-зн\
+            ачений)"
+          example:
+          - "UEsDB..."
+          items:
+            type: "string"
+        mergeStrategy:
+          description: "Стратегия merge"
+          example: "FAIL_IF_EXISTS"
+          allOf:
+          - $ref: "#/components/schemas/MergeStrategy"
+        deviceTypes:
+          type: "array"
+          description: "Структурированные запросы импорта с override-значениями па\
+            раметров типа устройства"
+          items:
+            $ref: "#/components/schemas/ImportProfileDeviceTypeRequest"
+      description: "Запрос на импорт набора DTT в профиль оборудования"
+    ImportDttSetToProfileResponse:
+      type: "object"
+      properties:
+        profileJson:
+          type: "object"
+          description: "Собранный JSON карты deviceTypes как объект"
+          additionalProperties: true
+        deviceTypesCount:
+          type: "integer"
+          description: "Количество импортированных типов"
+          format: "int32"
+          example: 2
+      description: "Результат импорта DTT-архивов в профиль оборудования"
+    ImportProfileBranchWithMetadataRequest:
+      required:
+      - "branches"
+      - "deviceTypes"
+      type: "object"
+      properties:
+        deviceTypes:
+          type: "array"
+          description: "Список DTT и metadata override уровня profile"
+          items:
+            $ref: "#/components/schemas/ImportProfileDeviceTypeRequest"
+        branches:
+          type: "array"
+          description: "Список branch и metadata override уровня отделений"
+          items:
+            $ref: "#/components/schemas/ImportBranchMetadataRequest"
+        mergeStrategy:
+          description: "Стратегия merge"
+          example: "FAIL_IF_EXISTS"
+          allOf:
+          - $ref: "#/components/schemas/MergeStrategy"
+      description: "Запрос на одновременную сборку profile/branch с наследованием\
+        \ metadata"
+    ImportProfileBranchWithMetadataResponse:
+      required:
+      - "branchJson"
+      - "profileJson"
+      type: "object"
+      properties:
+        profileJson:
+          type: "array"
+          description: "собранный profile JSON"
+          items:
+            type: "object"
+        branchJson:
+          type: "array"
+          description: "собранный branch equipment JSON"
+          items:
+            type: "object"
+      description: "Результат одновременной сборки profile и branch JSON из набора\
+        \ DTT."
+    ImportProfileDeviceTypeRequest:
+      required:
+      - "archiveBase64"
+      type: "object"
+      properties:
+        archiveBase64:
+          type: "string"
+          description: "DTT-архив в Base64"
+        deviceTypeParamValues:
+          type: "object"
+          additionalProperties: true
+          description: "Override-значения параметров типа устройства"
+        metadataOverride:
+          description: "Override метаданных типа устройства на уровне profile"
+          allOf:
+          - $ref: "#/components/schemas/ImportDeviceTypeMetadataOverrideRequest"
+      description: "Импорт одного DTT в профиль оборудования с override-значениями"
+    MergeStrategy:
+      type: "string"
+      description: "Стратегия merge"
+      example: "FAIL_IF_EXISTS"
+      enum:
+      - "FAIL_IF_EXISTS"
+      - "REPLACE"
+      - "MERGE_NON_NULLS"
+      - "MERGE_PRESERVE_EXISTING"
+      - "CREATE_COPY_WITH_SUFFIX"
+    PreviewComputationEntry:
+      type: "object"
+      properties:
+        defaultsAppliedCount:
+          type: "integer"
+          description: "Количество defaults"
+          format: "int32"
+          example: 5
+        overridesAppliedCount:
+          type: "integer"
+          description: "Количество overrides"
+          format: "int32"
+          example: 2
+      description: "Сводка рассчитанных defaults/overrides для одного типа устройс\
+        тва"
+    ProfilePreviewDetailedResponse:
+      type: "object"
+      properties:
+        profileJson:
+          type: "array"
+          description: "Preview profile JSON как объект"
+          items:
+            type: "object"
+        computationsByDeviceType:
+          type: "object"
+          additionalProperties:
+            $ref: "#/components/schemas/PreviewComputationEntry"
+          description: "Сводка по defaults/overrides для каждого типа устройства"
+      description: "Детальный preview profile JSON с расчётом defaults/overrides"
+    SingleDttExportPreviewIssueResponse:
+      type: "object"
+      properties:
+        code:
+          type: "string"
+          description: "Код проблемы"
+          example: "MERGE_CONFLICT"
+        message:
+          type: "string"
+          description: "Описание проблемы"
+          example: "Конфликт deviceTypeId display при merge FAIL_IF_EXISTS"
+      description: "Диагностическая запись preview single-export"
+    SingleDttExportPreviewResponse:
+      type: "object"
+      properties:
+        canExport:
+          type: "boolean"
+          description: "Можно ли выполнить экспорт"
+          example: true
+        deviceTypeId:
+          type: "string"
+          description: "Идентификатор типа устройства"
+          example: "display"
+        archiveSizeBytes:
+          type: "integer"
+          description: "Размер архива в байтах при успешном preview"
+          format: "int32"
+          example: 2048
+        issues:
+          type: "array"
+          description: "Список диагностических проблем"
+          items:
+            $ref: "#/components/schemas/SingleDttExportPreviewIssueResponse"
+      description: "Результат preview single-export одного DTT"
