@@ -229,10 +229,14 @@ public class DttController {
      * @param mergeStrategy стратегия merge
      * @return profile JSON и количество типов устройств
      */
-    @Post(uri = "/import/profile/upload{?mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Post(uri = "/import/profile/upload{?mergeStrategy,metadataJson}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Импортировать zip DTT в profile JSON (upload-download)")
     public ImportDttSetToProfileResponse importToProfileUpload(@Body byte[] zipPayload,
-                                                               @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+                                                               @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy,
+                                                               @QueryValue(defaultValue = "") String metadataJson) {
+        if (metadataJson != null && !metadataJson.isBlank()) {
+            return demoService.importDttZipToProfile(zipPayload, parseProfileUploadMetadata(metadataJson));
+        }
         return demoService.importDttZipToProfile(zipPayload, mergeStrategy);
     }
 
@@ -243,10 +247,14 @@ public class DttController {
      * @param mergeStrategy стратегия merge
      * @return preview profile JSON и количество типов устройств
      */
-    @Post(uri = "/preview/profile/upload{?mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Post(uri = "/preview/profile/upload{?mergeStrategy,metadataJson}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Preview profile JSON из zip DTT (upload-download)")
     public ImportDttSetToProfileResponse previewProfileUpload(@Body byte[] zipPayload,
-                                                              @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+                                                              @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy,
+                                                              @QueryValue(defaultValue = "") String metadataJson) {
+        if (metadataJson != null && !metadataJson.isBlank()) {
+            return demoService.previewDttZipToProfile(zipPayload, parseProfileUploadMetadata(metadataJson));
+        }
         return demoService.previewDttZipToProfile(zipPayload, mergeStrategy);
     }
 
@@ -433,11 +441,15 @@ public class DttController {
      * @param mergeStrategy стратегия merge
      * @return branch JSON и количество branch
      */
-    @Post(uri = "/import/branch/upload{?branchIds,mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Post(uri = "/import/branch/upload{?branchIds,mergeStrategy,metadataJson}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Импортировать zip DTT в branch equipment JSON (upload-download)")
     public ImportDttSetToBranchResponse importToBranchUpload(@Body byte[] zipPayload,
                                                              @QueryValue List<String> branchIds,
-                                                             @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+                                                             @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy,
+                                                             @QueryValue(defaultValue = "") String metadataJson) {
+        if (metadataJson != null && !metadataJson.isBlank()) {
+            return demoService.importDttZipToBranch(zipPayload, parseBranchUploadMetadata(metadataJson));
+        }
         if (branchIds == null || branchIds.isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
@@ -452,15 +464,33 @@ public class DttController {
      * @param mergeStrategy стратегия merge
      * @return preview branch JSON и количество branch
      */
-    @Post(uri = "/preview/branch/upload{?branchIds,mergeStrategy}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Post(uri = "/preview/branch/upload{?branchIds,mergeStrategy,metadataJson}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Preview branch equipment JSON из zip DTT (upload-download)")
     public ImportDttSetToBranchResponse previewBranchUpload(@Body byte[] zipPayload,
                                                             @QueryValue List<String> branchIds,
-                                                            @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy) {
+                                                            @QueryValue(defaultValue = "FAIL_IF_EXISTS") MergeStrategy mergeStrategy,
+                                                            @QueryValue(defaultValue = "") String metadataJson) {
+        if (metadataJson != null && !metadataJson.isBlank()) {
+            return demoService.previewDttZipToBranch(zipPayload, parseBranchUploadMetadata(metadataJson));
+        }
         if (branchIds == null || branchIds.isEmpty()) {
             throw new IllegalArgumentException("branchIds must contain at least one branch id");
         }
         return demoService.previewDttZipToBranch(zipPayload, branchIds, mergeStrategy);
+    }
+
+    /**
+     * Выполняет merge-импорт zip-архива с файлами .dtt в существующий DeviceManager.json без multipart.
+     *
+     * @param zipPayload zip-архив с .dtt файлами
+     * @param metadataJson JSON-метаданные merge-импорта
+     * @return branch JSON после merge-импорта
+     */
+    @Post(uri = "/import/branch/merge/upload{?metadataJson}", consumes = MediaType.APPLICATION_OCTET_STREAM, produces = MediaType.APPLICATION_JSON)
+    @Operation(summary = "Импортировать zip DTT в существующий branch equipment JSON (upload-download, без multipart)")
+    public ImportDttSetToBranchResponse importToExistingBranchUpload(@Body byte[] zipPayload,
+                                                                     @QueryValue String metadataJson) {
+        return demoService.importDttZipToExistingBranch(zipPayload, parseExistingBranchUploadMetadata(metadataJson));
     }
 
 

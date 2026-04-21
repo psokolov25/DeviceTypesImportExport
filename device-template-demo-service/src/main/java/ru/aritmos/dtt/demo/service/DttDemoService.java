@@ -568,9 +568,9 @@ public class DttDemoService {
                 .stream()
                 .map(item -> new DeviceTypeBasicMetadataResponse(
                         item.deviceTypeId(),
-                        item.name(),
+                        firstNonBlank(item.name(), item.deviceTypeId()),
                         item.version(),
-                        item.description(),
+                        firstNonBlank(item.description(), item.name(), item.deviceTypeId(), ""),
                         DttIconSupport.resolveOrDefault(item.imageBase64())
                 ))
                 .toList();
@@ -587,11 +587,12 @@ public class DttDemoService {
     }
 
     private DeviceTypeBasicMetadataResponse toBasicMetadata(DttArchiveTemplate template) {
+        final String name = firstNonBlank(template.metadata().name(), template.metadata().id());
         return new DeviceTypeBasicMetadataResponse(
                 template.metadata().id(),
-                template.metadata().name(),
+                name,
                 template.descriptor().deviceTypeVersion(),
-                template.metadata().description(),
+                firstNonBlank(template.metadata().description(), name, template.metadata().id(), ""),
                 DttIconSupport.resolveOrDefault(template.metadata().iconBase64())
         );
     }
@@ -1171,11 +1172,35 @@ public class DttDemoService {
             return fallback;
         }
         final Map<String, Object> metadata = castToStringObjectMap(metadataMapRaw);
+        final String version = firstNonBlank(
+                toNullableString(metadata.get("version")),
+                fallback == null ? null : fallback.version()
+        );
+        final String iconBase64 = firstNonBlank(
+                toNullableString(metadata.get("iconBase64")),
+                toNullableString(metadata.get("imageBase64")),
+                fallback == null ? null : fallback.iconBase64()
+        );
+        final String id = firstNonBlank(toNullableString(metadata.get("id")), fallback == null ? null : fallback.id());
+        final String name = firstNonBlank(toNullableString(metadata.get("name")), fallback == null ? null : fallback.name(), id);
+        final String displayName = firstNonBlank(
+                toNullableString(metadata.get("displayName")),
+                fallback == null ? null : fallback.displayName(),
+                name
+        );
+        final String description = firstNonBlank(
+                toNullableString(metadata.get("description")),
+                fallback == null ? null : fallback.description(),
+                name,
+                ""
+        );
         return new DeviceTypeMetadata(
-                firstNonNull(toNullableString(metadata.get("id")), fallback.id()),
-                firstNonNull(toNullableString(metadata.get("name")), fallback.name()),
-                firstNonNull(toNullableString(metadata.get("displayName")), fallback.displayName()),
-                firstNonNull(toNullableString(metadata.get("description")), fallback.description())
+                id,
+                name,
+                displayName,
+                description,
+                version,
+                iconBase64
         );
     }
 
@@ -1480,13 +1505,20 @@ public class DttDemoService {
         final String id = firstNonBlank(override.id(), base == null ? null : base.id());
         final String name = firstNonBlank(override.name(), base == null ? null : base.name(), id);
         final String displayName = firstNonBlank(override.displayName(), base == null ? null : base.displayName(), name);
+        final String description = firstNonBlank(
+                override.description(),
+                base == null ? null : base.description(),
+                name,
+                id,
+                ""
+        );
         return new DeviceTypeMetadata(
                 id,
                 name,
                 displayName,
-                firstNonBlank(override.description(), base == null ? null : base.description(), ""),
-                base == null ? null : base.version(),
-                base == null ? null : base.iconBase64()
+                description,
+                firstNonBlank(override.version(), base == null ? null : base.version()),
+                firstNonBlank(override.iconBase64(), base == null ? null : base.iconBase64())
         );
     }
 
