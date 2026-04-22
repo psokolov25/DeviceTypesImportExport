@@ -97,7 +97,15 @@ public class DefaultDttArchiveReader implements DttArchiveReader {
         if (!entries.containsKey(name)) {
             return Map.of();
         }
-        return readYaml(entries.get(name), name);
+        final byte[] payload = entries.get(name);
+        if (payload == null || payload.length == 0) {
+            return Map.of();
+        }
+        final String yaml = new String(payload, StandardCharsets.UTF_8);
+        if (yaml.isBlank()) {
+            return Map.of();
+        }
+        return readYaml(payload, name);
     }
 
     private Map<String, Object> readYaml(byte[] bytes, String entryName) {
