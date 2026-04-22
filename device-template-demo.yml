@@ -1,8 +1,23 @@
----
 openapi: "3.0.1"
 info:
-  title: "device-template-demo-service"
-  version: "1.0.0"
+  title: "Device Template Demo Service API"
+  description: "Демо REST API для диагностики, импорта, preview-сборки и экспорта DTT-архивов, а также для сборки profile JSON и branch equipment JSON с агрегированными metadata в корне ответа."
+  version: "1.0"
+tags:
+- name: "System"
+  description: "Системные точки demo-service: health-check и проверка доступности служебной инфраструктуры Swagger/OpenAPI."
+- name: "DTT · Диагностика"
+  description: "Диагностика входных DTT-архивов: валидация структуры, Groovy-скриптов, инспекция содержимого, извлечение базовых metadata и сравнение версий."
+- name: "DTT · Импорт в profile JSON"
+  description: "Операции импорта и preview-сборки profile JSON из одного или нескольких DTT. Используются для подготовки канонического профиля типов устройств. В profile JSON в корне присутствует агрегированная секция metadata."
+- name: "DTT · Импорт в branch JSON"
+  description: "Операции импорта, merge-импорта и preview-сборки branch equipment JSON из набора DTT. Предназначены для подготовки конфигурации отделений и оборудования. В branch JSON в корне присутствует агрегированная секция metadata."
+- name: "DTT · Комплексные сценарии"
+  description: "Сценарии, в которых из одного запроса одновременно собираются несколько производных представлений, например profile JSON и branch equipment JSON с наследованием или переопределением metadata."
+- name: "DTT · Экспорт из profile JSON"
+  description: "Операции экспорта одного или нескольких типов устройств из profile JSON обратно в DTT, включая preview single-export и download-режимы."
+- name: "DTT · Экспорт из branch JSON"
+  description: "Операции экспорта одного или нескольких типов устройств из branch equipment JSON обратно в DTT, включая merge-логику между отделениями, preview и download-режимы."
 paths:
   /api/dtt/export/branch/all:
     post:
@@ -176,8 +191,7 @@ paths:
       tags:
       - "DTT"
       summary: "Экспортировать все DTT из branch equipment JSON в zip (upload-download)"
-      description: "Экспортирует набор DTT из branch equipment JSON в zip-архив (р\
-        ежим upload-download)."
+      description: "Экспортирует набор DTT из branch equipment JSON в zip-архив (режим upload-download)."
       operationId: "exportAllFromBranchDownload"
       requestBody:
         content:
@@ -338,8 +352,7 @@ paths:
       description: "Экспортирует один DTT-архив из branch equipment JSON."
       operationId: "exportSingleFromBranch"
       requestBody:
-        description: "запрос с branch equipment JSON и идентификатором типа устрой\
-          ства"
+        description: "запрос с branch equipment JSON и идентификатором типа устройства"
         content:
           application/json:
             schema:
@@ -407,12 +420,10 @@ paths:
       tags:
       - "DTT"
       summary: "Экспортировать один DTT из branch equipment JSON в download-режиме"
-      description: "Экспортирует один DTT-архив из branch equipment JSON в бинарно\
-        м виде (upload-download режим)."
+      description: "Экспортирует один DTT-архив из branch equipment JSON в бинарном виде (upload-download режим)."
       operationId: "exportSingleFromBranchDownload"
       requestBody:
-        description: "запрос с branch equipment JSON и идентификатором типа устрой\
-          ства"
+        description: "запрос с branch equipment JSON и идентификатором типа устройства"
         content:
           application/json:
             schema:
@@ -622,8 +633,7 @@ paths:
       tags:
       - "DTT"
       summary: "Экспортировать один DTT из profile JSON в download-режиме"
-      description: "Экспортирует один DTT-архив из profile JSON в бинарном виде (upload-download\
-        \ режим)."
+      description: "Экспортирует один DTT-архив из profile JSON в бинарном виде (upload-download режим)."
       operationId: "exportSingleFromProfileDownload"
       requestBody:
         description: "запрос с profile JSON и идентификатором типа устройства"
@@ -665,8 +675,7 @@ paths:
       tags:
       - "DTT"
       summary: "Импортировать набор DTT в branch equipment JSON"
-      description: "Импортирует один или несколько DTT-архивов в branch equipment\
-        \ JSON."
+      description: "Импортирует один или несколько DTT-архивов в branch equipment JSON."
       operationId: "importToBranch"
       requestBody:
         description: "запрос с Base64-архивами, branch и merge-стратегией"
@@ -678,8 +687,8 @@ paths:
               mergeNonNullsLegacyBase64Full:
                 value:
                   archivesBase64:
-                  - "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"
-                  - "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"
+                  - "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"
+                  - "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"
                   branchIds:
                   - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
                   - "37493d1c-8282-4417-a729-dceac1f3e2b4"
@@ -687,7 +696,7 @@ paths:
               createCopyWithSuffixLegacyBase64Full:
                 value:
                   archivesBase64:
-                  - "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"
+                  - "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"
                   branchIds:
                   - "37493d1c-8282-4417-a729-dceac1f3e2b4"
                   mergeStrategy: "CREATE_COPY_WITH_SUFFIX"
@@ -698,7 +707,7 @@ paths:
                   - branchId: "branch-custom"
                     displayName: "Отделение custom"
                     deviceTypes:
-                    - archiveBase64: "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"
+                    - archiveBase64: "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"
                       kind: "display"
                       deviceTypeParamValues:
                         TicketZone: "9"
@@ -760,12 +769,10 @@ paths:
       tags:
       - "DTT"
       summary: "Импортировать набор DTT в существующий branch equipment JSON"
-      description: "Импортирует один или несколько DTT-архивов в уже существующий\
-        \ branch equipment JSON."
+      description: "Импортирует один или несколько DTT-архивов в уже существующий branch equipment JSON."
       operationId: "importToExistingBranch"
       requestBody:
-        description: "запрос с исходным branch JSON, Base64-архивами, branch и merge-с\
-          тратегией"
+        description: "Запрос с исходным branch JSON, Base64-архивами и merge-стратегией."
         content:
           application/json:
             schema:
@@ -773,17 +780,13 @@ paths:
             examples:
               example:
                 value:
-                  existingBranchJson: "{\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\":{\"\
-                    id\":\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\",\"displayName\"\
-                    :\"test kate\",\"deviceTypes\":{\"terminal\":{\"id\":\"terminal\"\
-                    ,\"name\":\"Terminal\",\"deviceTypeParamValues\":{\"prefix\":{\"\
-                    value\":\"KAT\"}},\"devices\":{}}}}}"
+                  existingBranchJson: "{\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\":{\"id\":\"ec8d252d-deb9-4ebb-accf-0ef7994bf17b\",\"displayName\":\"test kate\",\"deviceTypes\":{\"terminal\":{\"id\":\"terminal\",\"name\":\"Terminal\",\"deviceTypeParamValues\":{\"prefix\":{\"value\":\"KAT\"}},\"devices\":{}}}}}"
                   mergeStrategy: "MERGE_NON_NULLS"
                   branches:
                   - branchId: "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
                     displayName: "test kate"
                     deviceTypes:
-                    - archiveBase64: "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"
+                    - archiveBase64: "UEsDBBQ...BASE64_DTT_ARCHIVE...AA=="
                       kind: "display"
                       deviceTypeParamValues:
                         TicketZone: "9"
@@ -837,13 +840,43 @@ paths:
                   value:
                     code: "BAD_REQUEST"
                     message: "existingBranchJson must not be blank"
+  /api/dtt/import/branch/merge/upload:
+    post:
+      tags:
+      - "DTT"
+      summary: "Импортировать zip DTT в существующий branch equipment JSON (upload-download, без multipart)"
+      description: "Выполняет merge-импорт zip-архива с файлами .dtt в существующий DeviceManager.json без multipart."
+      operationId: "importToExistingBranchUpload"
+      parameters:
+      - name: "metadataJson"
+        in: "query"
+        description: "JSON-метаданные merge-импорта"
+        required: true
+        schema:
+          type: "string"
+      requestBody:
+        description: "zip-архив с .dtt файлами"
+        content:
+          application/octet-stream:
+            schema:
+              type: "array"
+              items:
+                type: "string"
+                format: "byte"
+        required: true
+      responses:
+        "200":
+          description: "branch JSON после merge-импорта"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportDttSetToBranchResponse"
   /api/dtt/import/branch/merge/upload/multipart:
     post:
       tags:
       - "DTT"
       summary: "Импортировать zip DTT в существующий branch equipment JSON через multipart/form-data"
-      description: "Выполняет merge-импорт zip-архива с файлами .dtt в существующи\
-        й DeviceManager.json через multipart/form-data."
+      description: "Выполняет merge-импорт zip-архива с файлами .dtt в существующий DeviceManager.json через multipart/form-data."
       operationId: "importToExistingBranchUploadMultipart"
       requestBody:
         content:
@@ -858,19 +891,7 @@ paths:
                 metadataJson:
                   type: "string"
                   description: "JSON-метаданные merge-импорта branch upload"
-                  example: "{\r\n  \"existingBranchJson\" : \"{\\\"branch-custom\\\
-                    \":{\\\"id\\\":\\\"branch-custom\\\",\\\"displayName\\\":\\\"О\
-                    тделение custom\\\",\\\"deviceTypes\\\":{}}}\",\r\n  \"mergeStrategy\"\
-                    \ : \"MERGE_NON_NULLS\",\r\n  \"branches\" : [ {\r\n    \"branchId\"\
-                    \ : \"branch-custom\",\r\n    \"displayName\" : \"Отделение custom\"\
-                    ,\r\n    \"deviceTypes\" : [ {\r\n      \"archiveEntryName\" :\
-                    \ \"Display WD3264.dtt\",\r\n      \"deviceTypeParamValues\" :\
-                    \ {\r\n        \"TicketZone\" : \"9\"\r\n      },\r\n      \"\
-                    devices\" : [ {\r\n        \"id\" : \"display-1\",\r\n       \
-                    \ \"name\" : \"display-1\",\r\n        \"displayName\" : \"Display\
-                    \ 1\",\r\n        \"deviceParamValues\" : {\r\n          \"IP\"\
-                    \ : \"10.10.10.10\",\r\n          \"Port\" : 22224\r\n       \
-                    \ }\r\n      } ]\r\n    } ]\r\n  } ]\r\n}"
+                  example: "{\"existingBranchJson\":\"{\\\"branch-custom\\\":{\\\"id\\\":\\\"branch-custom\\\",\\\"displayName\\\":\\\"Отделение custom\\\",\\\"deviceTypes\\\":{}}}\",\"mergeStrategy\":\"MERGE_NON_NULLS\",\"branches\":[{\"branchId\":\"branch-custom\",\"displayName\":\"Отделение custom\",\"deviceTypes\":[{\"archiveEntryName\":\"Display WD3264.dtt\",\"deviceTypeParamValues\":{\"TicketZone\":\"9\"},\"devices\":[{\"id\":\"display-1\",\"name\":\"display-1\",\"displayName\":\"Display 1\",\"deviceParamValues\":{\"IP\":\"10.10.10.10\",\"Port\":22224}}]}]}]}"
             encoding: {}
         required: true
       responses:
@@ -885,8 +906,7 @@ paths:
       tags:
       - "DTT"
       summary: "Импортировать zip DTT в branch equipment JSON (upload-download)"
-      description: "Импортирует zip-архив с файлами .dtt в branch equipment JSON (р\
-        ежим upload-download)."
+      description: "Импортирует zip-архив с файлами .dtt в branch equipment JSON (режим upload-download)."
       operationId: "importToBranchUpload"
       parameters:
       - name: "branchIds"
@@ -903,6 +923,11 @@ paths:
         required: true
         schema:
           $ref: "#/components/schemas/MergeStrategy"
+      - name: "metadataJson"
+        in: "query"
+        required: true
+        schema:
+          type: "string"
       requestBody:
         description: "zip-архив с файлами .dtt"
         content:
@@ -925,8 +950,7 @@ paths:
       tags:
       - "DTT"
       summary: "Импортировать zip DTT в branch equipment JSON через multipart/form-data"
-      description: "Импортирует zip-архив с файлами .dtt в branch equipment JSON ч\
-        ерез multipart/form-data."
+      description: "Импортирует zip-архив с файлами .dtt в branch equipment JSON через multipart/form-data."
       operationId: "importToBranchUploadMultipart"
       requestBody:
         content:
@@ -941,23 +965,7 @@ paths:
                 metadataJson:
                   type: "string"
                   description: "JSON-метаданные импорта branch upload"
-                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
-                    branches\" : [ {\r\n    \"branchId\" : \"branch-custom\",\r\n\
-                    \    \"displayName\" : \"Отделение custom\",\r\n    \"deviceTypes\"\
-                    \ : [ {\r\n      \"archiveEntryName\" : \"Display WD3264.dtt\"\
-                    ,\r\n      \"kind\" : \"display\",\r\n      \"deviceTypeParamValues\"\
-                    \ : {\r\n        \"TicketZone\" : \"9\",\r\n        \"ServicePointNameZone\"\
-                    \ : \"1\"\r\n      },\r\n      \"devices\" : [ {\r\n        \"\
-                    id\" : \"display-1\",\r\n        \"name\" : \"display-1\",\r\n\
-                    \        \"displayName\" : \"Display 1\",\r\n        \"description\"\
-                    \ : \"Demo display\",\r\n        \"deviceParamValues\" : {\r\n\
-                    \          \"IP\" : \"10.10.10.10\",\r\n          \"Port\" : 22224,\r\
-                    \n          \"ServicePointDisplayName\" : \"OKHO 1\"\r\n     \
-                    \   }\r\n      } ]\r\n    }, {\r\n      \"archiveEntryName\" :\
-                    \ \"Terminal.dtt\",\r\n      \"deviceTypeParamValues\" : {\r\n\
-                    \        \"prefix\" : \"OVR\",\r\n        \"printerServiceURL\"\
-                    \ : \"http://10.10.10.10:8084\"\r\n      }\r\n    } ]\r\n  } ]\r\
-                    \n}"
+                  example: "{\"mergeStrategy\":\"FAIL_IF_EXISTS\",\"branches\":[{\"branchId\":\"branch-custom\",\"displayName\":\"Отделение custom\",\"deviceTypes\":[{\"archiveEntryName\":\"Display WD3264.dtt\",\"kind\":\"display\",\"deviceTypeParamValues\":{\"TicketZone\":\"9\",\"ServicePointNameZone\":\"1\"},\"devices\":[{\"id\":\"display-1\",\"name\":\"display-1\",\"displayName\":\"Display 1\",\"description\":\"Demo display\",\"deviceParamValues\":{\"IP\":\"10.10.10.10\",\"Port\":22224,\"ServicePointDisplayName\":\"OKHO 1\"}}]},{\"archiveEntryName\":\"Terminal.dtt\",\"deviceTypeParamValues\":{\"prefix\":\"OVR\",\"printerServiceURL\":\"http://10.10.10.10:8084\"}}]}]}"
             encoding: {}
         required: true
       responses:
@@ -972,8 +980,7 @@ paths:
       tags:
       - "DTT"
       summary: "Импортировать набор DTT в profile JSON"
-      description: "Импортирует один или несколько DTT-архивов в JSON профиля обор\
-        удования."
+      description: "Импортирует один или несколько DTT-архивов в JSON профиля оборудования."
       operationId: "importToProfile"
       requestBody:
         description: "запрос с Base64-представлением архивов и merge-стратегией"
@@ -985,16 +992,21 @@ paths:
               legacyBase64Full:
                 value:
                   archivesBase64:
-                  - "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"
+                  - "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"
                   mergeStrategy: "FAIL_IF_EXISTS"
               structuredWithOverrides:
                 value:
                   mergeStrategy: "FAIL_IF_EXISTS"
                   deviceTypes:
-                  - archiveBase64: "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"
+                  - archiveBase64: "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"
                     deviceTypeParamValues:
-                      prefix: "OVR"
-                      printerServiceURL: "http://10.10.10.10:8084"
+                      TicketZone: "9"
+                      ServicePointNameZone: "1"
+                    metadataOverride:
+                      id: "display-wd3264"
+                      name: "Display WD3264"
+                      displayName: "Display WD3264"
+                      description: "Дисплей"
         required: true
       responses:
         "200":
@@ -1023,14 +1035,34 @@ paths:
       tags:
       - "DTT"
       summary: "Импортировать DTT сразу в profile и branch с metadata inheritance"
-      description: "Импортирует один/несколько DTT сразу в profile JSON и branch equipment\
-        \ JSON с наследованием metadata."
+      description: "Импортирует один/несколько DTT сразу в profile JSON и branch equipment JSON с наследованием metadata."
       operationId: "importProfileBranchWithMetadata"
       requestBody:
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/ImportProfileBranchWithMetadataRequest"
+            examples:
+              profileBranchWithMetadata:
+                value:
+                  deviceTypes:
+                  - archiveBase64: "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"
+                    deviceTypeParamValues:
+                      TicketZone: "9"
+                      ServicePointNameZone: "1"
+                    metadataOverride:
+                      name: "Profile Display"
+                      displayName: "Profile Display"
+                      description: "Profile Display"
+                  branches:
+                  - branchId: "branch-spb-petrograd"
+                    metadataOverrides:
+                    - deviceTypeId: "display-wd3264"
+                      metadata:
+                        name: "Branch Display"
+                        displayName: "Branch Display"
+                        description: "Branch Display"
+                  mergeStrategy: "FAIL_IF_EXISTS"
         required: true
       responses:
         "200":
@@ -1053,6 +1085,11 @@ paths:
         required: true
         schema:
           $ref: "#/components/schemas/MergeStrategy"
+      - name: "metadataJson"
+        in: "query"
+        required: true
+        schema:
+          type: "string"
       requestBody:
         description: "zip-архив с файлами .dtt"
         content:
@@ -1090,11 +1127,7 @@ paths:
                 metadataJson:
                   type: "string"
                   description: "JSON-метаданные импорта profile upload"
-                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
-                    deviceTypes\" : [ {\r\n    \"archiveEntryName\" : \"Terminal.dtt\"\
-                    ,\r\n    \"deviceTypeParamValues\" : {\r\n      \"prefix\" : \"\
-                    OVR\",\r\n      \"printerServiceURL\" : \"http://10.10.10.10:8084\"\
-                    \r\n    }\r\n  } ]\r\n}"
+                  example: "{\"mergeStrategy\":\"FAIL_IF_EXISTS\",\"deviceTypes\":[{\"archiveEntryName\":\"Terminal.dtt\",\"deviceTypeParamValues\":{\"prefix\":\"OVR\",\"printerServiceURL\":\"http://10.10.10.10:8084\"}}]}"
             encoding: {}
         required: true
       responses:
@@ -1157,8 +1190,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview сборки branch equipment JSON из набора DTT"
-      description: "Выполняет preview-сборку branch equipment JSON из одного или н\
-        ескольких DTT-архивов."
+      description: "Выполняет preview-сборку branch equipment JSON из одного или нескольких DTT-архивов."
       operationId: "previewBranch"
       requestBody:
         description: "запрос с Base64-архивами, branch и merge-стратегией"
@@ -1170,8 +1202,8 @@ paths:
               mergeNonNullsLegacyBase64Full:
                 value:
                   archivesBase64:
-                  - "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"
-                  - "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"
+                  - "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"
+                  - "UEsDBBQAAAAIAAAAIQBcBbHLWwEAAHICAAAMAAAAbWFuaWZlc3QueW1sbVLJTsMwEL37K6Kc4FCUnhC50aYVEaiqlNADF2SciWrhTV4KucFvcOQLuCAhtm9w/wg3XdQFyZI9897MvJlxLTXHdoQ5pFFWlqhu7QloQ6VIo+5JgogGbKE6t2kUd89Ok07SDadMkrQ9N/Ga0WvSqIIZJdCxwBULvg6jdxrrBq3uTWIn7oV8EGjJLxsFeZVGFjSnArMt91JaeQhk1IQSzRL3r/59/uS//Yf/8W/+KzryL+H9O3/2n8fbQWCIpsq2GvaDtniXVAQ5IKxubpWkwiLjlJLamv6UsipriSaNaswMICKFxVSYK1oDaQiDoi1ygA9mIeMFFhULY9gH+5LzAB34s42ooRNkoXxDUViH7sPQCjIFjne2VkGNHbMTzByYXBDmKlhMWDtA8IjDeuBfbN3nWMuaMsj5wtrDehoLMt2FpNNkNbbrUTEe9PNhPshW/sKF3nT4HnGM/gBQSwMEFAAAAAgAAAAhAL1McL1PAAAAZQAAABgAAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS55bWzLTLFSKEktys3MS8zhykvMTbVSCIFxUzKLC3ISK/3AohcWXdh6seHCngs7Luy9sOHCbgWNC7OA7H0XGy/s0uRKSS1OLsosKMnMz8NUygUAUEsDBBQAAAAIAAAAIQCEhcHsQAAAAEkAAAAjAAAAdGVtcGxhdGUvZGV2aWNlLXR5cGUtcGFyYW1ldGVycy55bWwrKEpNy6yw4lJQKEvMKU21UvB2DOEqKMrMK0ktCk4tKstMTg0N8kGSV8ooKSmw0tc3NDLXMwBCQysLAwsTJS4AUEsDBBQAAAAIAAAAIQAGsKHdBQAAAAMAAAAlAAAAdGVtcGxhdGUvZGV2aWNlLXBhcmFtZXRlcnMtc2NoZW1hLnltbKuu5QIAUEsDBBQAAAAIAAAAIQB2WOvVGgAAABgAAAAcAAAAdGVtcGxhdGUvdGVtcGxhdGUtb3JpZ2luLnltbCvOLy1KTvXOzEuxUgj1Cw5wdfZ083R14QIAUEsDBBQAAAAIAAAAIQDXG12/HgAAABwAAAAaAAAAdGVtcGxhdGUvYmluZGluZy1oaW50cy55bWxLSS3LTE4NqSxI9c7MS7FSSM0rKaqML8jPzCvhAgBQSwMEFAAAAAgAAAAhAISFwexAAAAASQAAABsAAAB0ZW1wbGF0ZS9kZWZhdWx0LXZhbHVlcy55bWwrKEpNy6yw4lJQKEvMKU21UvB2DOEqKMrMK0ktCk4tKstMTg0N8kGSV8ooKSmw0tc3NDLXMwBCQysLAwsTJS4AUEsDBBQAAAAIAAAAIQA3sgM8PQAAAEsAAAAbAAAAdGVtcGxhdGUvZXhhbXBsZS12YWx1ZXMueW1sKyhKTcussOJSUChLzClNtVLwDwviKijKzCtJLQpOLSrLTE4NDfJBklfKKCkpsNLXNzTQgyErCwMLEyUuAFBLAwQUAAAACAAAACEAN7IDPD0AAABLAAAAIwAAAGV4YW1wbGVzL3Byb2ZpbGUtdmFsdWVzLWV4YW1wbGUueW1sKyhKTcussOJSUChLzClNtVLwDwviKijKzCtJLQpOLSrLTE4NDfJBklfKKCkpsNLXNzTQgyErCwMLEyUuAFBLAwQUAAAACAAAACEANK/LN2YAAACiAAAAIgAAAGV4YW1wbGVzL2JyYW5jaC12YWx1ZXMtZXhhbXBsZS55bWxLKkrMS85ILbbiUlBIArN1DUFsBYWU1LLM5NSQygKIJAiUpBblZuYl5sD4CgoFRalpmRUIvoJCWWJOaaqVgn9YEJKizDyg1uDUIpCJoUE+WNQrZZSUFFjp6xsa6MGQlYWBhYkSFwBQSwMEFAAAAAgAAAAhABdxI00QAAAADgAAABQAAABSRUFETUUtSU4tQVJDSElWRS5tZFNWcAkJUXAsSs7ILEvlAgBQSwECFAMUAAAACAAAACEAXAWxy1sBAAByAgAADAAAAAAAAAAAAAAAgAEAAAAAbWFuaWZlc3QueW1sUEsBAhQDFAAAAAgAAAAhAL1McL1PAAAAZQAAABgAAAAAAAAAAAAAAIABhQEAAHRlbXBsYXRlL2RldmljZS10eXBlLnltbFBLAQIUAxQAAAAIAAAAIQCEhcHsQAAAAEkAAAAjAAAAAAAAAAAAAACAAQoCAAB0ZW1wbGF0ZS9kZXZpY2UtdHlwZS1wYXJhbWV0ZXJzLnltbFBLAQIUAxQAAAAIAAAAIQAGsKHdBQAAAAMAAAAlAAAAAAAAAAAAAACAAYsCAAB0ZW1wbGF0ZS9kZXZpY2UtcGFyYW1ldGVycy1zY2hlbWEueW1sUEsBAhQDFAAAAAgAAAAhAHZY69UaAAAAGAAAABwAAAAAAAAAAAAAAIAB0wIAAHRlbXBsYXRlL3RlbXBsYXRlLW9yaWdpbi55bWxQSwECFAMUAAAACAAAACEA1xtdvx4AAAAcAAAAGgAAAAAAAAAAAAAAgAEnAwAAdGVtcGxhdGUvYmluZGluZy1oaW50cy55bWxQSwECFAMUAAAACAAAACEAhIXB7EAAAABJAAAAGwAAAAAAAAAAAAAAgAF9AwAAdGVtcGxhdGUvZGVmYXVsdC12YWx1ZXMueW1sUEsBAhQDFAAAAAgAAAAhADeyAzw9AAAASwAAABsAAAAAAAAAAAAAAIAB9gMAAHRlbXBsYXRlL2V4YW1wbGUtdmFsdWVzLnltbFBLAQIUAxQAAAAIAAAAIQA3sgM8PQAAAEsAAAAjAAAAAAAAAAAAAACAAWwEAABleGFtcGxlcy9wcm9maWxlLXZhbHVlcy1leGFtcGxlLnltbFBLAQIUAxQAAAAIAAAAIQA0r8s3ZgAAAKIAAAAiAAAAAAAAAAAAAACAAeoEAABleGFtcGxlcy9icmFuY2gtdmFsdWVzLWV4YW1wbGUueW1sUEsBAhQDFAAAAAgAAAAhABdxI00QAAAADgAAABQAAAAAAAAAAAAAAIABkAUAAFJFQURNRS1JTi1BUkNISVZFLm1kUEsFBgAAAAALAAsAKwMAANIFAAAAAA=="
                   branchIds:
                   - "ec8d252d-deb9-4ebb-accf-0ef7994bf17b"
                   - "37493d1c-8282-4417-a729-dceac1f3e2b4"
@@ -1179,7 +1211,7 @@ paths:
               createCopyWithSuffixLegacyBase64Full:
                 value:
                   archivesBase64:
-                  - "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"
+                  - "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"
                   branchIds:
                   - "37493d1c-8282-4417-a729-dceac1f3e2b4"
                   mergeStrategy: "CREATE_COPY_WITH_SUFFIX"
@@ -1190,7 +1222,7 @@ paths:
                   - branchId: "branch-custom"
                     displayName: "Отделение custom"
                     deviceTypes:
-                    - archiveBase64: "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"
+                    - archiveBase64: "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"
                       kind: "display"
                       deviceTypeParamValues:
                         TicketZone: "9"
@@ -1271,8 +1303,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview branch equipment JSON из zip DTT (upload-download)"
-      description: "Выполняет preview-сборку branch equipment JSON из zip-архива с\
-        \ файлами .dtt (режим upload-download)."
+      description: "Выполняет preview-сборку branch equipment JSON из zip-архива с файлами .dtt (режим upload-download)."
       operationId: "previewBranchUpload"
       parameters:
       - name: "branchIds"
@@ -1289,6 +1320,11 @@ paths:
         required: true
         schema:
           $ref: "#/components/schemas/MergeStrategy"
+      - name: "metadataJson"
+        in: "query"
+        required: true
+        schema:
+          type: "string"
       requestBody:
         description: "zip-архив с файлами .dtt"
         content:
@@ -1311,8 +1347,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview branch equipment JSON из zip DTT через multipart/form-data"
-      description: "Выполняет preview-сборку branch equipment JSON из zip-архива с\
-        \ файлами .dtt через multipart/form-data."
+      description: "Выполняет preview-сборку branch equipment JSON из zip-архива с файлами .dtt через multipart/form-data."
       operationId: "previewBranchUploadMultipart"
       requestBody:
         content:
@@ -1327,23 +1362,7 @@ paths:
                 metadataJson:
                   type: "string"
                   description: "JSON-метаданные preview branch upload"
-                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
-                    branches\" : [ {\r\n    \"branchId\" : \"branch-custom\",\r\n\
-                    \    \"displayName\" : \"Отделение custom\",\r\n    \"deviceTypes\"\
-                    \ : [ {\r\n      \"archiveEntryName\" : \"Display WD3264.dtt\"\
-                    ,\r\n      \"kind\" : \"display\",\r\n      \"deviceTypeParamValues\"\
-                    \ : {\r\n        \"TicketZone\" : \"9\",\r\n        \"ServicePointNameZone\"\
-                    \ : \"1\"\r\n      },\r\n      \"devices\" : [ {\r\n        \"\
-                    id\" : \"display-1\",\r\n        \"name\" : \"display-1\",\r\n\
-                    \        \"displayName\" : \"Display 1\",\r\n        \"description\"\
-                    \ : \"Demo display\",\r\n        \"deviceParamValues\" : {\r\n\
-                    \          \"IP\" : \"10.10.10.10\",\r\n          \"Port\" : 22224,\r\
-                    \n          \"ServicePointDisplayName\" : \"OKHO 1\"\r\n     \
-                    \   }\r\n      } ]\r\n    }, {\r\n      \"archiveEntryName\" :\
-                    \ \"Terminal.dtt\",\r\n      \"deviceTypeParamValues\" : {\r\n\
-                    \        \"prefix\" : \"OVR\",\r\n        \"printerServiceURL\"\
-                    \ : \"http://10.10.10.10:8084\"\r\n      }\r\n    } ]\r\n  } ]\r\
-                    \n}"
+                  example: "{\"mergeStrategy\":\"FAIL_IF_EXISTS\",\"branches\":[{\"branchId\":\"branch-custom\",\"displayName\":\"Отделение custom\",\"deviceTypes\":[{\"archiveEntryName\":\"Display WD3264.dtt\",\"kind\":\"display\",\"deviceTypeParamValues\":{\"TicketZone\":\"9\",\"ServicePointNameZone\":\"1\"},\"devices\":[{\"id\":\"display-1\",\"name\":\"display-1\",\"displayName\":\"Display 1\",\"description\":\"Demo display\",\"deviceParamValues\":{\"IP\":\"10.10.10.10\",\"Port\":22224,\"ServicePointDisplayName\":\"OKHO 1\"}}]},{\"archiveEntryName\":\"Terminal.dtt\",\"deviceTypeParamValues\":{\"prefix\":\"OVR\",\"printerServiceURL\":\"http://10.10.10.10:8084\"}}]}]}"
             encoding: {}
         required: true
       responses:
@@ -1358,12 +1377,10 @@ paths:
       tags:
       - "DTT"
       summary: "Preview single-export DTT из branch equipment JSON"
-      description: "Выполняет preview single-export из branch equipment JSON с диа\
-        гностикой merge-конфликтов."
+      description: "Выполняет preview single-export из branch equipment JSON с диагностикой merge-конфликтов."
       operationId: "previewSingleExportFromBranch"
       requestBody:
-        description: "запрос с branch equipment JSON и идентификатором типа устрой\
-          ства"
+        description: "запрос с branch equipment JSON и идентификатором типа устройства"
         content:
           application/json:
             schema:
@@ -1431,8 +1448,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview single-export DTT из profile JSON"
-      description: "Выполняет preview single-export из profile JSON с диагностикой\
-        \ конфликтов."
+      description: "Выполняет preview single-export из profile JSON с диагностикой конфликтов."
       operationId: "previewSingleExportFromProfile"
       requestBody:
         description: "запрос с profile JSON и идентификатором типа устройства"
@@ -1482,8 +1498,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview сборки profile JSON из набора DTT"
-      description: "Выполняет preview-сборку profile JSON из одного или нескольких\
-        \ DTT-архивов."
+      description: "Выполняет preview-сборку profile JSON из одного или нескольких DTT-архивов."
       operationId: "previewProfile"
       requestBody:
         description: "запрос с Base64-представлением архивов и merge-стратегией"
@@ -1495,16 +1510,21 @@ paths:
               legacyBase64Full:
                 value:
                   archivesBase64:
-                  - "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"
+                  - "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"
                   mergeStrategy: "FAIL_IF_EXISTS"
               structuredWithOverrides:
                 value:
                   mergeStrategy: "FAIL_IF_EXISTS"
                   deviceTypes:
-                  - archiveBase64: "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"
+                  - archiveBase64: "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"
                     deviceTypeParamValues:
-                      prefix: "OVR"
-                      printerServiceURL: "http://10.10.10.10:8084"
+                      TicketZone: "9"
+                      ServicePointNameZone: "1"
+                    metadataOverride:
+                      id: "display-wd3264"
+                      name: "Display WD3264"
+                      displayName: "Display WD3264"
+                      description: "Дисплей"
         required: true
       responses:
         "200":
@@ -1548,8 +1568,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview profile JSON из zip DTT (upload-download)"
-      description: "Выполняет preview-сборку profile JSON из zip-архива с файлами\
-        \ .dtt (режим upload-download)."
+      description: "Выполняет preview-сборку profile JSON из zip-архива с файлами .dtt (режим upload-download)."
       operationId: "previewProfileUpload"
       parameters:
       - name: "mergeStrategy"
@@ -1558,6 +1577,11 @@ paths:
         required: true
         schema:
           $ref: "#/components/schemas/MergeStrategy"
+      - name: "metadataJson"
+        in: "query"
+        required: true
+        schema:
+          type: "string"
       requestBody:
         description: "zip-архив с файлами .dtt"
         content:
@@ -1580,8 +1604,7 @@ paths:
       tags:
       - "DTT"
       summary: "Preview profile JSON из zip DTT через multipart/form-data"
-      description: "Выполняет preview-сборку profile JSON из zip-архива с файлами\
-        \ .dtt через multipart/form-data."
+      description: "Выполняет preview-сборку profile JSON из zip-архива с файлами .dtt через multipart/form-data."
       operationId: "previewProfileUploadMultipart"
       requestBody:
         content:
@@ -1596,11 +1619,7 @@ paths:
                 metadataJson:
                   type: "string"
                   description: "JSON-метаданные preview profile upload"
-                  example: "{\r\n  \"mergeStrategy\" : \"FAIL_IF_EXISTS\",\r\n  \"\
-                    deviceTypes\" : [ {\r\n    \"archiveEntryName\" : \"Terminal.dtt\"\
-                    ,\r\n    \"deviceTypeParamValues\" : {\r\n      \"prefix\" : \"\
-                    OVR\",\r\n      \"printerServiceURL\" : \"http://10.10.10.10:8084\"\
-                    \r\n    }\r\n  } ]\r\n}"
+                  example: "{\"mergeStrategy\":\"FAIL_IF_EXISTS\",\"deviceTypes\":[{\"archiveEntryName\":\"Terminal.dtt\",\"deviceTypeParamValues\":{\"prefix\":\"OVR\",\"printerServiceURL\":\"http://10.10.10.10:8084\"}}]}"
             encoding: {}
         required: true
       responses:
@@ -2192,8 +2211,7 @@ components:
         kind:
           type: "string"
           description: "Override поля type для branch JSON"
-      description: "Импорт одного DTT в отделение с override-значениями типа устро\
-        йства и устройств"
+      description: "Импорт одного DTT в отделение с override-значениями типа устройства и устройств"
     ImportBranchMetadataRequest:
       required:
       - "branchId"
@@ -2225,8 +2243,7 @@ components:
           description: "Список типов устройств для импорта в отделение"
           items:
             $ref: "#/components/schemas/ImportBranchDeviceTypeRequest"
-      description: "Запрос на сборку одного отделения из набора DTT с override-зна\
-        чениями"
+      description: "Запрос на сборку одного отделения из набора DTT с override-значениями"
     ImportDeviceTypeMetadataOverrideRequest:
       type: "object"
       properties:
@@ -2246,14 +2263,20 @@ components:
           type: "string"
           description: "Целевое описание типа устройства"
           example: "Шаблон красного окна"
+        version:
+          type: "string"
+          description: "Целевая версия типа устройства"
+          example: "2.1.0"
+        iconBase64:
+          type: "string"
+          description: "Целевая иконка типа устройства (PNG Base64)"
       description: "Переопределение метаданных типа устройства при импорте DTT"
     ImportDttSetToBranchRequest:
       type: "object"
       properties:
         archivesBase64:
           type: "array"
-          description: "Список DTT-архивов в Base64 (legacy-формат без override-зн\
-            ачений)"
+          description: "Список DTT-архивов в Base64 (legacy-формат без override-значений)"
           example:
           - "UEsDB..."
           items:
@@ -2273,8 +2296,7 @@ components:
           - $ref: "#/components/schemas/MergeStrategy"
         branches:
           type: "array"
-          description: "Структурированные запросы по отделениям с override-значени\
-            ями"
+          description: "Структурированные запросы по отделениям с override-значениями"
           items:
             $ref: "#/components/schemas/ImportBranchRequest"
       description: "Запрос на импорт набора DTT в branch equipment JSON"
@@ -2283,8 +2305,7 @@ components:
       properties:
         branchJson:
           type: "object"
-          description: "Собранный branch equipment JSON (карта branchId -> branch\
-            \ node) как объект"
+          description: "Собранный branch equipment JSON (карта branchId -> branch node) как объект"
           additionalProperties: true
         branchesCount:
           type: "integer"
@@ -2307,8 +2328,7 @@ components:
           description: "Исходный JSON уровня DeviceManager.json"
         archivesBase64:
           type: "array"
-          description: "Список DTT архивов в Base64 (legacy-формат без override-зн\
-            ачений)"
+          description: "Список DTT архивов в Base64 (legacy-формат без override-значений)"
           items:
             type: "string"
         branchIds:
@@ -2323,19 +2343,16 @@ components:
           default: "FAIL_IF_EXISTS"
         branches:
           type: "array"
-          description: "Структурированные запросы по отделениям с override-значени\
-            ями"
+          description: "Структурированные запросы по отделениям с override-значениями"
           items:
             $ref: "#/components/schemas/ImportBranchRequest"
-      description: "Запрос на merge-импорт DTT набора в существующее branch equipment\
-        \ JSON"
+      description: "Запрос на merge-импорт DTT набора в существующее branch equipment JSON"
     ImportDttSetToProfileRequest:
       type: "object"
       properties:
         archivesBase64:
           type: "array"
-          description: "Список DTT-архивов в Base64 (legacy-формат без override-зн\
-            ачений)"
+          description: "Список DTT-архивов в Base64 (legacy-формат без override-значений)"
           example:
           - "UEsDB..."
           items:
@@ -2347,8 +2364,7 @@ components:
           - $ref: "#/components/schemas/MergeStrategy"
         deviceTypes:
           type: "array"
-          description: "Структурированные запросы импорта с override-значениями па\
-            раметров типа устройства"
+          description: "Структурированные запросы импорта с override-значениями параметров типа устройства"
           items:
             $ref: "#/components/schemas/ImportProfileDeviceTypeRequest"
       description: "Запрос на импорт набора DTT в профиль оборудования"
@@ -2386,8 +2402,7 @@ components:
           example: "FAIL_IF_EXISTS"
           allOf:
           - $ref: "#/components/schemas/MergeStrategy"
-      description: "Запрос на одновременную сборку profile/branch с наследованием\
-        \ metadata"
+      description: "Запрос на одновременную сборку profile/branch с наследованием metadata"
     ImportProfileBranchWithMetadataResponse:
       required:
       - "branchJson"
@@ -2404,8 +2419,7 @@ components:
           description: "собранный branch equipment JSON"
           items:
             type: "object"
-      description: "Результат одновременной сборки profile и branch JSON из набора\
-        \ DTT."
+      description: "Результат одновременной сборки profile и branch JSON из набора DTT."
     ImportProfileDeviceTypeRequest:
       required:
       - "archiveBase64"
@@ -2446,8 +2460,7 @@ components:
           description: "Количество overrides"
           format: "int32"
           example: 2
-      description: "Сводка рассчитанных defaults/overrides для одного типа устройс\
-        тва"
+      description: "Сводка рассчитанных defaults/overrides для одного типа устройства"
     ProfilePreviewDetailedResponse:
       type: "object"
       properties:

@@ -2,6 +2,12 @@
 <project version="4">
   <component name="CompilerConfiguration">
     <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="device-template-library" />
+      </profile>
       <profile name="Annotation profile for Device Types Import Export" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
@@ -60,12 +66,6 @@
           <entry name="$MAVEN_REPOSITORY$/io/micronaut/micronaut-http/4.7.5/micronaut-http-4.7.5.jar" />
         </processorPath>
         <module name="device-template-demo-service" />
-      </profile>
-      <profile name="Maven default annotation processors profile" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <module name="device-template-library" />
       </profile>
     </annotationProcessing>
   </component>

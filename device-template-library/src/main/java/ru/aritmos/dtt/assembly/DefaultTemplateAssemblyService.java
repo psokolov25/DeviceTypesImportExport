@@ -12,6 +12,7 @@ import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
 import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
 import ru.aritmos.dtt.json.branch.BranchDeviceType;
+import ru.aritmos.dtt.json.branch.BranchDeviceTypeMetadata;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.branch.BranchNode;
 import ru.aritmos.dtt.json.branch.BranchScript;
@@ -93,7 +94,7 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
                     new BranchNode(branchRequest.branchId(), branchRequest.displayName(), deviceTypes)
             );
         }
-        return new BranchEquipment(branches);
+        return new BranchEquipment(branches, collectMetadata(branches));
     }
 
     @Override
@@ -125,7 +126,24 @@ public class DefaultTemplateAssemblyService implements TemplateAssemblyService {
             mergedBranches.put(branchId, new BranchNode(existingBranch.id(), existingBranch.displayName(), deviceTypes));
         });
 
-        return new BranchEquipment(mergedBranches);
+        return new BranchEquipment(mergedBranches, collectMetadata(mergedBranches));
+    }
+
+
+    private List<BranchDeviceTypeMetadata> collectMetadata(Map<String, BranchNode> branches) {
+        final Map<String, BranchDeviceTypeMetadata> metadata = new LinkedHashMap<>();
+        branches.values().forEach(branch -> branch.deviceTypes().forEach((typeId, deviceType) -> metadata.putIfAbsent(
+                typeId,
+                new BranchDeviceTypeMetadata(
+                        typeId,
+                        deviceType.template().metadata().name(),
+                        deviceType.template().metadata().displayName(),
+                        deviceType.template().metadata().version(),
+                        deviceType.template().metadata().description(),
+                        deviceType.template().metadata().iconBase64()
+                )
+        )));
+        return List.copyOf(metadata.values());
     }
 
     private Map<String, DeviceInstanceTemplate> toDeviceMap(List<DeviceInstanceImportRequest> deviceInstances) {

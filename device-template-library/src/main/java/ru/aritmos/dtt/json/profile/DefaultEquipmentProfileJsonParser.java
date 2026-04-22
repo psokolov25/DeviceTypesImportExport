@@ -5,8 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
-import ru.aritmos.dtt.exception.DttFormatException;
 import ru.aritmos.dtt.archive.DttIconSupport;
+import ru.aritmos.dtt.exception.DttFormatException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -25,6 +25,9 @@ public class DefaultEquipmentProfileJsonParser implements EquipmentProfileJsonPa
             final Map<String, DeviceTypeTemplate> deviceTypes = new LinkedHashMap<>();
             root.fields().forEachRemaining(entry -> {
                 final String typeId = entry.getKey();
+                if ("metadata".equals(typeId)) {
+                    return;
+                }
                 final JsonNode node = entry.getValue();
                 final DeviceTypeMetadata metadata = new DeviceTypeMetadata(
                         node.path("id").asText(typeId),

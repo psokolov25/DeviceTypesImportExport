@@ -567,10 +567,11 @@ public class DttDemoService {
         final List<DeviceTypeBasicMetadataResponse> metadata = (branchEquipment.metadata() == null ? List.<BranchDeviceTypeMetadata>of() : branchEquipment.metadata())
                 .stream()
                 .map(item -> new DeviceTypeBasicMetadataResponse(
-                        item.deviceTypeId(),
-                        firstNonBlank(item.name(), item.deviceTypeId()),
+                        item.id(),
+                        firstNonBlank(item.name(), item.id()),
+                        firstNonBlank(item.displayName(), item.name(), item.id()),
                         item.version(),
-                        firstNonBlank(item.description(), item.name(), item.deviceTypeId(), ""),
+                        firstNonBlank(item.description(), item.name(), item.id(), ""),
                         DttIconSupport.resolveOrDefault(item.imageBase64())
                 ))
                 .toList();
@@ -591,6 +592,7 @@ public class DttDemoService {
         return new DeviceTypeBasicMetadataResponse(
                 template.metadata().id(),
                 name,
+                firstNonBlank(template.metadata().displayName(), name, template.metadata().id()),
                 template.descriptor().deviceTypeVersion(),
                 firstNonBlank(template.metadata().description(), name, template.metadata().id(), ""),
                 DttIconSupport.resolveOrDefault(template.metadata().iconBase64())

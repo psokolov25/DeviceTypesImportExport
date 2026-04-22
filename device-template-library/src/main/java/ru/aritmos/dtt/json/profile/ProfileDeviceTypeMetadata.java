@@ -1,7 +1,7 @@
-package ru.aritmos.dtt.json.branch;
+package ru.aritmos.dtt.json.profile;
 
 /**
- * Метаданные типа устройства в корневой секции {@code metadata} branch equipment JSON.
+ * Метаданные типа устройства в корневой секции {@code metadata} profile JSON.
  *
  * @param id идентификатор типа устройства
  * @param name имя типа устройства
@@ -10,7 +10,7 @@ package ru.aritmos.dtt.json.branch;
  * @param description описание типа устройства
  * @param imageBase64 иконка типа устройства (PNG Base64)
  */
-public record BranchDeviceTypeMetadata(
+public record ProfileDeviceTypeMetadata(
         String id,
         String name,
         String displayName,

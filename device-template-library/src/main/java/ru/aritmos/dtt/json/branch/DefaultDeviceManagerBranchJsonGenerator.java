@@ -122,6 +122,7 @@ public class DefaultDeviceManagerBranchJsonGenerator implements DeviceManagerBra
             result.putIfAbsent(typeId, new BranchDeviceTypeMetadata(
                     typeId,
                     branchDeviceType.template().metadata().name(),
+                    branchDeviceType.template().metadata().displayName(),
                     branchDeviceType.template().metadata().version(),
                     branchDeviceType.template().metadata().description(),
                     DttIconSupport.resolveOrDefault(branchDeviceType.template().metadata().iconBase64())

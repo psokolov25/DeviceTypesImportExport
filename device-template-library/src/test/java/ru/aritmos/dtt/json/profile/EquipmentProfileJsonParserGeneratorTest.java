@@ -22,7 +22,8 @@ class EquipmentProfileJsonParserGeneratorTest {
 
         final String json = generator.generate(profile);
         assertThat(json).contains("\"id\":\"type-1\"");
-        assertThat(json).doesNotContain("\"metadata\"");
+        assertThat(json).contains("\"metadata\":[{");
+        assertThat(json).contains("\"displayName\":\"d\"");
         assertThat(json).contains("\"ip\":{\"value\":\"1\",\"name\":\"ip\"}");
         final EquipmentProfile parsed = parser.parse(json);
 

@@ -43,6 +43,8 @@ class BranchJsonParserGeneratorTest {
         final String json = generator.generate(branchEquipment);
         assertThat(json).contains("\"deviceTypes\":{\"type-1\":{\"id\":\"type-1\"");
         assertThat(json).doesNotContain("\"template\"");
+        assertThat(json).contains("\"metadata\":[{");
+        assertThat(json).contains("\"displayName\":\"display\"");
         assertThat(json).contains("\"url\":{\"value\":\"x\",\"name\":\"url\"}");
         assertThat(json).contains("\"type\":\"display\"");
         assertThat(json).contains("\"eventHandlers\":{\"EVENT\":{\"inputParameters\":{},\"outputParameters\":[],\"scriptCode\":\"println 'event'\"}}");

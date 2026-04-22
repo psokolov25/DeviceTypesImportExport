@@ -147,7 +147,7 @@ public class DttController {
     @ApiResponse(
             responseCode = "200",
             description = "Собранный профиль оборудования",
-            content = @Content(examples = @ExampleObject(value = "{\"deviceTypesCount\":1,\"profileJson\":{\"display\":{}}}"))
+            content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_PROFILE_RESPONSE_EXAMPLE))
     )
     @ApiResponse(
             responseCode = "400",
@@ -182,7 +182,7 @@ public class DttController {
                     @ExampleObject(name = "structuredWithOverrides", value = DttSwaggerExamples.IMPORT_PROFILE_REQUEST_STRUCTURED_FULL)
             })
     )
-    @ApiResponse(responseCode = "200", description = "Preview profile JSON")
+    @ApiResponse(responseCode = "200", description = "Preview profile JSON", content = @Content(examples = @ExampleObject(value = DttSwaggerExamples.IMPORT_PROFILE_RESPONSE_EXAMPLE)))
     @ApiResponse(
             responseCode = "400",
             description = "Ошибка валидации входных данных",
@@ -217,6 +217,10 @@ public class DttController {
      */
     @Post(uri = "/import/profile-branch", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     @Operation(summary = "Импортировать DTT сразу в profile и branch с metadata inheritance")
+    @RequestBody(
+            required = true,
+            content = @Content(examples = @ExampleObject(name = "profileBranchWithMetadata", value = DttSwaggerExamples.IMPORT_PROFILE_BRANCH_REQUEST_EXAMPLE))
+    )
     @ApiResponse(responseCode = "200", description = "Собранные profile JSON и branch equipment JSON")
     public ImportProfileBranchWithMetadataResponse importProfileBranchWithMetadata(@Body ImportProfileBranchWithMetadataRequest request) {
         return demoService.importProfileAndBranchWithMetadata(request);

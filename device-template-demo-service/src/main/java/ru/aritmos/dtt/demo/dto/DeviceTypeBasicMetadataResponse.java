@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  *
  * @param id идентификатор типа устройства
  * @param name имя типа устройства
+ * @param displayName отображаемое имя типа устройства
  * @param version прикладная версия шаблона
  * @param description описание типа устройства
  * @param imageBase64 иконка типа устройства в формате PNG Base64
@@ -17,6 +18,8 @@ public record DeviceTypeBasicMetadataResponse(
         String id,
         @Schema(description = "Название типа устройства", example = "Display")
         String name,
+        @Schema(description = "Отображаемое название типа устройства", example = "Дисплей")
+        String displayName,
         @Schema(description = "Версия типа устройства", example = "1.0.0")
         String version,
         @Schema(description = "Описание типа устройства", example = "Экран электронной очереди")
