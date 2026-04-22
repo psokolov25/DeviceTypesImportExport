@@ -181,7 +181,28 @@ String profileJson = facade.toProfileJson(
 - `POST /api/dtt/export/branch/all` (application/json, branch equipment JSON -> Base64 DTT set, поддерживает фильтры `branchIds` и `deviceTypeIds`).
 - `POST /api/dtt/export/branch/all/download` (application/json, branch equipment JSON -> zip с `.dtt`).
 
-Дополнительно: при сборке/экспорте `.dtt` поддерживается иконка типа устройства `icon.png` в корне архива. Если иконка не передана во входном JSON и не найдена в `.dtt`, используется встроенное PNG-изображение по умолчанию (возвращается как `imageBase64`).
+Дополнительно: при сборке/экспорте `.dtt` поддерживается иконка типа устройства `icon.png` в корне архива. Если иконка не передана во входном JSON и не найдена в `.dtt`, используется PNG-иконка по умолчанию из конфигурации `application.yml` (`dtt.defaultDTTIcon`), которая возвращается как `imageBase64` в JSON и записывается как `icon.png` в DTT.
+
+Пример `application.yml` (demo-service):
+
+```yaml
+dtt:
+  # Base64 PNG иконки по умолчанию для import/export, когда imageBase64 не передан.
+  defaultDTTIcon: "<BASE64_PNG>"
+```
+
+Поведение fallback-логики по иконке:
+
+1. Берётся `imageBase64`, переданный явно во входном JSON (profile/branch/export requests).
+2. Если `imageBase64` отсутствует — используется `icon.png` из `.dtt`, если он есть.
+3. Если `imageBase64` и `icon.png` отсутствуют — используется `dtt.defaultDTTIcon` из конфигурации.
+4. Если `dtt.defaultDTTIcon` пустой — используется встроенная библиотечная PNG-иконка.
+
+Рекомендации для интеграторов:
+
+- Храните `dtt.defaultDTTIcon` как Base64 **PNG** без префикса `data:image/png;base64,`.
+- Используйте одну и ту же default-иконку в dev/test/prod, чтобы round-trip и snapshot-тесты были детерминированными.
+- Для кастомных типов устройств всегда предпочитайте явный `imageBase64`, а fallback используйте как safety net.
 - export endpoint-ы поддерживают **оба варианта входа**: типизированные объектные модели (`profile`, `branchEquipment`) и строковые JSON-поля (`profileJson`, `branchJson`).
 - для export-сценариев примеры OpenAPI синхронизированы с фактическим поведением парсеров:
   - во входных JSON присутствует корневая агрегированная секция `metadata` (список metadata типов устройств);

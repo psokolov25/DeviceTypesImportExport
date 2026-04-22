@@ -910,6 +910,42 @@ curl -X POST "http://localhost:8080/api/dtt/import/profile/upload/multipart"   -
   -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
+
+### 7.6. Настройка default-иконки типа устройства (`defaultDTTIcon`)
+
+В demo-service можно централизованно задать PNG-иконку по умолчанию через `application.yml`:
+
+```yaml
+dtt:
+  defaultDTTIcon: "<BASE64_PNG>"
+```
+
+Где используется это значение:
+
+- `import .dtt -> profile JSON`: если в архиве нет `icon.png`, в metadata будет подставлена default-иконка.
+- `import .dtt -> branch equipment JSON`: аналогично, `imageBase64` заполняется fallback-иконкой.
+- `export profile/branch -> .dtt`: если в metadata не передан `imageBase64`, в архив всё равно будет записан `icon.png` из `defaultDTTIcon`.
+
+Практические рекомендации:
+
+1. Сохраняйте значение **только** как Base64 PNG (без data URI префикса).
+2. Валидируйте строку на старте сервиса: невалидный Base64 должен считаться ошибкой конфигурации.
+3. Для корпоративных поставок храните canonical default-иконку в отдельном конфигурационном репозитории и подключайте через переменные окружения/секреты.
+
+Пример JSON metadata с явной иконкой (перекрывает fallback):
+
+```json
+{
+  "id": "display-wd3264",
+  "name": "Display WD3264",
+  "displayName": "Display WD3264",
+  "description": "Базовый дисплей",
+  "imageBase64": "iVBORw0KGgoAAAANSUhEUgAA..."
+}
+```
+
+Если `imageBase64` не передан, fallback порядок остаётся таким: входной JSON -> `icon.png` в DTT -> `dtt.defaultDTTIcon` -> встроенная библиотечная иконка.
+
 ## 8. Примечания по проектированию своей службы
 
 ### 8.1. Где лучше держать собственную доменную модель

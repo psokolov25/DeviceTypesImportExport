@@ -17,3 +17,8 @@ micronaut:
 logger:
   levels:
     root: INFO
+
+
+dtt:
+  # PNG-иконка типа устройства по умолчанию (Base64).
+  defaultDTTIcon: "iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAIAAADajyQQAAAAw0lEQVR4nO3YwQ3CMAxF0Y5g8P7LnY4CE0nQFF5nNQh8kLwM7aV2Uq9p7z5s8+fPjQmZb5m2f2rQw4m1gRj4Qk0iJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCcRNooJxE2iQnETaJCfQF2n1A0Yt0YwMAAAAASUVORK5CYII="
