@@ -1,7 +1,23 @@
 package ru.aritmos.dtt.demo.openapi;
 
 /**
- * Подготовленные примеры для Swagger UI.
+ * Централизованный набор примеров payload-ов для Swagger UI / OpenAPI demo-service.
+ *
+ * <p>Примеры используются в двух режимах одновременно:</p>
+ * <ul>
+ *   <li>как значения {@code @ExampleObject} в контроллерах demo-service;</li>
+ *   <li>как входные данные контрактных тестов, проверяющих реальную исполнимость REST-сценариев.</li>
+ * </ul>
+ *
+ * <p>Ключевые требования к примерам:</p>
+ * <ul>
+ *   <li>для profile/branch JSON в ответах и экспортных сценариях должна быть
+ *       агрегированная корневая секция {@code metadata};</li>
+ *   <li>в import-upload metadata должны присутствовать реалистичные
+ *       {@code metadataOverride} и override-значения параметров;</li>
+ *   <li>структура должна быть совместима с dual-mode endpoint-ами
+ *       (object-model и object-JSON).</li>
+ * </ul>
  */
 public final class DttSwaggerExamples {
 
@@ -50,7 +66,14 @@ public final class DttSwaggerExamples {
                   "archiveEntryName": "Terminal.dtt",
                   "deviceTypeParamValues": {
                     "prefix": "OVR",
-                    "printerServiceURL": "http://10.10.10.10:8084"
+                    "printerServiceURL": "http://10.10.10.10:8084",
+                    "translatorURL": "http://10.10.10.10:8104?prefix=OVR"
+                  },
+                  "metadataOverride": {
+                    "id": "terminal-ovr",
+                    "name": "Terminal OVR",
+                    "displayName": "Терминал OVR",
+                    "description": "Терминал с override параметрами профиля"
                   }
                 }
               ]
@@ -133,6 +156,12 @@ public final class DttSwaggerExamples {
                         "TicketZone": "9",
                         "ServicePointNameZone": "1"
                       },
+                      "metadataOverride": {
+                        "id": "display-wd3264-branch",
+                        "name": "Display WD3264 Branch",
+                        "displayName": "Display WD3264 Branch",
+                        "description": "Переопределение metadata в отделении"
+                      },
                       "devices": [
                         {
                           "id": "display-1",
@@ -151,7 +180,14 @@ public final class DttSwaggerExamples {
                       "archiveEntryName": "Terminal.dtt",
                       "deviceTypeParamValues": {
                         "prefix": "OVR",
-                        "printerServiceURL": "http://10.10.10.10:8084"
+                        "printerServiceURL": "http://10.10.10.10:8084",
+                        "translatorURL": "http://10.10.10.10:8104?prefix=OVR"
+                      },
+                      "metadataOverride": {
+                        "id": "terminal-branch",
+                        "name": "Terminal Branch",
+                        "displayName": "Terminal Branch",
+                        "description": "Переопределение metadata терминала в отделении"
                       }
                     }
                   ]
@@ -173,6 +209,12 @@ public final class DttSwaggerExamples {
                       "archiveEntryName": "Display WD3264.dtt",
                       "deviceTypeParamValues": {
                         "TicketZone": "9"
+                      },
+                      "metadataOverride": {
+                        "id": "display-wd3264-merged",
+                        "name": "Display Merged",
+                        "displayName": "Display Merged",
+                        "description": "Merge override metadata"
                       },
                       "devices": [
                         {
@@ -291,12 +333,22 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
     public static final String PROFILE_EXPORT_SINGLE_OBJECT = """
             {
               "profileJson": {
+                "metadata": [
+                  {
+                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                    "name": "Terminal",
+                    "displayName": "Терминал (Киоск)",
+                    "description": "Терминал (Киоск)",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
+                  }
+                ],
                 "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
                   "metadata": {
                     "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
                     "name": "Terminal",
                     "displayName": "Терминал (Киоск)",
-                    "description": "Терминал (Киоск)"
+                    "description": "Терминал (Киоск)",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
                   },
                   "deviceTypeParamValues": {
                     "printerServiceURL": "http://192.168.7.20:8084",
@@ -312,9 +364,51 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
             }
             """;
 
+    public static final String PROFILE_EXPORT_ALL_OBJECT = """
+            {
+              "profileJson": {
+                "metadata": [
+                  {
+                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                    "name": "Terminal",
+                    "displayName": "Терминал (Киоск)",
+                    "description": "Терминал (Киоск)",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
+                  }
+                ],
+                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
+                  "metadata": {
+                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                    "name": "Terminal",
+                    "displayName": "Терминал (Киоск)",
+                    "description": "Терминал (Киоск)",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
+                  },
+                  "deviceTypeParamValues": {
+                    "printerServiceURL": "http://192.168.7.20:8084",
+                    "prefix": "SSS"
+                  }
+                }
+              },
+              "deviceTypeIds": [
+                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
+              ],
+              "dttVersion": "2.1.0"
+            }
+            """;
+
     public static final String BRANCH_EXPORT_SINGLE_OBJECT = """
             {
               "branchEquipment": {
+                "metadata": [
+                  {
+                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                    "name": "Terminal",
+                    "displayName": "Терминал (Киоск)",
+                    "description": "Терминал (Киоск)",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
+                  }
+                ],
                 "branches": {
                   "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
                     "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
@@ -356,6 +450,15 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
     public static final String BRANCH_EXPORT_OBJECT_AUTO_RESOLVE = """
             {
               "branchEquipment": {
+                "metadata": [
+                  {
+                    "id": "ffde364f-5f5a-45e6-86b7-1215a28ae96c",
+                    "name": "Reception",
+                    "displayName": "Приёмная",
+                    "description": "Приёмная",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
+                  }
+                ],
                 "branches": {
                   "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
                     "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
@@ -394,7 +497,7 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
                         "description": "Устройство озвучивания",
                         "type": "reception",
                         "deviceTypeParamValues": {
-                          "phrase": {"value": "\\eFПосетитель с номером{ticketId}"},
+                          "phrase": {"value": "\\\\eFПосетитель с номером{ticketId}"},
                           "URL": {"value": "http://192.168.1.8:8080/unnamed/rest/play"}
                         },
                         "devices": {}
@@ -416,6 +519,15 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
     public static final String BRANCH_EXPORT_JSON_STRING_FILTERED = """
             {
               "branchJson": {
+                "metadata": [
+                  {
+                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
+                    "name": "Terminal",
+                    "displayName": "Терминал (Киоск)",
+                    "description": "Терминал (Киоск)",
+                    "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
+                  }
+                ],
                 "ec8d252d-deb9-4ebb-accf-0ef7994bf17b": {
                   "id": "ec8d252d-deb9-4ebb-accf-0ef7994bf17b",
                   "displayName": "test kate",
@@ -466,6 +578,7 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
             "        \"ServicePointNameZone\": \"1\"\n" +
             "      },\n" +
             "      \"metadataOverride\": {\n" +
+            "        \"id\": \"display-wd3264\",\n" +
             "        \"name\": \"Profile Display\",\n" +
             "        \"displayName\": \"Profile Display\",\n" +
             "        \"description\": \"Profile Display\"\n" +
@@ -479,6 +592,7 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
             "        {\n" +
             "          \"deviceTypeId\": \"display-wd3264\",\n" +
             "          \"metadata\": {\n" +
+            "            \"id\": \"display-wd3264-branch\",\n" +
             "            \"name\": \"Branch Display\",\n" +
             "            \"displayName\": \"Branch Display\",\n" +
             "            \"description\": \"Branch Display\"\n" +

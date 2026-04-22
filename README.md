@@ -183,15 +183,47 @@ String profileJson = facade.toProfileJson(
 
 Дополнительно: при сборке/экспорте `.dtt` поддерживается иконка типа устройства `icon.png` в корне архива. Если иконка не передана во входном JSON и не найдена в `.dtt`, используется встроенное PNG-изображение по умолчанию (возвращается как `imageBase64`).
 - export endpoint-ы поддерживают **оба варианта входа**: типизированные объектные модели (`profile`, `branchEquipment`) и строковые JSON-поля (`profileJson`, `branchJson`).
+- для export-сценариев примеры OpenAPI синхронизированы с фактическим поведением парсеров:
+  - во входных JSON присутствует корневая агрегированная секция `metadata` (список metadata типов устройств);
+  - поддержан вариант с одним элементом `metadata`, если экспортируется один тип устройства.
 - для export endpoint-ов можно передать `dttVersion`:
   - версия фиксируется в `manifest.yml` (`deviceTypeVersion`) без изменения версии формата (`formatVersion`);
   - если в metadata типа уже есть версия, библиотека выбирает **большую** между `dttVersion` из запроса и версией из модели;
   - версия добавляется в конец `description` типа устройства;
   - `defaultValues` в DTT берутся из фактических значений параметров типа устройства, переданных в profile/branch JSON.
+- metadataJson-примеры для upload endpoint-ов детализированы:
+  - `metadataOverride` включает `id/name/displayName/description`;
+  - примеры демонстрируют override параметров типа (`deviceTypeParamValues`) и устройств (`devices[].deviceParamValues`);
+  - для branch merge-пути показан сценарий merge в существующий JSON с сохранением корневой `metadata`.
 - валидатор Groovy дополнительно проверяет наличие domain-context metadata в `bindingHints` для lifecycle/event/command скриптов (помимо синтаксиса).
 - `GET /swagger-ui/index.html` (Swagger UI для ручного прогона сценариев).
 - `GET /swagger/device-template-demo.yml` (OpenAPI-спецификация demo-service).
 - Интеграция demo-service с библиотекой выполняется через DI-бин публичного фасада `DeviceTemplateLibraryFacade` (без ручной сборки core-сервисов в контроллерах/сервисах).
+- Контрактные тесты demo-service прогоняют ключевые endpoint-ы на реальных OpenAPI-примерах, чтобы примеры оставались исполнимыми и актуальными при изменениях API.
+
+#### Проверка актуальности OpenAPI примеров (рекомендуемый порядок)
+
+Для этого проекта используйте **Maven Wrapper** (а не Gradle):
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository clean verify
+```
+
+Если нужно ускорить локальную проверку только demo-service контрактов OpenAPI:
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository \
+  -pl device-template-demo-service -am test \
+  -Dtest=OpenApiSpecContractTest,DttControllerExamplesContractTest,DttSwaggerExamplesTest \
+  -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+Что считается обязательным признаком актуальности примеров:
+
+- export profile/branch примеры содержат root `metadata` (список объектов);
+- у metadata-объектов заполнен `imageBase64` (PNG Base64);
+- `metadataJson` upload-примеры демонстрируют `metadataOverride` и override параметров типов/устройств;
+- контрактные тесты проходят без ручных правок примеров.
 
 ### 5) Чеклист статуса реализации
 

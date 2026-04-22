@@ -753,6 +753,12 @@ EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRe
             "FirstZoneColor": "red",
             "TicketZone": "5"
           },
+          "metadataOverride": {
+            "id": "display-wd3264-red-window",
+            "name": "Display WD3264 Красное окно",
+            "displayName": "Display WD3264 Красное окно",
+            "description": "Производный тип для красного окна"
+          },
           "devices": [
             {
               "id": "red-1",
@@ -779,6 +785,12 @@ EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRe
           "deviceTypeParamValues": {
             "FirstZoneColor": "blue",
             "TicketZone": "6"
+          },
+          "metadataOverride": {
+            "id": "display-wd3264-blue-window",
+            "name": "Display WD3264 Синее окно",
+            "displayName": "Display WD3264 Синее окно",
+            "description": "Производный тип для синего окна"
           },
           "devices": [
             {
@@ -833,6 +845,12 @@ curl -X POST "http://localhost:8080/api/dtt/import/branch/upload/multipart"   -H
       "deviceTypeParamValues": {
         "FirstZoneColor": "red",
         "TicketZone": "5"
+      },
+      "metadataOverride": {
+        "id": "display-wd3264-red-window",
+        "name": "Display WD3264 Красное окно",
+        "displayName": "Display WD3264 Красное окно",
+        "description": "Профильный производный тип для красного окна"
       }
     },
     {
@@ -840,16 +858,56 @@ curl -X POST "http://localhost:8080/api/dtt/import/branch/upload/multipart"   -H
       "deviceTypeParamValues": {
         "FirstZoneColor": "blue",
         "TicketZone": "6"
+      },
+      "metadataOverride": {
+        "id": "display-wd3264-blue-window",
+        "name": "Display WD3264 Синее окно",
+        "displayName": "Display WD3264 Синее окно",
+        "description": "Профильный производный тип для синего окна"
       }
     }
   ]
 }
 ```
 
+Для export-сценариев передавайте во входном `profileJson`/`branchJson` корневую секцию `metadata` (список или один объект в списке) вместе с целевыми `deviceTypes`: это сохраняет согласованность между реальным JSON-парсером, OpenAPI-примерами и round-trip `JSON -> DTT -> JSON`.
+
 Пример запроса:
 
 ```bash
 curl -X POST "http://localhost:8080/api/dtt/import/profile/upload/multipart"   -H "accept: application/json"   -H "Content-Type: multipart/form-data"   -F "zipPayload=@display-derived-set.zip;type=application/zip"   -F "metadataJson={...валидный JSON как выше...}"
+```
+
+### 7.5. Чек-лист качества OpenAPI примеров для вашей службы
+
+При сопровождении demo-service/OpenAPI проверяйте следующие инварианты:
+
+1. Во всех export-входах (`profileJson`, `branchJson`, `branchEquipment`) есть root-level `metadata`.
+2. У каждого metadata-объекта заполнены:
+   - `id`
+   - `name`
+   - `displayName`
+   - `description`
+   - `imageBase64` (PNG Base64)
+3. Upload `metadataJson` примеры содержат не только `mergeStrategy`, но и:
+   - `metadataOverride` для типов;
+   - override значений `deviceTypeParamValues`;
+   - override значений `devices[].deviceParamValues` для branch сценариев.
+4. Примеры проходят автопроверку тестами, а не только «выглядят корректно».
+
+Рекомендуемые команды проверки (Maven Wrapper):
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository clean verify
+```
+
+или таргетированно для OpenAPI/контрактов demo-service:
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository \
+  -pl device-template-demo-service -am test \
+  -Dtest=OpenApiSpecContractTest,DttControllerExamplesContractTest,DttSwaggerExamplesTest \
+  -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 ## 8. Примечания по проектированию своей службы

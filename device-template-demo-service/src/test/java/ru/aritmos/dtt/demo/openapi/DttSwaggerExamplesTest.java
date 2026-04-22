@@ -21,6 +21,18 @@ class DttSwaggerExamplesTest {
     void shouldKeepImportExamplesAsObjectBodies() throws Exception {
         assertThat(OBJECT_MAPPER.readTree(DttSwaggerExamples.IMPORT_PROFILE_REQUEST_STRUCTURED_FULL).isObject()).isTrue();
         assertThat(OBJECT_MAPPER.readTree(DttSwaggerExamples.IMPORT_BRANCH_REQUEST_STRUCTURED_FULL).isObject()).isTrue();
+        assertThat(OBJECT_MAPPER.readTree(DttSwaggerExamples.PROFILE_EXPORT_ALL_OBJECT).isObject()).isTrue();
+        assertThat(OBJECT_MAPPER.readTree(DttSwaggerExamples.BRANCH_EXPORT_OBJECT_AUTO_RESOLVE).isObject()).isTrue();
+    }
+
+    @Test
+    void shouldContainImageBase64InExportMetadataExamples() throws Exception {
+        final JsonNode profileAll = OBJECT_MAPPER.readTree(DttSwaggerExamples.PROFILE_EXPORT_ALL_OBJECT);
+        assertThat(profileAll.at("/profileJson/metadata/0/imageBase64").asText()).isNotBlank();
+        assertThat(profileAll.at("/profileJson/ed650d7d-6201-42fb-a4c3-b9efb93dda0c/metadata/imageBase64").asText()).isNotBlank();
+
+        final JsonNode branchAll = OBJECT_MAPPER.readTree(DttSwaggerExamples.BRANCH_EXPORT_OBJECT_AUTO_RESOLVE);
+        assertThat(branchAll.at("/branchEquipment/metadata/0/imageBase64").asText()).isNotBlank();
     }
 
     private void assertObjectField(String json, String field) throws Exception {
