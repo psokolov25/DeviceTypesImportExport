@@ -40,9 +40,13 @@ class OpenApiSpecContractTest {
 
             final HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.headers().firstValue("content-type").orElse(""))
+                    .containsIgnoringCase("application/x-yaml")
+                    .containsIgnoringCase("charset=utf-8");
 
             final String spec = response.body();
             assertThat(spec).contains("openapi:");
+            assertThat(spec).contains("Экспортировать");
 
             final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
             final JsonNode root = yamlMapper.readTree(spec);
