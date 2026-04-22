@@ -7,6 +7,7 @@ import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
+import ru.aritmos.dtt.archive.DttIconSupport;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileRequest;
@@ -24,6 +25,7 @@ import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToProfileRequest;
 import ru.aritmos.dtt.demo.dto.ImportProfileDeviceTypeRequest;
+import ru.aritmos.dtt.demo.openapi.DttSwaggerExamples;
 import ru.aritmos.dtt.demo.service.DttDemoService;
 import ru.aritmos.dtt.exception.DttFormatException;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
@@ -635,6 +637,26 @@ class DttControllerTest {
     }
 
     @Test
+    void shouldKeepMetadataFieldsInProfileJsonForSwaggerBase64Example() throws Exception {
+        final ImportDttSetToProfileRequest request = OBJECT_MAPPER.readValue(
+                DttSwaggerExamples.IMPORT_PROFILE_REQUEST_BASE64_FULL,
+                ImportDttSetToProfileRequest.class
+        );
+
+        final var response = controller.importToProfile(request);
+        final var profileJson = response.profileJson();
+        final var fields = profileJson.fields();
+        assertThat(fields.hasNext()).isTrue();
+        final var display = fields.next().getValue();
+
+        assertThat(display.path("id").asText()).isNotBlank();
+        assertThat(display.path("name").asText()).isNotBlank();
+        assertThat(display.path("displayName").asText()).isNotBlank();
+        assertThat(display.path("description").asText()).isNotBlank();
+        assertThat(display.path("imageBase64").asText()).isNotBlank();
+    }
+
+    @Test
     void shouldImportExistingBranchFromDttZipUploadWithoutMultipart() {
         final byte[] zipPayload = zipArchives(Map.of("display.dtt", createArchiveBytes("display", "println 'ok'")));
         final String metadataJson = """
@@ -650,6 +672,58 @@ class DttControllerTest {
         assertThat(response.branchesCount()).isEqualTo(1);
         assertThat(response.branchJson().toString()).contains("branch-legacy");
         assertThat(response.branchJson().toString()).contains("display");
+    }
+
+    @Test
+    void shouldIncludeIconPngIntoExportedSingleDtt() throws IOException {
+        final String iconBase64 = DttIconSupport.DEFAULT_ICON_BASE64;
+        final ExportSingleDttFromProfileRequest request = new ExportSingleDttFromProfileRequest(
+                null,
+                json("{" +
+                        "\"display\":{" +
+                        "\"id\":\"display\"," +
+                        "\"name\":\"Display\"," +
+                        "\"displayName\":\"Display\"," +
+                        "\"description\":\"desc\"," +
+                        "\"imageBase64\":\"" + iconBase64 + "\"," +
+                        "\"deviceTypeParamValues\":{}" +
+                        "}" +
+                        "}"),
+                "display",
+                null
+        );
+
+        final var response = controller.exportSingleFromProfile(request);
+        final byte[] dttBytes = Base64.getDecoder().decode(response.archiveBase64());
+
+        assertThat(hasZipEntry(dttBytes, "icon.png")).isTrue();
+        assertThat(readZipEntry(dttBytes, "icon.png")).isEqualTo(Base64.getDecoder().decode(iconBase64));
+    }
+
+    @Test
+    void shouldIncludeIconPngIntoEachDttInsideExportedZip() throws IOException {
+        final String iconBase64 = DttIconSupport.DEFAULT_ICON_BASE64;
+        final ExportAllDttFromProfileRequest request = new ExportAllDttFromProfileRequest(
+                null,
+                json("{" +
+                        "\"display\":{" +
+                        "\"id\":\"display\"," +
+                        "\"name\":\"Display\"," +
+                        "\"displayName\":\"Display\"," +
+                        "\"description\":\"desc\"," +
+                        "\"imageBase64\":\"" + iconBase64 + "\"," +
+                        "\"deviceTypeParamValues\":{}" +
+                        "}" +
+                        "}"),
+                List.of("display"),
+                null
+        );
+
+        final var response = controller.exportAllFromProfileDownload(request);
+        final byte[] firstArchive = firstDttEntry(response.body());
+
+        assertThat(hasZipEntry(firstArchive, "icon.png")).isTrue();
+        assertThat(readZipEntry(firstArchive, "icon.png")).isEqualTo(Base64.getDecoder().decode(iconBase64));
     }
 
     @Test
@@ -968,6 +1042,30 @@ class DttControllerTest {
                 }
             }
             throw new IllegalStateException("zip payload does not contain .dtt entry");
+        }
+    }
+
+    private boolean hasZipEntry(byte[] zipBytes, String entryName) throws IOException {
+        try (ZipInputStream input = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entryName.equals(entry.getName())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    private byte[] readZipEntry(byte[] zipBytes, String entryName) throws IOException {
+        try (ZipInputStream input = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entryName.equals(entry.getName())) {
+                    return input.readAllBytes();
+                }
+            }
+            throw new IllegalStateException("zip payload does not contain entry: " + entryName);
         }
     }
 }
