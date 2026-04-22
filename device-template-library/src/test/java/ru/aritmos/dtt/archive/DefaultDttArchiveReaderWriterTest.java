@@ -188,6 +188,35 @@ class DefaultDttArchiveReaderWriterTest {
     }
 
     @Test
+    void shouldTreatBlankOptionalYamlFilesAsEmptyMaps() throws Exception {
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
+            zip.putNextEntry(new ZipEntry("manifest.yml"));
+            zip.write("""
+                    formatName: DTT
+                    formatVersion: "1.0"
+                    deviceTypeId: display
+                    """.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("template/device-type.yml"));
+            zip.write("""
+                    id: display
+                    name: Display
+                    displayName: Display
+                    description: desc
+                    """.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("template/device-parameters-schema.yml"));
+            zip.write("\n".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+
+        final DttArchiveTemplate restored = reader.read(new ByteArrayInputStream(output.toByteArray()));
+
+        assertThat(restored.deviceParametersSchema()).isEmpty();
+    }
+
+    @Test
     void shouldFailWhenEventHandlerNameBlank() {
         final DttArchiveTemplate template = templateWithScriptNames(
                 Map.of(" ", "println 'invalid'"),
