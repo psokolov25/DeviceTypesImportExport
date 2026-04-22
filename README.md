@@ -969,9 +969,151 @@ EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRe
 ### Где смотреть дальше
 
 - Полное отдельное руководство: [`docs/developer-guide.md`](docs/developer-guide.md)
+- План развития и технический TODO: [`docs/project-todo.md`](docs/project-todo.md)
 - PlantUML-исходники: [`docs/plantuml`](docs/plantuml)
 - SVG-диаграммы: [`docs/plantuml/svg`](docs/plantuml/svg)
 - Референсный demo-service: `device-template-demo-service`
+
+## Быстрый старт разработчика (15–20 минут)
+
+Ниже — практический маршрут для нового разработчика, который впервые подключается к проекту.
+
+### Шаг 1. Проверить окружение
+
+- Java 17 (`java -version`);
+- Maven Wrapper из репозитория (`./mvnw -version`);
+- доступ к локальному порту `8080` для demo-service.
+
+### Шаг 2. Прогнать базовую верификацию
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository clean verify
+```
+
+Если менялись только docs/README, обычно достаточно:
+
+```bash
+./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-library test
+./mvnw -Dmaven.repo.local=.m2/repository -pl device-template-demo-service test
+```
+
+### Шаг 3. Поднять demo-service и проверить OpenAPI
+
+```bash
+./mvnw -pl device-template-demo-service -am clean package -DskipTests
+java -jar device-template-demo-service/target/device-template-demo-service-0.1.0-SNAPSHOT-all.jar
+```
+
+Проверки после старта:
+
+- `GET /api/system/health`;
+- `GET /swagger-ui/index.html`;
+- `GET /swagger/device-template-demo.yml`.
+
+### Шаг 4. Протестировать полный цикл руками
+
+1. Отправить `.dtt` в `/api/dtt/validate`.
+2. Выполнить import в profile (`/api/dtt/import/profile` или `/api/dtt/import/profile/upload`).
+3. Выполнить export обратно в `.dtt` (`/api/dtt/export/profile/one` или `.../all`).
+4. Проверить, что Groovy-скрипты и metadata сохранены.
+
+### Шаг 5. Проверить ключевые архитектурные инварианты
+
+- не потерян Groovy-код;
+- YAML внутри `.dtt` читаемый и предсказуемый;
+- `defaultValues` отделены от explicit override;
+- merge-стратегии не изменили поведение в конфликтных кейсах.
+
+## Пример структуры `.dtt` (референс)
+
+Минимальная структура одного архива:
+
+```text
+<device-type>.dtt
+├─ manifest.yml
+├─ icon.png
+├─ template/
+│  ├─ device-type.yml
+│  ├─ device-type-parameters.yml
+│  ├─ device-parameters-schema.yml
+│  ├─ template-origin.yml
+│  ├─ binding-hints.yml
+│  ├─ default-values.yml
+│  └─ example-values.yml
+├─ scripts/
+│  ├─ onStartEvent.groovy
+│  ├─ onStopEvent.groovy
+│  ├─ onPublicStartEvent.groovy
+│  ├─ onPublicFinishEvent.groovy
+│  ├─ deviceTypeFunctions.groovy
+│  ├─ event-handlers/
+│  │  └─ <EVENT_NAME>.groovy
+│  └─ commands/
+│     └─ <COMMAND_NAME>.groovy
+└─ examples/
+   ├─ profile-values-example.yml
+   └─ branch-values-example.yml
+```
+
+### Пример `manifest.yml` (сокращённо)
+
+```yaml
+formatName: DTT
+formatVersion: 2.0
+createdAt: "2026-04-22T10:00:00Z"
+createdBy: "device-template-demo-service"
+libraryVersion: "0.1.0-SNAPSHOT"
+deviceTypeId: "display-wd3264-red-window"
+deviceTypeName: "Display WD3264 Красное окно"
+deviceTypeDisplayName: "Display WD3264 Красное окно"
+supportsChildDevices: true
+containsLifecycleScripts: true
+containsEventHandlers: true
+containsCommands: true
+containsDeviceTypeFunctions: true
+sourceKind: PROFILE_JSON
+sourceSummary: "Экспорт из equipment profile"
+```
+
+### Пример `template/default-values.yml` (сокращённо)
+
+```yaml
+deviceType:
+  FirstZoneColor: red
+  TicketZone: "5"
+deviceInstances:
+  red-1:
+    IP: 10.10.10.11
+    Port: 22224
+```
+
+## Практические рекомендации для команды
+
+1. **Фиксируйте merge-стратегию явно** в каждом import/export сценарии.
+2. **Не обновляйте `formatVersion` «на всякий случай»** — только при реальном breaking-change формата.
+3. **Сохраняйте скрипты как отдельные `.groovy` файлы** без нормализации форматирования.
+4. **Проверяйте round-trip на реальных данных** (profile -> dtt set -> profile и branch -> dtt set -> branch).
+5. **Синхронизируйте README, JavaDoc и OpenAPI** в том же pull request, где меняется поведение.
+
+## FAQ для разработчика
+
+### Почему один `.dtt` = один тип устройства?
+
+Так проще управлять версионированием, конфликтами `deviceTypeId` и выборочным импортом/экспортом.
+
+### Когда брать `assembleProfile/assembleBranch`, а когда batch-методы?
+
+- `assemble*` — когда вы собираете итоговую модель из своей доменной структуры;
+- `import/export*Set*` — когда у вас файловый обмен (zip/Base64).
+
+### Что делать при конфликте `deviceTypeId`?
+
+Используйте нужную merge-стратегию:
+
+- жёсткий запрет — `FAIL_IF_EXISTS`;
+- полная замена — `REPLACE`;
+- мягкое объединение — `MERGE_NON_NULLS` / `MERGE_PRESERVE_EXISTING`;
+- создание копии — `CREATE_COPY_WITH_SUFFIX`.
 
 ## Тесты
 

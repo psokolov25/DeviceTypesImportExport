@@ -75,6 +75,7 @@ public class DefaultCanonicalProjectionMapper implements CanonicalProjectionMapp
         }
 
         if (definition.items() != null && value instanceof List<?> valueList) {
+            merged.put("items", toProjectionSchema(definition.items(), name + "_item"));
             final List<?> exampleList = exampleValue instanceof List<?> list ? list : List.of();
             final List<Object> mergedValues = new java.util.ArrayList<>();
             for (int i = 0; i < valueList.size(); i++) {
@@ -89,8 +90,33 @@ public class DefaultCanonicalProjectionMapper implements CanonicalProjectionMapp
             merged.put("value", mergedValues);
             return merged;
         }
+        if (definition.items() != null) {
+            merged.put("items", toProjectionSchema(definition.items(), name + "_item"));
+            merged.put("value", value);
+            return merged;
+        }
         merged.put("value", value);
         return merged;
+    }
+
+    private Map<String, Object> toProjectionSchema(CanonicalParameterDefinition definition, String fallbackName) {
+        final Map<String, Object> schema = new LinkedHashMap<>();
+        final String name = definition.name() == null ? fallbackName : definition.name();
+        schema.put("name", name);
+        schema.put("type", definition.type());
+        if (definition.metadata() != null && !definition.metadata().isEmpty()) {
+            schema.putAll(definition.metadata());
+        }
+        if (definition.parametersMap() != null && !definition.parametersMap().isEmpty()) {
+            final Map<String, Object> nested = new LinkedHashMap<>();
+            definition.parametersMap().forEach((nestedName, nestedDefinition) ->
+                    nested.put(nestedName, toProjectionSchema(nestedDefinition, nestedName)));
+            schema.put("parametersMap", nested);
+        }
+        if (definition.items() != null) {
+            schema.put("items", toProjectionSchema(definition.items(), name + "_item"));
+        }
+        return schema;
     }
 
     private Map<String, Object> castToStringObjectMap(Map<?, ?> source) {

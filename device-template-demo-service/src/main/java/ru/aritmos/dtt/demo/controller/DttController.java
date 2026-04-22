@@ -2,6 +2,7 @@ package ru.aritmos.dtt.demo.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -15,10 +16,12 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.archive.DttFileNames;
 import ru.aritmos.dtt.demo.dto.DemoErrorResponse;
+import ru.aritmos.dtt.demo.dto.DemoErrorCode;
 import ru.aritmos.dtt.demo.dto.DttInspectionResponse;
 import ru.aritmos.dtt.demo.dto.DttMetadataBatchResponse;
 import ru.aritmos.dtt.demo.dto.DttVersionComparisonResponse;
@@ -63,6 +66,28 @@ import java.util.Map;
  */
 @Controller("/api/dtt")
 @Tag(name = "DTT")
+@ApiResponses({
+        @ApiResponse(
+                responseCode = "400",
+                description = "Некорректные входные данные/формат",
+                content = @Content(schema = @Schema(implementation = DemoErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Конфликт импорта/экспорта/сборки",
+                content = @Content(schema = @Schema(implementation = DemoErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "422",
+                description = "Ошибка валидации шаблона",
+                content = @Content(schema = @Schema(implementation = DemoErrorResponse.class))
+        ),
+        @ApiResponse(
+                responseCode = "500",
+                description = "Внутренняя ошибка сервера",
+                content = @Content(schema = @Schema(implementation = DemoErrorResponse.class))
+        )
+})
 public class DttController {
 
     private final DttDemoService demoService;
@@ -1220,7 +1245,7 @@ public class DttController {
      */
     @Error(exception = IllegalArgumentException.class)
     public HttpResponse<DemoErrorResponse> handleBadRequest(IllegalArgumentException exception) {
-        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+        return HttpResponse.badRequest(new DemoErrorResponse(DemoErrorCode.INVALID_ARGUMENT.name(), exception.getMessage()));
     }
 
 
@@ -1232,7 +1257,7 @@ public class DttController {
      */
     @Error(exception = DttFormatException.class)
     public HttpResponse<DemoErrorResponse> handleFormatError(DttFormatException exception) {
-        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+        return HttpResponse.badRequest(new DemoErrorResponse(DemoErrorCode.DTT_FORMAT_ERROR.name(), exception.getMessage()));
     }
 
     /**
@@ -1240,7 +1265,9 @@ public class DttController {
      */
     @Error(exception = TemplateValidationException.class)
     public HttpResponse<DemoErrorResponse> handleValidationError(TemplateValidationException exception) {
-        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+        return HttpResponse.unprocessableEntity().body(
+                new DemoErrorResponse(DemoErrorCode.TEMPLATE_VALIDATION_ERROR.name(), exception.getMessage())
+        );
     }
 
     /**
@@ -1248,7 +1275,9 @@ public class DttController {
      */
     @Error(exception = TemplateImportException.class)
     public HttpResponse<DemoErrorResponse> handleImportError(TemplateImportException exception) {
-        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+        return HttpResponse.status(HttpStatus.CONFLICT).body(
+                new DemoErrorResponse(DemoErrorCode.TEMPLATE_IMPORT_ERROR.name(), exception.getMessage())
+        );
     }
 
     /**
@@ -1256,7 +1285,9 @@ public class DttController {
      */
     @Error(exception = TemplateExportException.class)
     public HttpResponse<DemoErrorResponse> handleExportError(TemplateExportException exception) {
-        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+        return HttpResponse.status(HttpStatus.CONFLICT).body(
+                new DemoErrorResponse(DemoErrorCode.TEMPLATE_EXPORT_ERROR.name(), exception.getMessage())
+        );
     }
 
     /**
@@ -1264,7 +1295,9 @@ public class DttController {
      */
     @Error(exception = TemplateAssemblyException.class)
     public HttpResponse<DemoErrorResponse> handleAssemblyError(TemplateAssemblyException exception) {
-        return HttpResponse.badRequest(new DemoErrorResponse("BAD_REQUEST", exception.getMessage()));
+        return HttpResponse.status(HttpStatus.CONFLICT).body(
+                new DemoErrorResponse(DemoErrorCode.TEMPLATE_ASSEMBLY_ERROR.name(), exception.getMessage())
+        );
     }
 
     /**
@@ -1272,7 +1305,7 @@ public class DttController {
      */
     @Error(exception = Throwable.class)
     public HttpResponse<DemoErrorResponse> handleUnexpectedError(Throwable exception) {
-        return HttpResponse.serverError(new DemoErrorResponse("INTERNAL_ERROR", exception.getMessage()));
+        return HttpResponse.serverError(new DemoErrorResponse(DemoErrorCode.INTERNAL_ERROR.name(), exception.getMessage()));
     }
 
 }
