@@ -915,7 +915,8 @@ public class DttController {
                                       "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
                                       "name": "Terminal",
                                       "displayName": "Терминал (Киоск)",
-                                      "description": "Терминал (Киоск)"
+                                      "description": "Терминал (Киоск)",
+                                      "imageBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA=="
                                     },
                                     "deviceTypeParamValues": {
                                       "printerServiceURL": "http://192.168.7.20:8084",
@@ -926,26 +927,8 @@ public class DttController {
                               }
                             }
                             """),
-                    @ExampleObject(name = "jsonObject", value = """
-                            {
-                              "profileJson": {
-                                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c": {
-                                  "metadata": {
-                                    "id": "ed650d7d-6201-42fb-a4c3-b9efb93dda0c",
-                                    "name": "Terminal",
-                                    "displayName": "Терминал (Киоск)",
-                                    "description": "Терминал (Киоск)"
-                                  },
-                                  "deviceTypeParamValues": {
-                                    "prefix": "SSS"
-                                  }
-                                }
-                              },
-                              "deviceTypeIds": [
-                                "ed650d7d-6201-42fb-a4c3-b9efb93dda0c"
-                              ]
-                            }
-                            """)            })
+                    @ExampleObject(name = "jsonObject", value = DttSwaggerExamples.PROFILE_EXPORT_ALL_OBJECT)
+            })
     )
     @ApiResponse(responseCode = "200", description = "Набор экспортированных DTT")
     @ApiResponse(
@@ -977,7 +960,7 @@ public class DttController {
     @RequestBody(
             required = true,
             content = @Content(examples = {
-                    @ExampleObject(name = "objectModel", value = DttSwaggerExamples.PROFILE_EXPORT_SINGLE_OBJECT)
+                    @ExampleObject(name = "objectModel", value = DttSwaggerExamples.PROFILE_EXPORT_ALL_OBJECT)
             })
     )
     public HttpResponse<byte[]> exportAllFromProfileDownload(@Body ExportAllDttFromProfileRequest request) {

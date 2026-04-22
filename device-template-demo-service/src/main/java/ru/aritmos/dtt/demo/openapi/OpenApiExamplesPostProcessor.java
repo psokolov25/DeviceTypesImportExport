@@ -48,6 +48,8 @@ public final class OpenApiExamplesPostProcessor {
         patchKnownRequestExamples(root);
         patchMultipartStringExamples(root);
         patchJsonNodeSchemas(root);
+        patchOperationTagsAndDescriptions(root);
+        patchSchemaDescriptions(root);
         patchMojibakeStrings(root);
         final String yaml = YAML.writerWithDefaultPrettyPrinter().writeValueAsString(root);
         Files.writeString(specPath, yaml, StandardCharsets.UTF_8);
@@ -166,6 +168,8 @@ public final class OpenApiExamplesPostProcessor {
         setRequestExample(root, "/api/dtt/export/branch/all/download", "autoResolveMostComplete", buildExportAllBranchExample(true));
         setRequestExample(root, "/api/dtt/export/branch/all/download", "failIfExists", buildExportAllBranchExample(false));
         setRequestExample(root, "/api/dtt/export/branch/all/download", "jsonStringFiltered", buildExportAllBranchFilteredExample());
+        setRequestExample(root, "/api/dtt/export/profile/all", "jsonObject", buildExportAllProfileExample());
+        setRequestExample(root, "/api/dtt/export/profile/all/download", "objectModel", buildExportAllProfileExample());
 
         setRequestExample(root, "/api/dtt/import/branch/merge", "example", buildImportBranchMergeExample());
         setRequestBodyDescription(root, "/api/dtt/import/branch/merge", "Запрос с исходным branch JSON, Base64-архивами и merge-стратегией.");
@@ -188,6 +192,13 @@ public final class OpenApiExamplesPostProcessor {
     private static JsonNode buildExportAllBranchExample(boolean autoResolveMostComplete) {
         final ObjectNode request = JSON.createObjectNode();
         final ObjectNode branchEquipment = request.putObject("branchEquipment");
+        final ArrayNode metadata = branchEquipment.putArray("metadata");
+        metadata.addObject()
+                .put("id", "ffde364f-5f5a-45e6-86b7-1215a28ae96c")
+                .put("name", "Reception")
+                .put("displayName", "Приёмная")
+                .put("description", "Приёмная")
+                .put("imageBase64", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA==");
         final ObjectNode branches = branchEquipment.putObject("branches");
 
         final ObjectNode firstBranch = branches.putObject("ec8d252d-deb9-4ebb-accf-0ef7994bf17b");
@@ -224,7 +235,7 @@ public final class OpenApiExamplesPostProcessor {
         secondReception.put("description", "Устройство озвучивания");
         secondReception.put("type", "reception");
         final ObjectNode secondValues = secondReception.putObject("deviceTypeParamValues");
-        secondValues.putObject("phrase").put("value", "\\eFПосетитель с номером{ticketId}");
+        secondValues.putObject("phrase").put("value", "\\\\eFПосетитель с номером{ticketId}");
         secondValues.putObject("URL").put("value", "http://192.168.1.8:8080/unnamed/rest/play");
         secondReception.putObject("devices");
 
@@ -239,6 +250,13 @@ public final class OpenApiExamplesPostProcessor {
     private static JsonNode buildExportAllBranchFilteredExample() {
         final ObjectNode request = JSON.createObjectNode();
         final ObjectNode branchJson = request.putObject("branchJson");
+        final ArrayNode metadata = branchJson.putArray("metadata");
+        metadata.addObject()
+                .put("id", "ed650d7d-6201-42fb-a4c3-b9efb93dda0c")
+                .put("name", "Terminal")
+                .put("displayName", "Терминал (Киоск)")
+                .put("description", "Терминал (Киоск)")
+                .put("imageBase64", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA==");
         final ObjectNode branch = branchJson.putObject("ec8d252d-deb9-4ebb-accf-0ef7994bf17b");
         branch.put("id", "ec8d252d-deb9-4ebb-accf-0ef7994bf17b");
         branch.put("displayName", "test kate");
@@ -266,6 +284,81 @@ public final class OpenApiExamplesPostProcessor {
         request.put("mergeStrategy", "MERGE_NON_NULLS");
         request.put("dttVersion", "2.1.0");
         return request;
+    }
+
+    private static JsonNode buildExportAllProfileExample() {
+        final ObjectNode request = JSON.createObjectNode();
+        final ObjectNode profileJson = request.putObject("profileJson");
+        final ArrayNode metadata = profileJson.putArray("metadata");
+        metadata.addObject()
+                .put("id", "ed650d7d-6201-42fb-a4c3-b9efb93dda0c")
+                .put("name", "Terminal")
+                .put("displayName", "Терминал (Киоск)")
+                .put("description", "Терминал (Киоск)")
+                .put("imageBase64", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA==");
+        final ObjectNode terminal = profileJson.putObject("ed650d7d-6201-42fb-a4c3-b9efb93dda0c");
+        terminal.putObject("metadata")
+                .put("id", "ed650d7d-6201-42fb-a4c3-b9efb93dda0c")
+                .put("name", "Terminal")
+                .put("displayName", "Терминал (Киоск)")
+                .put("description", "Терминал (Киоск)")
+                .put("imageBase64", "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAA==");
+        final ObjectNode values = terminal.putObject("deviceTypeParamValues");
+        values.put("printerServiceURL", "http://192.168.7.20:8084");
+        values.put("prefix", "SSS");
+        request.putArray("deviceTypeIds").add("ed650d7d-6201-42fb-a4c3-b9efb93dda0c");
+        request.put("dttVersion", "2.1.0");
+        return request;
+    }
+
+    private static void patchOperationTagsAndDescriptions(ObjectNode root) {
+        setOperationDetails(root, "/api/dtt/validate", "Провалидировать один DTT-архив",
+                "Проверяет структуру .dtt и корректность Groovy-скриптов. Возвращает список проблем валидации.", "DTT · Диагностика");
+        setOperationDetails(root, "/api/dtt/inspect", "Инспектировать один DTT-архив",
+                "Возвращает краткую сводку по шаблону: metadata, scripts, handlers, commands и manifest-поля.", "DTT · Диагностика");
+        setOperationDetails(root, "/api/dtt/metadata", "Извлечь metadata из DTT или DTT-set zip",
+                "Извлекает базовые metadata (id/name/displayName/description/version/imageBase64) из одного .dtt или zip-набора.", "DTT · Диагностика");
+        setOperationDetails(root, "/api/dtt/import/profile", "Импортировать DTT в profile JSON",
+                "Собирает profile JSON из одного или нескольких DTT. В результате profileJson содержит корневую секцию metadata.", "DTT · Импорт в profile JSON");
+        setOperationDetails(root, "/api/dtt/import/branch", "Импортировать DTT в branch equipment JSON",
+                "Собирает branch JSON по списку отделений. В результате branchJson содержит корневую секцию metadata.", "DTT · Импорт в branch JSON");
+        setOperationDetails(root, "/api/dtt/import/profile-branch", "Импортировать DTT в profile и branch с inheritance",
+                "Комплексный сценарий: один запрос формирует profile JSON и branch JSON с branch-level metadata override.", "DTT · Комплексные сценарии");
+        setOperationDetails(root, "/api/dtt/export/profile/one", "Экспортировать один тип из profile JSON в DTT",
+                "Экспортирует один deviceTypeId из profile JSON в Base64 DTT с сохранением metadata и параметров.", "DTT · Экспорт из profile JSON");
+        setOperationDetails(root, "/api/dtt/export/profile/all", "Экспортировать набор типов из profile JSON в DTT-set",
+                "Экспортирует все или выбранные deviceTypeIds из profile JSON. Поддерживает root metadata во входном JSON.", "DTT · Экспорт из profile JSON");
+        setOperationDetails(root, "/api/dtt/export/branch/one", "Экспортировать один тип из branch JSON в DTT",
+                "Экспортирует один deviceTypeId из branch equipment JSON с учётом merge-стратегии между отделениями.", "DTT · Экспорт из branch JSON");
+        setOperationDetails(root, "/api/dtt/export/branch/all", "Экспортировать набор типов из branch JSON в DTT-set",
+                "Экспортирует набор типов из branch equipment JSON (с фильтрами branchIds/deviceTypeIds). Примеры включают root metadata.", "DTT · Экспорт из branch JSON");
+    }
+
+    private static void setOperationDetails(ObjectNode root, String path, String summary, String description, String tag) {
+        final JsonNode node = nodeAt(root, "paths", path, "post");
+        if (node instanceof ObjectNode operation) {
+            operation.put("summary", summary);
+            operation.put("description", description);
+            final ArrayNode tags = JSON.createArrayNode();
+            tags.add(tag);
+            operation.set("tags", tags);
+        }
+    }
+
+    private static void patchSchemaDescriptions(ObjectNode root) {
+        setSchemaDescription(root, "ImportDttSetToProfileResponse", "Ответ импорта DTT в profile JSON с агрегированной metadata в корне profileJson.");
+        setSchemaDescription(root, "ImportDttSetToBranchResponse", "Ответ импорта DTT в branch equipment JSON с агрегированной metadata в корне branchJson.");
+        setSchemaDescription(root, "ExportAllDttFromProfileRequest", "Запрос массового экспорта DTT из profile JSON (object-model или profileJson с root metadata).");
+        setSchemaDescription(root, "ExportAllDttFromBranchRequest", "Запрос массового экспорта DTT из branch JSON (branchEquipment или branchJson с root metadata).");
+        setSchemaDescription(root, "ImportDttZipToProfileUploadRequest", "metadataJson для zip->profile импорта: mergeStrategy, параметры типов, metadataOverride.");
+        setSchemaDescription(root, "ImportDttZipToBranchUploadRequest", "metadataJson для zip->branch импорта: branches, deviceTypes, devices, metadataOverride, mergeStrategy.");
+    }
+
+    private static void setSchemaDescription(ObjectNode root, String schemaName, String description) {
+        final JsonNode schema = nodeAt(root, "components", "schemas", schemaName);
+        if (schema instanceof ObjectNode schemaNode) {
+            schemaNode.put("description", description);
+        }
     }
 
     private static JsonNode buildImportBranchMergeExample() throws IOException {

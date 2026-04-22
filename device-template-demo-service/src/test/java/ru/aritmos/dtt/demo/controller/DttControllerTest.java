@@ -647,7 +647,15 @@ class DttControllerTest {
         final var profileJson = response.profileJson();
         final var fields = profileJson.fields();
         assertThat(fields.hasNext()).isTrue();
-        final var display = fields.next().getValue();
+        com.fasterxml.jackson.databind.JsonNode display = null;
+        while (fields.hasNext()) {
+            final var entry = fields.next();
+            if (!"metadata".equals(entry.getKey())) {
+                display = entry.getValue();
+                break;
+            }
+        }
+        assertThat(display).isNotNull();
 
         assertThat(display.path("id").asText()).isNotBlank();
         assertThat(display.path("name").asText()).isNotBlank();
