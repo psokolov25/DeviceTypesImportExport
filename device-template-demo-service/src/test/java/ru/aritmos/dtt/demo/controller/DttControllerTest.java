@@ -504,18 +504,30 @@ class DttControllerTest {
 
     @Test
     void shouldReturnStructuredErrorForAllKnownExceptionTypes() {
+        assertThat(controller.handleBadRequest(new IllegalArgumentException("bad")).code())
+                .isEqualTo(400);
         assertThat(controller.handleBadRequest(new IllegalArgumentException("bad")).body())
-                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "bad"));
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("INVALID_ARGUMENT", "bad"));
+        assertThat(controller.handleFormatError(new DttFormatException("format")).code())
+                .isEqualTo(400);
         assertThat(controller.handleFormatError(new DttFormatException("format")).body())
-                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "format"));
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("DTT_FORMAT_ERROR", "format"));
+        assertThat(controller.handleValidationError(new TemplateValidationException("validation")).code())
+                .isEqualTo(422);
         assertThat(controller.handleValidationError(new TemplateValidationException("validation")).body())
-                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "validation"));
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("TEMPLATE_VALIDATION_ERROR", "validation"));
+        assertThat(controller.handleImportError(new TemplateImportException("import")).code())
+                .isEqualTo(409);
         assertThat(controller.handleImportError(new TemplateImportException("import")).body())
-                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "import"));
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("TEMPLATE_IMPORT_ERROR", "import"));
+        assertThat(controller.handleExportError(new TemplateExportException("export")).code())
+                .isEqualTo(409);
         assertThat(controller.handleExportError(new TemplateExportException("export")).body())
-                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "export"));
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("TEMPLATE_EXPORT_ERROR", "export"));
+        assertThat(controller.handleAssemblyError(new TemplateAssemblyException("assembly")).code())
+                .isEqualTo(409);
         assertThat(controller.handleAssemblyError(new TemplateAssemblyException("assembly")).body())
-                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("BAD_REQUEST", "assembly"));
+                .isEqualTo(new ru.aritmos.dtt.demo.dto.DemoErrorResponse("TEMPLATE_ASSEMBLY_ERROR", "assembly"));
     }
 
     @Test
@@ -818,7 +830,7 @@ class DttControllerTest {
 
         assertThat(response.getStatus().getCode()).isEqualTo(400);
         assertThat(response.body()).isNotNull();
-        assertThat(response.body().code()).isEqualTo("BAD_REQUEST");
+        assertThat(response.body().code()).isEqualTo("INVALID_ARGUMENT");
         assertThat(response.body().message()).isEqualTo("bad payload");
     }
 
@@ -828,7 +840,7 @@ class DttControllerTest {
 
         assertThat(response.getStatus().getCode()).isEqualTo(400);
         assertThat(response.body()).isNotNull();
-        assertThat(response.body().code()).isEqualTo("BAD_REQUEST");
+        assertThat(response.body().code()).isEqualTo("DTT_FORMAT_ERROR");
         assertThat(response.body().message()).contains("Ошибка парсинга profile JSON");
     }
 

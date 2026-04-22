@@ -992,9 +992,151 @@ dtt:
 7. Сценарий одного базового DTT и нескольких производных типов.
 8. Поведение merge-стратегий при повторном импорте.
 
+Отдельно в библиотеке уже есть эталонный unit-тест canonical mapping на nullable + nested array/object metadata:
+
+- `device-template-library/src/test/java/ru/aritmos/dtt/model/mapping/DefaultCanonicalTemplateMapperTest`
+  (`shouldPreserveNullableAndNestedArrayObjectMetadataOnRoundTrip`).
+
+Дополнительно проверяется проекционный кейс: даже если у `Array`-параметра нет default value, в profile projection сохраняется `items`-схема (включая nested `parametersMap` и nullable metadata) — см. `DefaultCanonicalProjectionMapperTest#shouldKeepArrayItemsSchemaWhenArrayValueIsMissing`.
+
 ## 10. Навигация по связанным материалам
 
 - Корневое описание проекта: [`../README.md`](../README.md)
+- План развития и технический TODO: [`project-todo.md`](project-todo.md)
 - PlantUML-исходники: [`plantuml`](plantuml)
 - SVG-диаграммы: [`plantuml/svg`](plantuml/svg)
 - Референсный demo-service: `../device-template-demo-service`
+
+## 11. Расширенный cookbook интеграции (production-практика)
+
+Ниже собраны типовые «боевые» сценарии, которые обычно появляются после первого успешного прототипа.
+
+### 11.1. Сценарий «предпросмотр + подтверждение + применение»
+
+Рекомендуемый pipeline для UI и approval-процессов:
+
+1. Пользователь загружает zip с `.dtt`.
+2. Сервис вызывает `previewDttZipToProfile(...)` или `previewDttZipToBranch(...)`.
+3. UI показывает diff/результат и предупреждения.
+4. После подтверждения вызывается соответствующий `import...` метод.
+5. Результат сохраняется в БД/конфигурационное хранилище.
+
+Практическая польза:
+
+- конфликт виден заранее;
+- можно внедрить роль «ревьюер» перед применением;
+- меньше rollback-сценариев.
+
+### 11.2. Сценарий «merge в существующий branch JSON»
+
+Если ваша система хранит «живой» `DeviceManager.json`, используйте:
+
+- `importDttSetToExistingBranch(...)`;
+- `importDttBase64SetToExistingBranch(...)`;
+- `importDttZipToExistingBranch(...)`.
+
+Рекомендация: для nightly/batch jobs обычно безопаснее `MERGE_PRESERVE_EXISTING`, а `REPLACE` оставлять для ручного административного режима.
+
+### 11.3. Сценарий «JSON на входе, типы внутри»
+
+Удобный подход для REST-сервисов:
+
+1. На входе принимаете JSON как строку.
+2. Парсите через `parseProfileJson(...)` / `parseBranchJson(...)`.
+3. Выполняете бизнес-валидацию на типизированной модели.
+4. После модификаций сериализуете через `toProfileJson(...)` / `toBranchJson(...)`.
+
+Так вы избегаете ручного `Map<String, Object>` и получаете предсказуемое поведение сериализации.
+
+## 12. Обработка ошибок и наблюдаемость
+
+### 12.1. Какие исключения использовать в API-службе
+
+В адаптере/контроллере полезно разделять ошибки:
+
+- `DttFormatException` → 400 Bad Request (некорректный архив/структура);
+- `TemplateValidationException` → 422 Unprocessable Entity (формат валиден, но нарушены правила);
+- `TemplateImportException` / `TemplateExportException` → 409/500 в зависимости от причины;
+- `TemplateAssemblyException` → 409 Conflict (чаще merge-конфликт) или 500 (ошибка сборки).
+
+Для машинной обработки ошибок в demo API введены стабильные `code` значения:
+
+- `INVALID_ARGUMENT`;
+- `DTT_FORMAT_ERROR`;
+- `TEMPLATE_VALIDATION_ERROR`;
+- `TEMPLATE_IMPORT_ERROR`;
+- `TEMPLATE_EXPORT_ERROR`;
+- `TEMPLATE_ASSEMBLY_ERROR`;
+- `INTERNAL_ERROR`.
+
+Текущее поведение demo-service по HTTP статусам:
+
+- `INVALID_ARGUMENT`, `DTT_FORMAT_ERROR` → `400 Bad Request`;
+- `TEMPLATE_VALIDATION_ERROR` → `422 Unprocessable Entity`;
+- `TEMPLATE_IMPORT_ERROR`, `TEMPLATE_EXPORT_ERROR`, `TEMPLATE_ASSEMBLY_ERROR` → `409 Conflict`;
+- `INTERNAL_ERROR` → `500 Internal Server Error`.
+
+Также эти статусы и `DemoErrorResponse` описаны в OpenAPI как стандартные error-response для операций `DttController`, чтобы клиенты могли опираться на единый контракт.
+
+### 12.2. Что логировать обязательно
+
+Минимальные поля для диагностики:
+
+- `operation` (`import_profile`, `export_branch_all`, `preview_branch` и т.д.);
+- `mergeStrategy`;
+- `branchIds`;
+- `deviceTypeIds` (если применимы фильтры);
+- `archiveCount` / `archiveSizeBytes`;
+- `requestId` / `correlationId`.
+
+Не логируйте полный Groovy-код и полные Base64 payload в INFO/ERROR логах.
+
+### 12.3. Метрики, которые реально полезны
+
+- количество импортов/экспортов по типам операций;
+- доля preview, завершившихся apply-операцией;
+- число merge-конфликтов по стратегиям;
+- среднее время `import zip -> branch` и `export branch -> zip`;
+- количество невалидных DTT.
+
+## 13. Чеклист релиза изменений для разработчика
+
+Используйте этот список как «Definition of Done» для задач, затрагивающих формат или API:
+
+1. Пройдены модульные тесты библиотеки и demo-service.
+2. Для новых сценариев добавлены контрактные примеры в OpenAPI.
+3. README и `docs/developer-guide.md` синхронизированы с кодом.
+4. В `manifest.yml` не добавлены обязательные поля без версии/совместимости.
+5. Проверено, что Groovy-скрипты не модифицируются при round-trip.
+6. Проверены минимум два merge-сценария: конфликтный и бесконфликтный.
+7. Для batch-сценариев проверен импорт/экспорт zip и Base64.
+
+## 14. Минимальный onboarding-план для нового разработчика команды
+
+Если в команду пришёл новый инженер, обычно достаточно такого маршрута:
+
+1. Прочитать `README.md` и разделы 1–6 этого гайда.
+2. Запустить `./mvnw -Dmaven.repo.local=.m2/repository clean verify`.
+3. Поднять demo-service и вручную прогнать 2–3 endpoint-а через Swagger.
+4. Выполнить локальный сценарий round-trip:
+   - взять один `.dtt`;
+   - импортировать в profile;
+   - экспортировать обратно;
+   - сравнить ключевые YAML + scripts.
+5. Реализовать небольшое изменение только в одном направлении (например, export profile -> dtt) и покрыть тестом.
+
+Такой onboarding обычно даёт достаточное понимание архитектуры, формата и точек расширения за 1 рабочий день.
+
+## 15. Гигиена исходников и контроль артефактов
+
+В проекте добавлены автоматические проверки `SourceTreeHygieneTest` (для demo-service и для device-template-library), которые контролируют, что в `src/main/java` не попадают:
+
+- `.class` файлы;
+- временные артефакты (`.tmp`, `.bak`);
+- служебные файлы вроде `tmpfile.txt`.
+
+Практический смысл проверки:
+
+1. предотвращает случайные коммиты бинарных файлов в исходники;
+2. снижает «шум» в pull request и риск конфликтов в репозитории;
+3. повышает воспроизводимость сборки и прозрачность ревью.

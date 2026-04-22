@@ -109,6 +109,54 @@ class DefaultCanonicalProjectionMapperTest {
         assertThat(branchProjection.deviceTypeParamValues()).containsEntry("ip", "10.0.0.1");
     }
 
+    @Test
+    void shouldKeepArrayItemsSchemaWhenArrayValueIsMissing() {
+        final CanonicalDeviceTypeTemplate template = new CanonicalDeviceTypeTemplate(
+                "1.0",
+                new CanonicalDeviceTypeMetadata("display", "Display", "Display", "desc"),
+                new CanonicalParameterSchema(Map.of(
+                        "sensors", new CanonicalParameterDefinition(
+                                "sensors",
+                                "Array",
+                                Map.of("displayName", "Sensors"),
+                                Map.of(),
+                                new CanonicalParameterDefinition(
+                                        "sensor",
+                                        "Object",
+                                        Map.of(),
+                                        Map.of("id", new CanonicalParameterDefinition(
+                                                "id",
+                                                "String",
+                                                Map.of("nullable", true),
+                                                Map.of(),
+                                                null
+                                        )),
+                                        null
+                                )
+                        )
+                )),
+                new CanonicalParameterSchema(Map.of()),
+                new CanonicalTemplateValues(Map.of()),
+                new CanonicalTemplateValues(Map.of()),
+                new CanonicalTemplateValues(Map.of()),
+                new CanonicalTemplateOrigin("PROFILE_JSON", "", Map.of()),
+                new CanonicalScriptSet(null, null, null, null, null, Map.of(), Map.of())
+        );
+
+        final var projection = mapper.toProfileProjection(template);
+        final Map<String, Object> sensors = castToMap(projection.deviceTypeParamValues().get("sensors"));
+        assertThat(sensors).containsEntry("displayName", "Sensors");
+        assertThat(sensors).containsKey("items");
+        assertThat(sensors).containsEntry("value", null);
+
+        final Map<String, Object> items = castToMap(sensors.get("items"));
+        final Map<String, Object> nested = castToMap(items.get("parametersMap"));
+        final Map<String, Object> id = castToMap(nested.get("id"));
+        assertThat(id)
+                .containsEntry("type", "String")
+                .containsEntry("nullable", true);
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> castToMap(Object value) {
         return (Map<String, Object>) value;

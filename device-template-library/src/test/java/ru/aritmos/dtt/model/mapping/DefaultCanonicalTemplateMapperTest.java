@@ -10,6 +10,7 @@ import ru.aritmos.dtt.model.canonical.CanonicalParameterSchema;
 import ru.aritmos.dtt.model.canonical.CanonicalScriptSet;
 import ru.aritmos.dtt.model.canonical.CanonicalTemplateOrigin;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -137,8 +138,80 @@ class DefaultCanonicalTemplateMapperTest {
         assertThat(archive.exampleValues()).isEmpty();
     }
 
+    @Test
+    void shouldPreserveNullableAndNestedArrayObjectMetadataOnRoundTrip() {
+        final DttArchiveTemplate archive = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.1", "display", null),
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of(
+                        "optionalComment", Map.of(
+                                "name", "optionalComment",
+                                "type", "String",
+                                "nullable", true,
+                                "description", "Optional text value"
+                        ),
+                        "zones", Map.of(
+                                "name", "zones",
+                                "type", "Array",
+                                "items", Map.of(
+                                        "name", "zoneItem",
+                                        "type", "Object",
+                                        "parametersMap", Map.of(
+                                                "zoneId", Map.of(
+                                                        "name", "zoneId",
+                                                        "type", "Number",
+                                                        "nullable", false
+                                                ),
+                                                "zoneLabel", Map.of(
+                                                        "name", "zoneLabel",
+                                                        "type", "String",
+                                                        "nullable", true,
+                                                        "exampleValue", "A-zone"
+                                                )
+                                        )
+                                )
+                        )
+                ),
+                Map.of(),
+                Map.of(),
+                mapWithNull("optionalComment"),
+                mapWithNull("optionalComment"),
+                Map.of("sourceKind", "BRANCH_JSON"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+
+        final var canonical = mapper.toCanonical(archive);
+        final var restored = mapper.toArchive(canonical);
+
+        final Map<String, Object> optionalComment = castToMap(restored.deviceTypeParametersSchema().get("optionalComment"));
+        assertThat(optionalComment)
+                .containsEntry("type", "String")
+                .containsEntry("nullable", true);
+
+        final Map<String, Object> zones = castToMap(restored.deviceTypeParametersSchema().get("zones"));
+        final Map<String, Object> items = castToMap(zones.get("items"));
+        final Map<String, Object> nested = castToMap(items.get("parametersMap"));
+        final Map<String, Object> zoneLabel = castToMap(nested.get("zoneLabel"));
+        assertThat(zoneLabel)
+                .containsEntry("type", "String")
+                .containsEntry("nullable", true)
+                .containsEntry("exampleValue", "A-zone");
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> castToMap(Object value) {
         return (Map<String, Object>) value;
+    }
+
+    private Map<String, Object> mapWithNull(String key) {
+        final Map<String, Object> result = new LinkedHashMap<>();
+        result.put(key, null);
+        return result;
     }
 }
