@@ -105,6 +105,9 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 - **Preview** — диагностический dry-run: можно проверить успех и получить причины ошибок, не выполняя фактическую выгрузку клиенту.
 - **Single-export** — экспорт одного типа устройства (`deviceTypeId`) в один `.dtt`.
 - **String JSON flow** — сценарий, где сервис не строит object-модель, а передаёт raw JSON строку напрямую в фасад.
+- **High-level import-plan** — прикладной запрос, который описывает, какие DTT нужно взять, в какие branch/profile их собрать, какие metadata и значения параметров переопределить, и из какого источника читать архив: Base64 или zip entry.
+- **Metadata override** — частичное или полное переопределение `id`, `name`, `displayName`, `description`, `version`, `iconBase64` для конкретного производного типа устройства.
+- **Branch-specific topology** — branch-ориентированный снимок типа устройства внутри `templateOrigin`. Если он присутствует, библиотека может восстановить не только параметры типа устройства, но и связанные устройства, скрипты и branch-поля именно для заданного отделения.
 
 #### Уровень 1. Архивный
 
@@ -142,6 +145,31 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 - `exportDttSetFromBranch(...)`
 - `exportProfileToDttZip(...)`
 - `exportBranchToDttZip(...)`
+
+#### Уровень 3a. High-level import-plan подготовка
+
+Используйте, если прикладная служба принимает не готовые `EquipmentProfileAssemblyRequest` / `BranchEquipmentAssemblyRequest`, а более прикладной запрос: Base64, zip, branchId, список типов устройств, override metadata, override параметров и override экземпляров устройств.
+
+Ключевые методы:
+
+- `prepareProfileAssemblyRequest(...)`
+- `prepareProfileAssemblyRequestFromZip(...)`
+- `prepareBranchAssemblyRequest(...)`
+- `prepareBranchAssemblyRequestFromZip(...)`
+- `computeProfileImportPreview(...)`
+- `computeBranchImportPreview(...)`
+
+Что именно делает этот слой:
+
+1. Декодирует Base64-архивы и/или разрешает конкретные `.dtt` entry внутри zip-пакета.
+2. Читает DTT и восстанавливает `DeviceTypeTemplate` / `BranchDeviceTypeImportRequest`.
+3. Применяет metadata override.
+4. Применяет override-значения параметров типа устройства.
+5. Для branch-сценариев применяет override устройств и override поля `kind`.
+6. Если в `templateOrigin` сохранена branch-specific topology, использует именно её, а не generic fallback-проекцию.
+7. Возвращает готовый assembly-request, который затем передаётся в `assembleProfile(...)` или `assembleBranch(...)`.
+
+Это позволяет держать HTTP-слой тонким: контроллер и application-service только валидируют входной payload и делегируют подготовку импорта в библиотеку.
 
 ### 4.1. Карта сценариев с быстрым выбором метода
 
@@ -1199,3 +1227,231 @@ dtt:
 1. предотвращает случайные коммиты бинарных файлов в исходники;
 2. снижает «шум» в pull request и риск конфликтов в репозитории;
 3. повышает воспроизводимость сборки и прозрачность ревью.
+
+## 5.3. Алгоритм B1: один DTT -> несколько производных типов устройств
+
+Этот сценарий нужен, когда один исходный шаблон должен превратиться в несколько разных типов устройств, отличающихся metadata, значениями параметров типа устройства и набором экземпляров устройств.
+
+Пример задачи: из одного DTT `Display WD3264` сформировать два отдельных производных типа — `Display WD3264 Красное окно` и `Display WD3264 Синее окно`, у которых различаются `deviceTypeId`, название, описание, значения зон и список дисплеев.
+
+### Что важно
+
+1. Исходный DTT остаётся одним и тем же.
+2. Производные типы становятся разными типами устройств уже на уровне итогового profile/branch JSON.
+3. Для этого используются `metadataOverride` и override значений параметров.
+4. Для branch-сценария можно ещё и задать разные списки устройств через override экземпляров устройств.
+
+### Пример для profile
+
+```java
+ProfileImportPlanRequest plan = new ProfileImportPlanRequest(
+        List.of(),
+        MergeStrategy.FAIL_IF_EXISTS,
+        List.of(
+                new ProfileDeviceTypeImportSourceRequest(
+                        redArchiveBase64,
+                        null,
+                        Map.of("TicketZone", "3", "ServicePointNameZone", "1"),
+                        new DeviceTypeMetadata(
+                                "display-red-window",
+                                "Display WD3264 Красное окно",
+                                "Display WD3264 Красное окно",
+                                "Профиль красного окна",
+                                "2.1.0",
+                                null
+                        )
+                ),
+                new ProfileDeviceTypeImportSourceRequest(
+                        blueArchiveBase64,
+                        null,
+                        Map.of("TicketZone", "4", "ServicePointNameZone", "1"),
+                        new DeviceTypeMetadata(
+                                "display-blue-window",
+                                "Display WD3264 Синее окно",
+                                "Display WD3264 Синее окно",
+                                "Профиль синего окна",
+                                "2.1.0",
+                                null
+                        )
+                )
+        )
+);
+
+EquipmentProfile profile = facade.assembleProfile(facade.prepareProfileAssemblyRequest(plan));
+```
+
+### Пример для branch
+
+```java
+BranchImportPlanRequest plan = new BranchImportPlanRequest(
+        null,
+        null,
+        MergeStrategy.FAIL_IF_EXISTS,
+        List.of(new BranchImportSourceRequest(
+                "branch-1",
+                "Отделение 1",
+                List.of(
+                        new BranchDeviceTypeImportSourceRequest(
+                                redArchiveBase64,
+                                null,
+                                Map.of("TicketZone", "3"),
+                                new DeviceTypeMetadata("display-red-window", "Display WD3264 Красное окно", "Display WD3264 Красное окно", "Красный профиль", "2.1.0", null),
+                                List.of(
+                                        new DeviceInstanceImportRequest("red-1", "display red 1", "display red 1", "Красный дисплей 1", Map.of("IP", "10.0.0.11", "Port", 22224)),
+                                        new DeviceInstanceImportRequest("red-2", "display red 2", "display red 2", "Красный дисплей 2", Map.of("IP", "10.0.0.12", "Port", 22224))
+                                ),
+                                "display"
+                        ),
+                        new BranchDeviceTypeImportSourceRequest(
+                                blueArchiveBase64,
+                                null,
+                                Map.of("TicketZone", "4"),
+                                new DeviceTypeMetadata("display-blue-window", "Display WD3264 Синее окно", "Display WD3264 Синее окно", "Синий профиль", "2.1.0", null),
+                                List.of(
+                                        new DeviceInstanceImportRequest("blue-1", "display blue 1", "display blue 1", "Синий дисплей 1", Map.of("IP", "10.0.0.21", "Port", 22224)),
+                                        new DeviceInstanceImportRequest("blue-2", "display blue 2", "display blue 2", "Синий дисплей 2", Map.of("IP", "10.0.0.22", "Port", 22224)),
+                                        new DeviceInstanceImportRequest("blue-3", "display blue 3", "display blue 3", "Синий дисплей 3", Map.of("IP", "10.0.0.23", "Port", 22224))
+                                ),
+                                "display"
+                        )
+                )
+        ))
+);
+
+BranchEquipment branchEquipment = facade.assembleBranch(facade.prepareBranchAssemblyRequest(plan));
+```
+
+В этом сценарии merge-стратегия не создаёт производные типы сама. Производные типы создаются за счёт того, что вы явно задаёте разные metadata override и тем самым получаете разные `deviceTypeId`. Merge-стратегия вступает в дело только тогда, когда итоговые `deviceTypeId` всё-таки конфликтуют.
+
+
+## 11. Частые ошибки интеграции и ожидаемое поведение библиотеки
+
+### 11.1. Ошибка: в structured import-plan указан `archiveEntryName`, но запрос пришёл не через zip
+
+Сценарий:
+- сервис формирует `ProfileImportPlanRequest` или `BranchImportPlanRequest`;
+- в элементе типа устройства заполнен `archiveEntryName`;
+- вызван `prepare*AssemblyRequest(...)`, а не `prepare*AssemblyRequestFromZip(...)`.
+
+Ожидаемое поведение:
+- библиотека завершит подготовку импорта с `IllegalArgumentException`;
+- причина: `archiveEntryName` допустим только в zip-контексте.
+
+### 11.2. Ошибка: и `archivesBase64`, и structured-список пусты
+
+Сценарий:
+- сервис передал пустой план импорта без архивов и без списка типов устройств.
+
+Ожидаемое поведение:
+- библиотека завершит вызов `prepareProfileAssemblyRequest(...)` или `prepareBranchAssemblyRequest(...)` с `IllegalArgumentException`;
+- assembly-request не будет создан.
+
+### 11.3. Ошибка: в branch-plan не указан `branchId`
+
+Сценарий:
+- в одном из `BranchImportSourceRequest` отсутствует `branchId` или передана пустая строка.
+
+Ожидаемое поведение:
+- библиотека завершит подготовку branch-импорта с `IllegalArgumentException`;
+- сообщение будет указывать на обязательность `branchId`.
+
+### 11.4. Ошибка: в zip нет ни одного `.dtt`
+
+Сценарий:
+- multipart upload пришёл, но внутри zip отсутствуют DTT-файлы;
+- вызван `prepareProfileAssemblyRequestFromZip(...)` или `prepareBranchAssemblyRequestFromZip(...)`.
+
+Ожидаемое поведение:
+- библиотека завершит вызов с `IllegalArgumentException`;
+- итоговая profile/branch модель не строится.
+
+### 11.5. Ошибка: конфликт итоговых `deviceTypeId`
+
+Сценарий:
+- два производных типа после metadata override получили одинаковый `deviceTypeId`;
+- merge-стратегия не допускает такое объединение.
+
+Ожидаемое поведение:
+- на этапе `assembleProfile(...)`, `assembleBranch(...)` или merge-операции библиотека применит выбранную merge-стратегию;
+- при `FAIL_IF_EXISTS` будет выброшена ошибка конфликта;
+- при `CREATE_COPY_WITH_SUFFIX` библиотека создаст копию конфликтующего типа с суффиксом.
+
+### 11.6. Ошибка: разработчик ожидает, что merge-стратегия создаст производный тип автоматически
+
+Сценарий:
+- один и тот же DTT импортируется несколько раз;
+- metadata override не меняет `id`;
+- ожидается, что библиотека сама сделает «красный» и «синий» типы.
+
+Ожидаемое поведение:
+- merge-стратегия не создаёт производный доменный тип сама по себе;
+- для появления разных типов устройств нужно явно задать разные metadata override, прежде всего разные `deviceTypeId`.
+
+## 9. Новый orchestration-слой high-level facade API
+
+На текущем этапе библиотека поддерживает уже не только подготовку import-plan, но и его прямое исполнение на уровне фасада.
+
+### 9.1 Методы
+
+- `assembleProfile(ProfileImportPlanRequest)`
+- `assembleProfile(byte[] zipPayload, ProfileImportPlanRequest)`
+- `assembleBranch(BranchImportPlanRequest)`
+- `assembleBranch(byte[] zipPayload, BranchImportPlanRequest)`
+- `mergeIntoExistingBranch(BranchEquipment, BranchImportPlanRequest)`
+- `mergeIntoExistingBranch(byte[] zipPayload, BranchEquipment, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJson(String, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJson(byte[] zipPayload, String, BranchImportPlanRequest)`
+
+### 9.2 Зачем этот слой нужен
+
+Этот слой убирает из прикладной службы повторяющийся orchestration-код:
+
+- decode Base64;
+- resolve zip-entry;
+- `prepare...AssemblyRequest(...)`;
+- `assemble...(...)`;
+- parse existing JSON;
+- merge incoming model в existing model.
+
+В результате demo-service и любая интеграционная служба могут использовать библиотеку как готовый движок прикладных операций, а не только как набор низкоуровневых примитивов.
+
+### 9.3 Рекомендуемая граница ответственности
+
+**Библиотека** должна отвечать за:
+
+- доменную интерпретацию `.dtt`;
+- import/export/mapping/merge;
+- branch-specific topology;
+- metadata override;
+- device override;
+- preview-диагностику.
+
+**Прикладная служба** должна отвечать за:
+
+- HTTP-контракт;
+- авторизацию;
+- ограничение размера payload;
+- аудит вызовов;
+- сохранение итогового JSON или файлов в инфраструктурные хранилища.
+
+## 10. Полный каталог фич и кейсов
+
+Подробное описание всех фич, терминов, merge-стратегий, подкатегорий кейсов и примеров использования вынесено в отдельный документ:
+
+- `docs/feature-catalog.md`
+
+Его стоит считать основным навигационным документом по сценариям библиотеки. `README.md` остаётся обзорным входом, а этот guide — документом о внутренней архитектуре и слоях API.
+
+
+## Совместная сборка profile и branch с наследованием metadata
+
+Для сценария, где требуется одним вызовом собрать `EquipmentProfile` и `BranchEquipment`, библиотека теперь предоставляет `ProfileBranchMetadataImportPlanRequest` и метод фасада `assembleProfileAndBranchWithMetadata(...)`.
+
+Этот слой нужен для того, чтобы прикладная служба не реализовывала вручную:
+
+- чтение DTT для определения исходного `deviceTypeId`;
+- построение карты profile-level metadata override;
+- построение карты branch-level metadata override;
+- вызов низкоуровневого API с несколькими техническими map-структурами.
+
+Теперь demo-service выполняет только преобразование входных DTO в DTO библиотеки.

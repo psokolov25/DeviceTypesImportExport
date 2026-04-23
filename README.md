@@ -145,6 +145,80 @@ String profileJson = facade.toProfileJson(
   - `MERGE_PRESERVE_EXISTING` — сохранять существующие поля, дополняя отсутствующие;
   - `CREATE_COPY_WITH_SUFFIX` — создавать копию конфликтующего типа с суффиксом.
 
+##### High-level import-plan API
+
+Эта группа методов перенесена из demo-service в библиотеку, чтобы прикладная служба не дублировала разбор Base64/zip и не знала о внутренних деталях `templateOrigin`, `bindingHints`, branch-specific topology и merge override-значений.
+
+- `prepareProfileAssemblyRequest(...)` — из legacy Base64 или structured profile-import-плана получает готовый `EquipmentProfileAssemblyRequest`.
+- `prepareProfileAssemblyRequestFromZip(...)` — делает то же самое для zip-пакета с несколькими `.dtt`.
+- `prepareBranchAssemblyRequest(...)` — из branch-import-плана подготавливает `BranchEquipmentAssemblyRequest`, включая override устройств и поля `kind`.
+- `prepareBranchAssemblyRequestFromZip(...)` — тот же сценарий для zip-пакета.
+- `computeProfileImportPreview(...)` / `computeBranchImportPreview(...)` — вычисляют диагностические счётчики default/override-значений до фактической сборки.
+
+Пример использования для profile: 
+
+```java
+ProfileImportPlanRequest plan = new ProfileImportPlanRequest(
+        List.of(),
+        MergeStrategy.FAIL_IF_EXISTS,
+        List.of(new ProfileDeviceTypeImportSourceRequest(
+                archiveBase64,
+                null,
+                Map.of("TicketZone", "3"),
+                new DeviceTypeMetadata(
+                        "display-wd3264-red-window",
+                        "Display WD3264 Красное окно",
+                        "Display WD3264 Красное окно",
+                        "Шаблон дисплея для красного окна",
+                        "2.1.0",
+                        null
+                )
+        ))
+);
+
+EquipmentProfileAssemblyRequest assemblyRequest = facade.prepareProfileAssemblyRequest(plan);
+EquipmentProfile profile = facade.assembleProfile(assemblyRequest);
+Map<String, ImportPreviewComputationEntry> preview = facade.computeProfileImportPreview(plan);
+```
+
+Пример использования для branch: 
+
+```java
+BranchImportPlanRequest plan = new BranchImportPlanRequest(
+        null,
+        null,
+        MergeStrategy.FAIL_IF_EXISTS,
+        List.of(new BranchImportSourceRequest(
+                "branch-msk-01",
+                "Москва · окно 1",
+                List.of(new BranchDeviceTypeImportSourceRequest(
+                        archiveBase64,
+                        null,
+                        Map.of("ServicePointNameZone", "1"),
+                        new DeviceTypeMetadata(
+                                "display-wd3264-blue-window",
+                                "Display WD3264 Синее окно",
+                                "Display WD3264 Синее окно",
+                                "Шаблон дисплея для синего окна",
+                                "2.1.0",
+                                null
+                        ),
+                        List.of(new DeviceInstanceImportRequest(
+                                "display-1",
+                                "display 1",
+                                "display 1",
+                                "Основной дисплей окна",
+                                Map.of("IP", "192.168.1.100", "Port", 22224)
+                        )),
+                        "display"
+                ))
+        ))
+);
+
+BranchEquipmentAssemblyRequest assemblyRequest = facade.prepareBranchAssemblyRequest(plan);
+BranchEquipment branchEquipment = facade.assembleBranch(assemblyRequest);
+```
+
 1. **Чтение / запись / валидация DTT**
    - Методы: `readDtt`, `writeDtt`, `validate(template)`, `validate(bytes)`.
    - Кейс: принять `.dtt` из внешней системы, провалидировать и сохранить нормализованный архив.
@@ -162,32 +236,36 @@ String profileJson = facade.toProfileJson(
    - Метод: `compareDttVersion`.
    - Кейс: определить, какая версия больше — из входного запроса или из `.dtt`.
 
-4. **Сборка profile/branch из structured DTO**
-   - Методы: `assembleProfile`, `assembleBranch`.
-   - Кейс: импорт с override-значениями параметров и metadata.
+4. **Подготовка structured import-plan в assembly-request библиотеки**
+   - Методы: `prepareProfileAssemblyRequest`, `prepareProfileAssemblyRequestFromZip`, `prepareBranchAssemblyRequest`, `prepareBranchAssemblyRequestFromZip`.
+   - Кейс: REST/API слой принимает Base64 или zip, а библиотека сама превращает high-level план импорта в `EquipmentProfileAssemblyRequest` / `BranchEquipmentAssemblyRequest` с применением metadata override, override параметров, override устройств и branch-specific topology из `templateOrigin`.
 
-5. **Merge существующего branch equipment**
+5. **Сборка profile/branch из typed assembly DTO**
+   - Методы: `assembleProfile`, `assembleBranch`.
+   - Кейс: собрать итоговую модель после подготовки assembly-request.
+
+6. **Merge существующего branch equipment**
    - Метод: `mergeBranchEquipment`.
    - Кейс: применить входящий результат импорта к уже существующему `DeviceManager.json`.
    - Merge-стратегии: `FAIL_IF_EXISTS`, `REPLACE`, `MERGE_NON_NULLS`, `MERGE_PRESERVE_EXISTING`, `CREATE_COPY_WITH_SUFFIX`.
 
-6. **Parse / generate JSON**
+7. **Parse / generate JSON**
    - Методы: `parseProfileJson`, `parseBranchJson`, `toProfileJson`, `toBranchJson`.
    - Кейс: одновременно поддерживать object-model и raw JSON в интеграционном слое.
 
-7. **Batch import в profile**
+8. **Batch import в profile**
    - Методы: `importDttSetToProfile`, `importDttBase64SetToProfile`, `importDttZipToProfile`.
    - Preview: `previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`.
 
-8. **Batch import в branch**
+9. **Batch import в branch**
    - Методы: `importDttSetToBranch`, `importDttBase64SetToBranch`, `importDttZipToBranch`.
    - Preview: `previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`.
 
-9. **Импорт в существующий branch**
+10. **Импорт в существующий branch**
    - Методы: `importDttSetToExistingBranch`, `importDttBase64SetToExistingBranch`, `importDttZipToExistingBranch`.
    - Кейс: patch/merge без пересборки всего branch JSON вручную.
 
-10. **Utility для zip-набора `.dtt`**
+11. **Utility для zip-набора `.dtt`**
     - Методы: `readDttFilesFromZipByEntryName`, `resolveDttArchiveEntry`.
     - Кейс: multipart-загрузка zip с выбором конкретного `.dtt` по имени entry.
     - Пример:
@@ -196,23 +274,23 @@ String profileJson = facade.toProfileJson(
     byte[] chosen = facade.resolveDttArchiveEntry(entries, "nested/display");
     ```
 
-11. **Export из profile**
+12. **Export из profile**
     - Методы: `exportDttSetFromProfile*`, `exportProfileToDttZip*`.
     - Кейс: выгрузка всех или выбранных `deviceTypeId` в bytes/Base64/zip.
 
-12. **Export из branch**
+13. **Export из branch**
     - Методы: `exportDttSetFromBranch*`, `exportBranchToDttZip*`.
     - Кейс: выгрузка по фильтрам `branchIds` и `deviceTypeIds`, включая merge-стратегии на конфликте ID.
 
-13. **Комбинированная сборка profile + branch**
+14. **Комбинированная сборка profile + branch**
     - Метод: `importDttSetToProfileAndBranchWithMetadata`.
     - Кейс: за один вызов получить обе модели и применить metadata-override по profile/branch.
 
-14. **Preview single-export с диагностикой**
+15. **Preview single-export с диагностикой**
     - Методы: `previewSingleDttExportFromProfile`, `previewSingleDttExportFromBranch`.
     - Кейс: перед реальным download проверить, что экспорт одного типа устройства возможен, и получить типизированную причину ошибки (`EXPORT_PREVIEW_ERROR` / `MERGE_CONFLICT`).
 
-15. **Single-export в бинарный `.dtt`**
+16. **Single-export в бинарный `.dtt`**
     - Методы: `exportSingleDttFromProfile`, `exportSingleDttFromBranch`.
     - Подкатегории кейсов:
       - **Profile-only**: выгрузить один `deviceTypeId` из карты `deviceTypes`.
@@ -230,7 +308,7 @@ String profileJson = facade.toProfileJson(
     );
     ```
 
-16. **Single-export и preview из string JSON (без ручного parse)**
+17. **Single-export и preview из string JSON (без ручного parse)**
     - Методы:
       - `exportSingleDttFromProfileJson`
       - `exportSingleDttFromBranchJson`
@@ -252,7 +330,7 @@ String profileJson = facade.toProfileJson(
     }
     ```
 
-17. **Импорт в существующий branch из string JSON + Base64/zip входа**
+18. **Импорт в существующий branch из string JSON + Base64/zip входа**
     - Методы:
       - `importDttBase64SetToExistingBranchJson`
       - `importDttZipToExistingBranchJson`
@@ -260,7 +338,7 @@ String profileJson = facade.toProfileJson(
       - **Legacy integration**: существующий `DeviceManager.json` хранится как строка в БД/конфиге.
       - **Migration patch**: нужно подмешать новый DTT-set в существующий branch без промежуточного parse в прикладном коде.
       - **Upload gateway**: API принимает zip/Base64 от клиента, а current state приходит как raw JSON.
-    - Пример (приближённый к жизни):
+    - Пример:
     ```java
     // currentStateJson пришёл из БД как строка JSON
     String currentStateJson = repository.loadBranchJson("branch-msk-01");
@@ -276,7 +354,7 @@ String profileJson = facade.toProfileJson(
     repository.saveBranchJson("branch-msk-01", facade.toBranchJson(merged));
     ```
 
-18. **Экспорт DTT zip из string JSON (profile/branch)**
+19. **Экспорт DTT zip из string JSON (profile/branch)**
     - Методы:
       - `exportProfileToDttZip(String profileJson, ...)`
       - `exportBranchToDttZip(String branchJson, ...)`
@@ -1345,3 +1423,68 @@ java -jar device-template-demo-service/target/device-template-demo-service-0.1.0
 1. Расширить canonical-модель до полного покрытия profile/branch и parameter schema уровней (включая nested структуры).
 2. Добавить preview endpoint-ы сборки profile/branch с отображением рассчитанных defaults/overrides без сохранения.
 3. Расширить валидацию Groovy с проверкой доменных контекстов выполнения (не только синтаксис).
+
+## 8) Новый orchestration-слой facade API
+
+Следующая часть логики, ранее жившая в demo-service, перенесена в библиотеку как прямой high-level API исполнения import-plan:
+
+- `assembleProfile(ProfileImportPlanRequest)`
+- `assembleProfile(byte[] zipPayload, ProfileImportPlanRequest)`
+- `assembleBranch(BranchImportPlanRequest)`
+- `assembleBranch(byte[] zipPayload, BranchImportPlanRequest)`
+- `mergeIntoExistingBranch(BranchEquipment, BranchImportPlanRequest)`
+- `mergeIntoExistingBranch(byte[] zipPayload, BranchEquipment, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJson(String, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJson(byte[] zipPayload, String, BranchImportPlanRequest)`
+
+Этот слой полезен, когда прикладной сервис не хочет вручную выполнять цепочку:
+
+1. подготовить import-plan;
+2. превратить его в assembly-request;
+3. собрать incoming model;
+4. отдельно parse existing JSON;
+5. отдельно вызвать merge.
+
+Теперь библиотека может выполнить это напрямую.
+
+### Пример: собрать profile напрямую из import-plan
+
+```java
+ProfileImportPlanRequest plan = ...;
+EquipmentProfile profile = facade.assembleProfile(plan);
+```
+
+### Пример: merge structured branch-import в существующий DeviceManager.json
+
+```java
+BranchImportPlanRequest plan = ...;
+String existingBranchJson = Files.readString(Path.of("DeviceManager.json"));
+
+BranchEquipment merged = facade.mergeIntoExistingBranchJson(existingBranchJson, plan);
+```
+
+## 9) Подробная документация по всем фичам, терминам и кейсам
+
+Для полного описания всех фич библиотеки, подкатегорий кейсов, терминов и примеров использования добавлен отдельный документ:
+
+- `docs/feature-catalog.md`
+
+В нём собраны:
+
+- полный глоссарий терминов;
+- описание всех уровней API;
+- карта сценариев импорта/экспорта;
+- описание merge-стратегий;
+- кейсы profile/branch/existing-branch import;
+- примеры работы с Base64, zip и `archiveEntryName`;
+- сценарии производных типов устройств из одного `.dtt`.
+
+
+## Высокоуровневая совместная сборка profile и branch c наследованием metadata
+
+Библиотека поддерживает отдельный высокоуровневый сценарий, когда из одного набора DTT нужно за один вызов получить и профиль оборудования, и branch equipment, при этом metadata можно переопределять на двух уровнях:
+
+- на уровне profile — общие metadata типа устройства;
+- на уровне branch — metadata конкретного типа устройства только внутри указанного отделения.
+
+Для этого используется `assembleProfileAndBranchWithMetadata(ProfileBranchMetadataImportPlanRequest)`. Этот API нужен, когда один и тот же шаблон типа устройства должен участвовать одновременно в профиле оборудования и в конфигурации отделений, но с разными именами, отображаемыми именами, описаниями, версиями или иконками на разных уровнях.

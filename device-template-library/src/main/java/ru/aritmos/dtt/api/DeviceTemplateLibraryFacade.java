@@ -10,6 +10,10 @@ import ru.aritmos.dtt.api.dto.SingleDttExportPreviewResult;
 import ru.aritmos.dtt.api.dto.ValidationResult;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
@@ -94,12 +98,99 @@ public interface DeviceTemplateLibraryFacade {
     EquipmentProfile assembleProfile(EquipmentProfileAssemblyRequest request);
 
     /**
+     * Собирает профиль оборудования напрямую из high-level плана импорта.
+     *
+     * <p>Это orchestration-метод уровня фасада: внутри он подготавливает типизированный
+     * {@link ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest}, затем выполняет сборку профиля.
+     *
+     * @param request high-level план импорта profile JSON
+     * @return модель профиля
+     */
+    EquipmentProfile assembleProfile(ProfileImportPlanRequest request);
+
+    /**
+     * Собирает профиль оборудования напрямую из zip-пакета с DTT-архивами и high-level плана импорта.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param request high-level план импорта profile JSON
+     * @return модель профиля
+     */
+    EquipmentProfile assembleProfile(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
      * Собирает branch equipment из DTT.
      *
      * @param request параметры сборки отделений
      * @return модель branch equipment
      */
     BranchEquipment assembleBranch(BranchEquipmentAssemblyRequest request);
+
+    /**
+     * Собирает branch equipment напрямую из high-level плана импорта.
+     *
+     * <p>Метод подготавливает типизированный
+     * {@link ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest}, затем выполняет сборку.
+     *
+     * @param request high-level план импорта branch equipment JSON
+     * @return модель branch equipment
+     */
+    BranchEquipment assembleBranch(BranchImportPlanRequest request);
+
+    /**
+     * Собирает branch equipment напрямую из zip-пакета с DTT-архивами и high-level плана импорта.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param request high-level план импорта branch equipment JSON
+     * @return модель branch equipment
+     */
+    BranchEquipment assembleBranch(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет high-level импорт в уже существующую branch equipment модель.
+     *
+     * <p>Сначала по plan-запросу собирается incoming branch equipment, затем результат объединяется
+     * с existing по указанной merge-стратегии.
+     *
+     * @param existing существующая branch equipment модель
+     * @param request high-level план импорта branch equipment JSON
+     * @return объединённая branch equipment модель
+     */
+    BranchEquipment mergeIntoExistingBranch(BranchEquipment existing, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет high-level импорт в уже существующую branch equipment модель из zip-пакета с DTT-архивами.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param existing существующая branch equipment модель
+     * @param request high-level план импорта branch equipment JSON
+     * @return объединённая branch equipment модель
+     */
+    BranchEquipment mergeIntoExistingBranch(byte[] zipPayload, BranchEquipment existing, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет high-level импорт в уже существующий branch equipment JSON.
+     *
+     * @param existingBranchJson существующий branch equipment JSON
+     * @param request high-level план импорта branch equipment JSON
+     * @return объединённая branch equipment модель
+     */
+    BranchEquipment mergeIntoExistingBranchJson(String existingBranchJson, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет high-level импорт в уже существующий branch equipment JSON из zip-пакета с DTT-архивами.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param existingBranchJson существующий branch equipment JSON
+     * @param request high-level план импорта branch equipment JSON
+     * @return объединённая branch equipment модель
+     */
+    BranchEquipment mergeIntoExistingBranchJson(byte[] zipPayload, String existingBranchJson, BranchImportPlanRequest request);
+
+    /**
+     * Одновременно собирает profile и branch equipment из структурированного плана
+     * с наследованием metadata между уровнями profile и branch.
+     */
+    ProfileBranchAssemblyResult assembleProfileAndBranchWithMetadata(ProfileBranchMetadataImportPlanRequest request);
 
     /**
      * Объединяет две branch equipment модели по выбранной merge-стратегии.
@@ -143,6 +234,65 @@ public interface DeviceTemplateLibraryFacade {
      * @return JSON
      */
     String toBranchJson(BranchEquipment branchEquipment);
+
+    /**
+     * Подготавливает типизированный запрос сборки profile JSON из high-level плана импорта.
+     *
+     * <p>Метод переносит в библиотеку логику, которая раньше жила в demo-service:
+     * декодирование Base64-архивов, чтение DTT, применение metadata override и override-значений параметров.
+     *
+     * @param request high-level план импорта profile JSON
+     * @return типизированный assembly-request библиотеки
+     */
+    EquipmentProfileAssemblyRequest prepareProfileAssemblyRequest(ProfileImportPlanRequest request);
+
+    /**
+     * Подготавливает типизированный запрос сборки profile JSON из zip-пакета с несколькими `.dtt`.
+     *
+     * <p>Если structured-список device types не передан, библиотека импортирует все `.dtt` entry из zip.
+     * Если structured-список передан, каждый элемент должен ссылаться на конкретный `archiveEntryName`.
+     *
+     * @param zipPayload zip-пакет с DTT-архивами
+     * @param request high-level план импорта profile JSON
+     * @return типизированный assembly-request библиотеки
+     */
+    EquipmentProfileAssemblyRequest prepareProfileAssemblyRequestFromZip(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
+     * Подготавливает типизированный запрос сборки branch equipment JSON из high-level плана импорта.
+     *
+     * <p>Поддерживаются legacy- и structured-сценарии, включая branch-specific топологию из `templateOrigin`,
+     * override metadata, override параметров типа устройства, override устройств и override поля `kind`.
+     *
+     * @param request high-level план импорта branch equipment JSON
+     * @return типизированный assembly-request библиотеки
+     */
+    BranchEquipmentAssemblyRequest prepareBranchAssemblyRequest(BranchImportPlanRequest request);
+
+    /**
+     * Подготавливает типизированный запрос сборки branch equipment JSON из zip-пакета с несколькими `.dtt`.
+     *
+     * @param zipPayload zip-пакет с DTT-архивами
+     * @param request high-level план импорта branch equipment JSON
+     * @return типизированный assembly-request библиотеки
+     */
+    BranchEquipmentAssemblyRequest prepareBranchAssemblyRequestFromZip(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Вычисляет preview-диагностику profile-импорта на уровне high-level плана.
+     *
+     * @param request high-level план импорта profile JSON
+     * @return map `deviceTypeId -> вычисленная диагностика`
+     */
+    Map<String, ImportPreviewComputationEntry> computeProfileImportPreview(ProfileImportPlanRequest request);
+
+    /**
+     * Вычисляет preview-диагностику branch-импорта на уровне high-level плана.
+     *
+     * @param request high-level план импорта branch equipment JSON
+     * @return map `branchId:deviceTypeId -> вычисленная диагностика`
+     */
+    Map<String, ImportPreviewComputationEntry> computeBranchImportPreview(BranchImportPlanRequest request);
 
     /**
      * Выполняет preview single-export из profile-модели в `.dtt`.

@@ -4,43 +4,34 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.micronaut.context.ApplicationContext;
-import io.micronaut.runtime.server.EmbeddedServer;
+import io.micronaut.http.HttpResponse;
 import org.junit.jupiter.api.Test;
+import ru.aritmos.dtt.demo.controller.SwaggerSpecController;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Интеграционный контрактный тест OpenAPI-спеки demo-service.
+ * Контрактный тест OpenAPI-спеки demo-service.
  *
  * <p>Проверяет, что спецификация содержит ключевые endpoint-ы импорта/экспорта и
  * структурированные схемы ошибок, ожидаемые клиентами.</p>
+ *
+ * <p>Тест читает YAML через {@link SwaggerSpecController}, а не через HTTP-вызов,
+ * чтобы контракт содержимого спецификации не зависел от сетевой флуктуации при
+ * старте embedded-server. HTTP-доступность спецификации и Swagger UI отдельно
+ * проверяется в {@link ServerStartupAndSwaggerUiTest}.</p>
  */
 class OpenApiSpecContractTest {
 
     @Test
-    void shouldExposeExpectedDttEndpointsAndErrorSchemasInOpenApiSpec() throws IOException, InterruptedException {
-        try (EmbeddedServer server = ApplicationContext.run(EmbeddedServer.class, Map.of("micronaut.server.port", -1))) {
-            final HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(5))
-                    .build();
-
-            final HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(server.getURL() + "/swagger/device-template-demo.yml"))
-                    .GET()
-                    .timeout(Duration.ofSeconds(5))
-                    .build();
-
-            final HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            assertThat(response.statusCode()).isEqualTo(200);
-            assertThat(response.headers().firstValue("content-type").orElse(""))
+    void shouldExposeExpectedDttEndpointsAndErrorSchemasInOpenApiSpec() throws IOException {
+        try (ApplicationContext context = ApplicationContext.run()) {
+            final SwaggerSpecController controller = context.getBean(SwaggerSpecController.class);
+            final HttpResponse<String> response = controller.spec();
+            assertThat(response.code()).isEqualTo(200);
+            assertThat(response.getContentType().map(Object::toString).orElse(""))
                     .containsIgnoringCase("application/x-yaml")
                     .containsIgnoringCase("charset=utf-8");
 

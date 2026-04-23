@@ -11,6 +11,15 @@ import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
+import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchMetadataImportRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
@@ -213,6 +222,227 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(result.profile().deviceTypes().get("display").metadata().name()).isEqualTo("Display Profile");
         assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display").template().metadata().name())
                 .isEqualTo("Display Branch");
+    }
+
+    @Test
+    void shouldAssembleProfileAndBranchWithMetadataFromHighLevelPlan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final ProfileBranchMetadataImportPlanRequest request = new ProfileBranchMetadataImportPlanRequest(
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        archiveBase64,
+                        null,
+                        Map.of(),
+                        new DeviceTypeMetadata("display", "Display Profile", "Display Profile", "profile-desc")
+                )),
+                List.of(new BranchMetadataImportRequest(
+                        "branch-1",
+                        "branch-1",
+                        List.of(new BranchDeviceTypeMetadataOverrideImportRequest(
+                                "display",
+                                new DeviceTypeMetadata("display", "Display Branch", "Display Branch", "branch-desc")
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final var result = facade.assembleProfileAndBranchWithMetadata(request);
+
+        assertThat(result.profile().deviceTypes().get("display").metadata().name()).isEqualTo("Display Profile");
+        assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display").template().metadata().name())
+                .isEqualTo("Display Branch");
+    }
+
+    @Test
+    void shouldPrepareProfileAssemblyRequestFromHighLevelImportPlan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final ProfileImportPlanRequest plan = new ProfileImportPlanRequest(
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        archiveBase64,
+                        null,
+                        Map.of("ip", "10.10.10.10"),
+                        new DeviceTypeMetadata("display-red", "Display Red", "Display Red", "red", "2.1.0", null)
+                ))
+        );
+
+        final EquipmentProfileAssemblyRequest prepared = facade.prepareProfileAssemblyRequest(plan);
+        final EquipmentProfile profile = facade.assembleProfile(prepared);
+
+        assertThat(prepared.deviceTypes()).hasSize(1);
+        assertThat(profile.deviceTypes()).containsKey("display-red");
+        assertThat(profile.deviceTypes().get("display-red").metadata().version()).isEqualTo("2.1.0");
+        assertThat(facade.computeProfileImportPreview(plan)).containsKey("display");
+    }
+
+    @Test
+    void shouldPrepareBranchAssemblyRequestFromHighLevelImportPlan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final BranchImportPlanRequest plan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                archiveBase64,
+                                null,
+                                Map.of("ip", "10.10.10.20"),
+                                new DeviceTypeMetadata("display-blue", "Display Blue", "Display Blue", "blue", "2.2.0", null),
+                                List.of(new DeviceInstanceImportRequest(
+                                        "dev-1",
+                                        "dev-1",
+                                        "dev-1",
+                                        "Display instance",
+                                        Map.of("screen", "A")
+                                )),
+                                "display"
+                        ))
+                ))
+        );
+
+        final BranchEquipmentAssemblyRequest prepared = facade.prepareBranchAssemblyRequest(plan);
+        final BranchEquipment branchEquipment = facade.assembleBranch(prepared);
+
+        assertThat(prepared.branches()).hasSize(1);
+        assertThat(branchEquipment.branches()).containsKey("branch-1");
+        assertThat(branchEquipment.branches().get("branch-1").deviceTypes()).containsKey("display-blue");
+        assertThat(branchEquipment.branches().get("branch-1").deviceTypes().get("display-blue").devices()).containsKey("dev-1");
+        assertThat(facade.computeBranchImportPreview(plan)).containsKey("branch-1:display");
+    }
+
+    @Test
+    void shouldAssembleProfileDirectlyFromHighLevelPlan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final ProfileImportPlanRequest plan = new ProfileImportPlanRequest(
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        archiveBase64,
+                        null,
+                        Map.of("ip", "10.10.10.30"),
+                        new DeviceTypeMetadata("display-green", "Display Green", "Display Green", "green", "3.0.0", null)
+                ))
+        );
+
+        final EquipmentProfile assembled = facade.assembleProfile(plan);
+
+        assertThat(assembled.deviceTypes()).containsKey("display-green");
+        assertThat(assembled.deviceTypes().get("display-green").deviceTypeParamValues()).containsEntry("ip", "10.10.10.30");
+        assertThat(assembled.deviceTypes().get("display-green").metadata().version()).isEqualTo("3.0.0");
+    }
+
+    @Test
+    void shouldAssembleBranchAndMergeIntoExistingBranchDirectlyFromHighLevelPlan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final BranchImportPlanRequest plan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.REPLACE,
+                List.of(new BranchImportSourceRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                archiveBase64,
+                                null,
+                                Map.of("ip", "10.10.10.40"),
+                                new DeviceTypeMetadata("display", "Display", "Display", "desc", "4.0.0", null),
+                                List.of(new DeviceInstanceImportRequest(
+                                        "display-1",
+                                        "display-1",
+                                        "display-1",
+                                        "Display instance",
+                                        Map.of("screen", "B")
+                                )),
+                                "display"
+                        ))
+                ))
+        );
+
+        final BranchEquipment assembled = facade.assembleBranch(plan);
+        final BranchEquipment existing = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Legacy",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(
+                                        new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                                                new DeviceTypeMetadata("display", "Display", "Display", "legacy"),
+                                                Map.of("ip", "127.0.0.1")
+                                        ),
+                                        true
+                                ),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final BranchEquipment merged = facade.mergeIntoExistingBranch(existing, plan);
+        final BranchEquipment mergedFromJson = facade.mergeIntoExistingBranchJson(facade.toBranchJson(existing), plan);
+
+        assertThat(assembled.branches()).containsKey("branch-1");
+        assertThat(assembled.branches().get("branch-1").deviceTypes().get("display").template().deviceTypeParamValues())
+                .containsEntry("ip", "10.10.10.40");
+        assertThat(assembled.branches().get("branch-1").deviceTypes().get("display").devices()).containsKey("display-1");
+        assertThat(merged.branches().get("branch-1").deviceTypes().get("display").template().metadata().version()).isEqualTo("4.0.0");
+        assertThat(mergedFromJson.branches().get("branch-1").deviceTypes().get("display").template().metadata().version()).isEqualTo("4.0.0");
+    }
+
+    @Test
+    void shouldAssembleAndMergeFromZipUsingHighLevelPlans() throws Exception {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final byte[] zipPayload = zipWithEntries(Map.of("nested/Display.dtt", archiveBytes));
+
+        final ProfileImportPlanRequest profilePlan = new ProfileImportPlanRequest(
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        null,
+                        "nested/Display.dtt",
+                        Map.of("ip", "10.10.10.50"),
+                        new DeviceTypeMetadata("display-zip", "Display Zip", "Display Zip", "zip", "5.0.0", null)
+                ))
+        );
+        final BranchImportPlanRequest branchPlan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.REPLACE,
+                List.of(new BranchImportSourceRequest(
+                        "branch-zip",
+                        "Zip Branch",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                null,
+                                "nested/Display.dtt",
+                                Map.of("ip", "10.10.10.60"),
+                                new DeviceTypeMetadata("display", "Display", "Display", "zip", "6.0.0", null),
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+
+        final EquipmentProfile profile = facade.assembleProfile(zipPayload, profilePlan);
+        final BranchEquipment existing = facade.importDttSetToBranch(List.of(archiveBytes), List.of("branch-zip"), MergeStrategy.FAIL_IF_EXISTS);
+        final BranchEquipment merged = facade.mergeIntoExistingBranch(zipPayload, existing, branchPlan);
+        final BranchEquipment mergedFromJson = facade.mergeIntoExistingBranchJson(zipPayload, facade.toBranchJson(existing), branchPlan);
+
+        assertThat(profile.deviceTypes()).containsKey("display-zip");
+        assertThat(profile.deviceTypes().get("display-zip").metadata().version()).isEqualTo("5.0.0");
+        assertThat(merged.branches().get("branch-zip").deviceTypes().get("display").template().metadata().version()).isEqualTo("6.0.0");
+        assertThat(mergedFromJson.branches().get("branch-zip").deviceTypes().get("display").template().metadata().version()).isEqualTo("6.0.0");
     }
 
     @Test
