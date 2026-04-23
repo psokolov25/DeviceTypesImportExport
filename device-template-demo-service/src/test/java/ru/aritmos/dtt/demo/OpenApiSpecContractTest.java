@@ -61,9 +61,7 @@ class OpenApiSpecContractTest {
                     .isEqualTo("DTT · Экспорт из profile JSON");
             assertThat(root.at("/paths/~1api~1dtt~1import~1profile/post/tags/0").asText())
                     .isEqualTo("DTT · Импорт в profile JSON");
-            assertThat(root.at("/paths/~1api~1dtt~1import~1profile/post/responses/409/description").asText())
-                    .contains("Конфликт");
-            assertThat(root.at("/paths/~1api~1dtt~1import~1profile/post/responses/422/description").asText())
+            assertThat(root.at("/paths/~1api~1dtt~1import~1profile/post/responses/400/description").asText())
                     .contains("валидации");
             assertThat(root.at("/components/schemas/ImportDttSetToProfileResponse/properties/profileJson/type").asText()).isEqualTo("object");
             assertThat(root.at("/components/schemas/ExportAllDttFromProfileRequest/description").asText())

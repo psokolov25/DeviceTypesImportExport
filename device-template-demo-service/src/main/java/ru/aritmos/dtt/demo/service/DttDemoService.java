@@ -21,7 +21,6 @@ import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
 import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
-import ru.aritmos.dtt.api.DttVersionSupport;
 import ru.aritmos.dtt.archive.DttIconSupport;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.demo.dto.DeviceTypeBasicMetadataResponse;
@@ -72,9 +71,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
@@ -135,9 +131,15 @@ public class DttDemoService {
      * @return список базовых метаданных типов устройств
      */
     public DttMetadataBatchResponse extractMetadata(byte[] payload) {
-        final List<DttArchiveTemplate> templates = readTemplatesFromDttOrZip(payload);
-        final List<DeviceTypeBasicMetadataResponse> metadata = templates.stream()
-                .map(this::toBasicMetadata)
+        final List<DeviceTypeBasicMetadataResponse> metadata = facade.extractDeviceTypeMetadataFromDttOrZip(payload).stream()
+                .map(item -> new DeviceTypeBasicMetadataResponse(
+                        item.id(),
+                        firstNonBlank(item.name(), item.id()),
+                        firstNonBlank(item.displayName(), item.name(), item.id()),
+                        item.version(),
+                        firstNonBlank(item.description(), item.name(), item.id(), ""),
+                        DttIconSupport.resolveOrDefault(item.iconBase64())
+                ))
                 .toList();
         return new DttMetadataBatchResponse(metadata);
     }
@@ -150,13 +152,13 @@ public class DttDemoService {
      * @return результат сравнения, включая источник большей версии
      */
     public DttVersionComparisonResponse compareDttVersion(byte[] archiveBytes, String inputVersion) {
-        final DttArchiveTemplate template = facade.readDtt(archiveBytes);
-        final String normalizedInput = DttVersionSupport.normalize(inputVersion);
-        final String normalizedDtt = DttVersionSupport.normalize(template.descriptor().deviceTypeVersion());
-        final int comparison = DttVersionSupport.compare(normalizedInput, normalizedDtt);
-        final String source = comparison == 0 ? "EQUAL" : (comparison > 0 ? "INPUT" : "DTT");
-        final String greater = comparison >= 0 ? normalizedInput : normalizedDtt;
-        return new DttVersionComparisonResponse(normalizedInput, normalizedDtt, greater, source);
+        final var comparison = facade.compareDttVersion(archiveBytes, inputVersion);
+        return new DttVersionComparisonResponse(
+                comparison.inputVersion(),
+                comparison.dttVersion(),
+                comparison.greaterVersion(),
+                comparison.greaterSource()
+        );
     }
 
 
@@ -168,8 +170,7 @@ public class DttDemoService {
      * @return базовое имя файла без расширения
      */
     public String resolveDeviceTypeArchiveBaseName(byte[] archiveBytes, String fallbackName) {
-        final DttArchiveTemplate template = facade.readDtt(archiveBytes);
-        return ru.aritmos.dtt.archive.DttFileNames.resolveBaseName(template.metadata(), fallbackName);
+        return facade.resolveDeviceTypeArchiveBaseName(archiveBytes, fallbackName);
     }
 
     /**
@@ -294,13 +295,8 @@ public class DttDemoService {
     public ExportSingleDttResponse exportSingleDttFromProfile(EquipmentProfile profile,
                                                               String deviceTypeId,
                                                               String dttVersion) {
-        final ExportAllDttFromProfileResponse exported =
-                exportAllDttFromProfile(profile, List.of(deviceTypeId), dttVersion);
-        final String archiveBase64 = exported.archivesBase64ByDeviceTypeId().get(deviceTypeId);
-        if (archiveBase64 == null || archiveBase64.isBlank()) {
-            throw new IllegalArgumentException("deviceTypeId not found in profile: " + deviceTypeId);
-        }
-        return new ExportSingleDttResponse(deviceTypeId, archiveBase64);
+        final byte[] archive = facade.exportSingleDttFromProfile(profile, deviceTypeId, dttVersion);
+        return new ExportSingleDttResponse(deviceTypeId, Base64.getEncoder().encodeToString(archive));
     }
 
     /**
@@ -318,7 +314,7 @@ public class DttDemoService {
     public byte[] exportSingleDttFromProfileToBytes(EquipmentProfile profile,
                                                     String deviceTypeId,
                                                     String dttVersion) {
-        return Base64.getDecoder().decode(exportSingleDttFromProfile(profile, deviceTypeId, dttVersion).archiveBase64());
+        return facade.exportSingleDttFromProfile(profile, deviceTypeId, dttVersion);
     }
 
     /**
@@ -327,7 +323,7 @@ public class DttDemoService {
     public byte[] exportSingleDttFromProfileJsonToBytes(JsonNode profileJson,
                                                         String deviceTypeId,
                                                         String dttVersion) {
-        return Base64.getDecoder().decode(exportSingleDttFromProfileJson(profileJson, deviceTypeId, dttVersion).archiveBase64());
+        return facade.exportSingleDttFromProfileJson(toCompactJson(profileJson), deviceTypeId, dttVersion);
     }
 
     /**
@@ -336,12 +332,8 @@ public class DttDemoService {
     public SingleDttExportPreviewResponse previewSingleDttExportFromProfile(EquipmentProfile profile,
                                                                              String deviceTypeId,
                                                                              String dttVersion) {
-        try {
-            final byte[] payload = exportSingleDttFromProfileToBytes(profile, deviceTypeId, dttVersion);
-            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
-        } catch (RuntimeException exception) {
-            return failedPreview(deviceTypeId, exception, false);
-        }
+        final var preview = facade.previewSingleDttExportFromProfile(profile, deviceTypeId, dttVersion);
+        return toDemoPreview(preview);
     }
 
     /**
@@ -350,12 +342,7 @@ public class DttDemoService {
     public SingleDttExportPreviewResponse previewSingleDttExportFromProfileJson(JsonNode profileJson,
                                                                                  String deviceTypeId,
                                                                                  String dttVersion) {
-        try {
-            final byte[] payload = exportSingleDttFromProfileJsonToBytes(profileJson, deviceTypeId, dttVersion);
-            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
-        } catch (RuntimeException exception) {
-            return failedPreview(deviceTypeId, exception, false);
-        }
+        return toDemoPreview(facade.previewSingleDttExportFromProfileJson(toCompactJson(profileJson), deviceTypeId, dttVersion));
     }
 
     /**
@@ -396,8 +383,7 @@ public class DttDemoService {
                                                                             String existingBranchJson,
                                                                             List<String> branchIds,
                                                                             MergeStrategy mergeStrategy) {
-        final BranchEquipment existing = facade.parseBranchJson(existingBranchJson);
-        final var branch = facade.importDttBase64SetToExistingBranch(archivesBase64, existing, branchIds, mergeStrategy);
+        final var branch = facade.importDttBase64SetToExistingBranchJson(archivesBase64, existingBranchJson, branchIds, mergeStrategy);
         return toBranchResponse(branch);
     }
 
@@ -420,7 +406,7 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse importDttSetToExistingBranch(ImportDttSetToExistingBranchRequest request) {
         final BranchEquipment existing = facade.parseBranchJson(request.existingBranchJson());
         final BranchEquipment incoming = facade.assembleBranch(toStructuredBranchAssemblyRequest(request));
-        final BranchEquipment merged = mergeBranchEquipment(existing, incoming, request.mergeStrategy());
+        final BranchEquipment merged = facade.mergeBranchEquipment(existing, incoming, request.mergeStrategy());
         return toBranchResponse(merged);
     }
 
@@ -550,9 +536,17 @@ public class DttDemoService {
 
     public ImportDttSetToBranchResponse importDttZipToExistingBranch(byte[] zipBytes,
                                                                      ImportDttZipToExistingBranchUploadRequest request) {
+        if (request.branches() == null && request.branchIds() != null && !request.branchIds().isEmpty()) {
+            return toBranchResponse(facade.importDttZipToExistingBranchJson(
+                    zipBytes,
+                    request.existingBranchJson(),
+                    request.branchIds(),
+                    request.mergeStrategy()
+            ));
+        }
         final BranchEquipment existing = facade.parseBranchJson(request.existingBranchJson());
         final BranchEquipment imported = facade.assembleBranch(toStructuredBranchAssemblyRequest(zipBytes, request));
-        return toBranchResponse(mergeBranchEquipment(existing, imported, request.mergeStrategy()));
+        return toBranchResponse(facade.mergeBranchEquipment(existing, imported, request.mergeStrategy()));
     }
 
     private ImportDttSetToProfileResponse toProfileResponse(EquipmentProfile profile) {
@@ -576,27 +570,6 @@ public class DttDemoService {
                 ))
                 .toList();
         return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount, metadata);
-    }
-
-    private List<DttArchiveTemplate> readTemplatesFromDttOrZip(byte[] payload) {
-        try {
-            return List.of(facade.readDtt(payload));
-        } catch (RuntimeException ignored) {
-            final Map<String, byte[]> archivesByEntry = readDttFilesFromZipByEntryName(payload);
-            return archivesByEntry.values().stream().map(facade::readDtt).toList();
-        }
-    }
-
-    private DeviceTypeBasicMetadataResponse toBasicMetadata(DttArchiveTemplate template) {
-        final String name = firstNonBlank(template.metadata().name(), template.metadata().id());
-        return new DeviceTypeBasicMetadataResponse(
-                template.metadata().id(),
-                name,
-                firstNonBlank(template.metadata().displayName(), name, template.metadata().id()),
-                template.descriptor().deviceTypeVersion(),
-                firstNonBlank(template.metadata().description(), name, template.metadata().id(), ""),
-                DttIconSupport.resolveOrDefault(template.metadata().iconBase64())
-        );
     }
 
     private Map<String, PreviewComputationEntry> computeProfilePreview(ImportDttSetToProfileRequest request) {
@@ -642,7 +615,7 @@ public class DttDemoService {
 
     private EquipmentProfileAssemblyRequest toStructuredProfileAssemblyRequest(byte[] zipBytes,
                                                                               ImportDttZipToProfileUploadRequest request) {
-        final Map<String, byte[]> archivesByEntryName = readDttFilesFromZipByEntryName(zipBytes);
+        final Map<String, byte[]> archivesByEntryName = facade.readDttFilesFromZipByEntryName(zipBytes);
         final List<EquipmentProfileDeviceTypeRequest> deviceTypes = new ArrayList<>();
         if (request != null && request.deviceTypes() != null && !request.deviceTypes().isEmpty()) {
             request.deviceTypes().forEach(item -> deviceTypes.add(toProfileDeviceTypeRequest(archivesByEntryName, item)));
@@ -664,7 +637,7 @@ public class DttDemoService {
 
     private EquipmentProfileDeviceTypeRequest toProfileDeviceTypeRequest(Map<String, byte[]> archivesByEntryName,
                                                                         ImportUploadedProfileDeviceTypeRequest request) {
-        final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
+        final DttArchiveTemplate archive = facade.readDtt(facade.resolveDttArchiveEntry(archivesByEntryName, request.archiveEntryName()));
         final DeviceTypeTemplate template = toDeviceTypeTemplate(archive);
         return new EquipmentProfileDeviceTypeRequest(
                 new DeviceTypeTemplate(applyMetadataOverride(template.metadata(), request.metadataOverride()), mergeValues(template.deviceTypeParamValues(), request.deviceTypeParamValues())),
@@ -675,7 +648,7 @@ public class DttDemoService {
     private BranchEquipmentAssemblyRequest toStructuredBranchAssemblyRequest(byte[] zipBytes,
                                                                             ImportDttZipToBranchUploadRequest request) {
         Objects.requireNonNull(request, "request must not be null");
-        final Map<String, byte[]> archivesByEntryName = readDttFilesFromZipByEntryName(zipBytes);
+        final Map<String, byte[]> archivesByEntryName = facade.readDttFilesFromZipByEntryName(zipBytes);
         final Map<String, BranchImportRequest> branches = new LinkedHashMap<>();
         if (request.branchIds() != null) {
             final List<byte[]> archives = new ArrayList<>(archivesByEntryName.values());
@@ -695,7 +668,7 @@ public class DttDemoService {
     private BranchEquipmentAssemblyRequest toStructuredBranchAssemblyRequest(byte[] zipBytes,
                                                                             ImportDttZipToExistingBranchUploadRequest request) {
         Objects.requireNonNull(request, "request must not be null");
-        final Map<String, byte[]> archivesByEntryName = readDttFilesFromZipByEntryName(zipBytes);
+        final Map<String, byte[]> archivesByEntryName = facade.readDttFilesFromZipByEntryName(zipBytes);
         final Map<String, BranchImportRequest> branches = new LinkedHashMap<>();
         if (request.branchIds() != null) {
             final List<byte[]> archives = new ArrayList<>(archivesByEntryName.values());
@@ -735,7 +708,7 @@ public class DttDemoService {
     private BranchDeviceTypeImportRequest toStructuredBranchDeviceTypeImportRequest(String branchId,
                                                                                     Map<String, byte[]> archivesByEntryName,
                                                                                     ImportUploadedBranchDeviceTypeRequest request) {
-        final DttArchiveTemplate archive = facade.readDtt(resolveArchiveEntry(archivesByEntryName, request.archiveEntryName()));
+        final DttArchiveTemplate archive = facade.readDtt(facade.resolveDttArchiveEntry(archivesByEntryName, request.archiveEntryName()));
         final BranchDeviceTypeImportRequest base = toBranchDeviceTypeImportRequest(archive, branchId);
         final DeviceTypeTemplate baseTemplate = base.deviceTypeRequest().template();
         final DeviceTypeTemplate overriddenTemplate = new DeviceTypeTemplate(
@@ -766,52 +739,6 @@ public class DttDemoService {
                 .map(archive -> toBranchDeviceTypeImportRequest(archive, branchId))
                 .toList();
         return new BranchImportRequest(branchId, branchId, deviceTypes);
-    }
-
-    private Map<String, byte[]> readDttFilesFromZipByEntryName(byte[] zipBytes) {
-        if (zipBytes == null || zipBytes.length == 0) {
-            throw new IllegalArgumentException("zip payload must not be empty");
-        }
-        final Map<String, byte[]> result = new LinkedHashMap<>();
-        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-            ZipEntry entry;
-            while ((entry = input.getNextEntry()) != null) {
-                if (!entry.isDirectory() && entry.getName() != null && entry.getName().toLowerCase().endsWith(".dtt")) {
-                    result.put(entry.getName(), input.readAllBytes());
-                }
-            }
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("Failed to read DTT zip payload", exception);
-        }
-        if (result.isEmpty()) {
-            throw new IllegalArgumentException("zip payload does not contain any .dtt entries");
-        }
-        return result;
-    }
-
-    private byte[] resolveArchiveEntry(Map<String, byte[]> archivesByEntryName, String archiveEntryName) {
-        if (archiveEntryName == null || archiveEntryName.isBlank()) {
-            throw new IllegalArgumentException("archiveEntryName must not be blank");
-        }
-        final byte[] exact = archivesByEntryName.get(archiveEntryName);
-        if (exact != null) {
-            return exact;
-        }
-        final String normalized = normalizeArchiveEntryName(archiveEntryName);
-        for (Map.Entry<String, byte[]> entry : archivesByEntryName.entrySet()) {
-            if (normalizeArchiveEntryName(entry.getKey()).equalsIgnoreCase(normalized)) {
-                return entry.getValue();
-            }
-        }
-        throw new IllegalArgumentException("DTT archive entry not found in uploaded zip: " + archiveEntryName
-                + ". Available entries: " + archivesByEntryName.keySet());
-    }
-
-    private String normalizeArchiveEntryName(String name) {
-        final String normalized = name.replace('\\', '/');
-        final int slashIndex = normalized.lastIndexOf('/');
-        final String fileName = slashIndex >= 0 ? normalized.substring(slashIndex + 1) : normalized;
-        return fileName.toLowerCase().endsWith(".dtt") ? fileName.substring(0, fileName.length() - 4) : fileName;
     }
 
     private EquipmentProfileAssemblyRequest toStructuredProfileAssemblyRequest(ImportDttSetToProfileRequest request) {
@@ -1034,108 +961,6 @@ public class DttDemoService {
                 toBranchScriptMapFromSnapshot(branchTopology.get("eventHandlers")),
                 toBranchScriptMapFromSnapshot(branchTopology.get("commands"))
         );
-    }
-
-    private BranchEquipment mergeBranchEquipment(BranchEquipment existing, BranchEquipment incoming, MergeStrategy mergeStrategy) {
-        final Map<String, ru.aritmos.dtt.json.branch.BranchNode> mergedBranches = new LinkedHashMap<>(existing.branches());
-        final MergeStrategy effectiveStrategy = mergeStrategy == null ? MergeStrategy.FAIL_IF_EXISTS : mergeStrategy;
-        incoming.branches().forEach((branchId, incomingBranch) -> {
-            final ru.aritmos.dtt.json.branch.BranchNode existingBranch = mergedBranches.get(branchId);
-            if (existingBranch == null) {
-                mergedBranches.put(branchId, incomingBranch);
-                return;
-            }
-            final Map<String, ru.aritmos.dtt.json.branch.BranchDeviceType> mergedTypes = new LinkedHashMap<>(existingBranch.deviceTypes());
-            incomingBranch.deviceTypes().forEach((typeId, incomingType) -> mergeBranchDeviceType(mergedTypes, typeId, incomingType, effectiveStrategy));
-            mergedBranches.put(branchId, new ru.aritmos.dtt.json.branch.BranchNode(existingBranch.id(), existingBranch.displayName(), mergedTypes));
-        });
-        return new BranchEquipment(mergedBranches);
-    }
-
-    private void mergeBranchDeviceType(Map<String, ru.aritmos.dtt.json.branch.BranchDeviceType> deviceTypes,
-                                       String typeId,
-                                       ru.aritmos.dtt.json.branch.BranchDeviceType incomingType,
-                                       MergeStrategy mergeStrategy) {
-        if (!deviceTypes.containsKey(typeId)) {
-            deviceTypes.put(typeId, incomingType);
-            return;
-        }
-        final ru.aritmos.dtt.json.branch.BranchDeviceType existingType = deviceTypes.get(typeId);
-        switch (mergeStrategy) {
-            case FAIL_IF_EXISTS -> throw new IllegalArgumentException("Тип устройства '" + typeId + "' уже существует в отделении");
-            case REPLACE -> deviceTypes.put(typeId, incomingType);
-            case MERGE_NON_NULLS -> deviceTypes.put(typeId, mergeBranchNonNulls(existingType, incomingType));
-            case MERGE_PRESERVE_EXISTING -> deviceTypes.put(typeId, mergeBranchPreserveExisting(existingType, incomingType));
-            case CREATE_COPY_WITH_SUFFIX -> deviceTypes.put(nextCopyKey(deviceTypes, typeId), incomingType);
-        }
-    }
-
-    private ru.aritmos.dtt.json.branch.BranchDeviceType mergeBranchNonNulls(ru.aritmos.dtt.json.branch.BranchDeviceType existing,
-                                                                             ru.aritmos.dtt.json.branch.BranchDeviceType incoming) {
-        final Map<String, ru.aritmos.dtt.json.branch.DeviceInstanceTemplate> mergedDevices = new LinkedHashMap<>(existing.devices());
-        mergedDevices.putAll(incoming.devices());
-        return new ru.aritmos.dtt.json.branch.BranchDeviceType(
-                incoming.template() == null ? existing.template() : incoming.template(),
-                mergedDevices,
-                incoming.kind() == null ? existing.kind() : incoming.kind(),
-                incoming.onStartEvent() == null ? existing.onStartEvent() : incoming.onStartEvent(),
-                incoming.onStopEvent() == null ? existing.onStopEvent() : incoming.onStopEvent(),
-                incoming.onPublicStartEvent() == null ? existing.onPublicStartEvent() : incoming.onPublicStartEvent(),
-                incoming.onPublicFinishEvent() == null ? existing.onPublicFinishEvent() : incoming.onPublicFinishEvent(),
-                incoming.deviceTypeFunctions() == null ? existing.deviceTypeFunctions() : incoming.deviceTypeFunctions(),
-                mergeBranchScriptMaps(existing.eventHandlers(), incoming.eventHandlers(), true),
-                mergeBranchScriptMaps(existing.commands(), incoming.commands(), true)
-        );
-    }
-
-    private ru.aritmos.dtt.json.branch.BranchDeviceType mergeBranchPreserveExisting(ru.aritmos.dtt.json.branch.BranchDeviceType existing,
-                                                                                      ru.aritmos.dtt.json.branch.BranchDeviceType incoming) {
-        final Map<String, ru.aritmos.dtt.json.branch.DeviceInstanceTemplate> mergedDevices = new LinkedHashMap<>(incoming.devices());
-        mergedDevices.putAll(existing.devices());
-        return new ru.aritmos.dtt.json.branch.BranchDeviceType(
-                existing.template() == null ? incoming.template() : existing.template(),
-                mergedDevices,
-                existing.kind() == null ? incoming.kind() : existing.kind(),
-                existing.onStartEvent() == null ? incoming.onStartEvent() : existing.onStartEvent(),
-                existing.onStopEvent() == null ? incoming.onStopEvent() : existing.onStopEvent(),
-                existing.onPublicStartEvent() == null ? incoming.onPublicStartEvent() : existing.onPublicStartEvent(),
-                existing.onPublicFinishEvent() == null ? incoming.onPublicFinishEvent() : existing.onPublicFinishEvent(),
-                existing.deviceTypeFunctions() == null ? incoming.deviceTypeFunctions() : existing.deviceTypeFunctions(),
-                mergeBranchScriptMaps(existing.eventHandlers(), incoming.eventHandlers(), false),
-                mergeBranchScriptMaps(existing.commands(), incoming.commands(), false)
-        );
-    }
-
-    private Map<String, BranchScript> mergeBranchScriptMaps(Map<String, BranchScript> existing,
-                                                            Map<String, BranchScript> incoming,
-                                                            boolean incomingWins) {
-        final Map<String, BranchScript> merged = new LinkedHashMap<>();
-        if (incomingWins) {
-            if (existing != null) {
-                merged.putAll(existing);
-            }
-            if (incoming != null) {
-                merged.putAll(incoming);
-            }
-            return merged;
-        }
-        if (incoming != null) {
-            merged.putAll(incoming);
-        }
-        if (existing != null) {
-            merged.putAll(existing);
-        }
-        return merged;
-    }
-
-    private String nextCopyKey(Map<String, ?> result, String key) {
-        int suffix = 1;
-        String candidate = key + "_copy_" + suffix;
-        while (result.containsKey(candidate)) {
-            suffix++;
-            candidate = key + "_copy_" + suffix;
-        }
-        return candidate;
     }
 
     private BranchScript toBranchScript(String scriptCode, Object metadataObject) {
@@ -1361,18 +1186,8 @@ public class DttDemoService {
                                                              String deviceTypeId,
                                                              MergeStrategy mergeStrategy,
                                                              String dttVersion) {
-        final ExportAllDttFromBranchResponse exported = exportAllDttFromBranch(
-                branchEquipment,
-                branchIds,
-                List.of(deviceTypeId),
-                mergeStrategy,
-                dttVersion
-        );
-        final String archiveBase64 = exported.archivesBase64ByDeviceTypeId().get(deviceTypeId);
-        if (archiveBase64 == null || archiveBase64.isBlank()) {
-            throw new IllegalArgumentException("deviceTypeId not found in branch equipment: " + deviceTypeId);
-        }
-        return new ExportSingleDttResponse(deviceTypeId, archiveBase64);
+        final byte[] archive = facade.exportSingleDttFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion);
+        return new ExportSingleDttResponse(deviceTypeId, Base64.getEncoder().encodeToString(archive));
     }
 
     /**
@@ -1400,9 +1215,7 @@ public class DttDemoService {
                                                    String deviceTypeId,
                                                    MergeStrategy mergeStrategy,
                                                    String dttVersion) {
-        return Base64.getDecoder().decode(
-                exportSingleDttFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion).archiveBase64()
-        );
+        return facade.exportSingleDttFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion);
     }
 
     /**
@@ -1413,9 +1226,7 @@ public class DttDemoService {
                                                        String deviceTypeId,
                                                        MergeStrategy mergeStrategy,
                                                        String dttVersion) {
-        return Base64.getDecoder().decode(
-                exportSingleDttFromBranchJson(branchJson, branchIds, deviceTypeId, mergeStrategy, dttVersion).archiveBase64()
-        );
+        return facade.exportSingleDttFromBranchJson(toCompactJson(branchJson), branchIds, deviceTypeId, mergeStrategy, dttVersion);
     }
 
     /**
@@ -1426,12 +1237,7 @@ public class DttDemoService {
                                                                             String deviceTypeId,
                                                                             MergeStrategy mergeStrategy,
                                                                             String dttVersion) {
-        try {
-            final byte[] payload = exportSingleDttFromBranchToBytes(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion);
-            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
-        } catch (RuntimeException exception) {
-            return failedPreview(deviceTypeId, exception, true);
-        }
+        return toDemoPreview(facade.previewSingleDttExportFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion));
     }
 
     /**
@@ -1442,28 +1248,24 @@ public class DttDemoService {
                                                                                 String deviceTypeId,
                                                                                 MergeStrategy mergeStrategy,
                                                                                 String dttVersion) {
-        try {
-            final byte[] payload = exportSingleDttFromBranchJsonToBytes(branchJson, branchIds, deviceTypeId, mergeStrategy, dttVersion);
-            return new SingleDttExportPreviewResponse(true, deviceTypeId, payload.length, List.of());
-        } catch (RuntimeException exception) {
-            return failedPreview(deviceTypeId, exception, true);
-        }
+        return toDemoPreview(facade.previewSingleDttExportFromBranchJson(
+                toCompactJson(branchJson),
+                branchIds,
+                deviceTypeId,
+                mergeStrategy,
+                dttVersion
+        ));
     }
 
-    private SingleDttExportPreviewResponse failedPreview(String deviceTypeId,
-                                                         RuntimeException exception,
-                                                         boolean preferMergeConflictCode) {
-        final String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
-        final String messageLower = message.toLowerCase();
-        final boolean mergeLike = messageLower.contains("merge")
-                || messageLower.contains("conflict")
-                || messageLower.contains("already exists");
-        final String code = (mergeLike || preferMergeConflictCode) ? "MERGE_CONFLICT" : "EXPORT_PREVIEW_ERROR";
+    private SingleDttExportPreviewResponse toDemoPreview(ru.aritmos.dtt.api.dto.SingleDttExportPreviewResult preview) {
+        if (preview.success()) {
+            return new SingleDttExportPreviewResponse(true, preview.deviceTypeId(), preview.archiveSizeBytes(), List.of());
+        }
         return new SingleDttExportPreviewResponse(
                 false,
-                deviceTypeId,
+                preview.deviceTypeId(),
                 null,
-                List.of(new SingleDttExportPreviewIssueResponse(code, message))
+                List.of(new SingleDttExportPreviewIssueResponse(preview.issueCode(), preview.issueMessage()))
         );
     }
 
@@ -1474,10 +1276,10 @@ public class DttDemoService {
                                      JsonNode profileJson,
                                      List<String> deviceTypeIds,
                                      String dttVersion) {
-        final var exported = profile != null
-                ? facade.exportProfileToDttZip(new ProfileExportRequest(profile, deviceTypeIds, dttVersion))
-                : facade.exportProfileToDttZip(new ProfileExportRequest(facade.parseProfileJson(toCompactJson(profileJson)), deviceTypeIds, dttVersion));
-        return exported;
+        if (profile != null) {
+            return facade.exportProfileToDttZip(new ProfileExportRequest(profile, deviceTypeIds, dttVersion));
+        }
+        return facade.exportProfileToDttZip(toCompactJson(profileJson), deviceTypeIds, dttVersion);
     }
 
     /**
@@ -1489,14 +1291,22 @@ public class DttDemoService {
                                     List<String> deviceTypeIds,
                                     MergeStrategy mergeStrategy,
                                     String dttVersion) {
-        final BranchEquipment source = branchEquipment != null ? branchEquipment : facade.parseBranchJson(toCompactJson(branchJson));
-        return facade.exportBranchToDttZip(new BranchEquipmentExportRequest(
-                source,
+        if (branchEquipment != null) {
+            return facade.exportBranchToDttZip(new BranchEquipmentExportRequest(
+                    branchEquipment,
+                    branchIds,
+                    deviceTypeIds,
+                    mergeStrategy,
+                    dttVersion
+            ));
+        }
+        return facade.exportBranchToDttZip(
+                toCompactJson(branchJson),
                 branchIds,
                 deviceTypeIds,
                 mergeStrategy,
                 dttVersion
-        ));
+        );
     }
 
 
