@@ -445,6 +445,175 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(mergedFromJson.branches().get("branch-zip").deviceTypes().get("display").template().metadata().version()).isEqualTo("6.0.0");
     }
 
+
+    @Test
+    void shouldComputeProfileImportPreviewFromZipForStructuredAndImplicitAllEntries() throws Exception {
+        final byte[] displayArchive = facade.writeDtt(template());
+        final byte[] cashboxArchive = facade.writeDtt(templateWithId("cashbox", "Cashbox"));
+        final byte[] zipPayload = zipWithEntries(Map.of(
+                "nested/Display.dtt", displayArchive,
+                "Cashbox.dtt", cashboxArchive
+        ));
+
+        final ProfileImportPlanRequest structuredPlan = new ProfileImportPlanRequest(
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        null,
+                        "nested/Display.dtt",
+                        Map.of("ip", "10.10.10.70"),
+                        null
+                ))
+        );
+        final ProfileImportPlanRequest implicitZipPlan = new ProfileImportPlanRequest(
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        );
+
+        assertThat(facade.computeProfileImportPreview(zipPayload, structuredPlan))
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(facade.computeProfileImportPreview(zipPayload, implicitZipPlan))
+                .containsKeys("display", "cashbox");
+    }
+
+    @Test
+    void shouldComputeBranchImportPreviewForLegacyBase64Plan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+        final BranchImportPlanRequest plan = new BranchImportPlanRequest(
+                List.of(archiveBase64),
+                List.of("branch-a", "branch-b"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        );
+
+        assertThat(facade.computeBranchImportPreview(plan))
+                .containsKeys("branch-a:display", "branch-b:display")
+                .containsEntry("branch-a:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 0));
+    }
+
+    @Test
+    void shouldComputeBranchImportPreviewFromZipForLegacyAndStructuredPlans() throws Exception {
+        final byte[] displayArchive = facade.writeDtt(template());
+        final byte[] cashboxArchive = facade.writeDtt(templateWithId("cashbox", "Cashbox"));
+        final byte[] zipPayload = zipWithEntries(Map.of(
+                "nested/Display.dtt", displayArchive,
+                "Cashbox.dtt", cashboxArchive
+        ));
+
+        final BranchImportPlanRequest legacyPlan = new BranchImportPlanRequest(
+                null,
+                List.of("branch-zip"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        );
+        final BranchImportPlanRequest structuredPlan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "branch-structured",
+                        "Structured",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                null,
+                                "nested/Display.dtt",
+                                Map.of("ip", "10.10.10.80"),
+                                null,
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+
+        assertThat(facade.computeBranchImportPreview(zipPayload, legacyPlan))
+                .containsKeys("branch-zip:display", "branch-zip:cashbox");
+        assertThat(facade.computeBranchImportPreview(zipPayload, structuredPlan))
+                .containsEntry("branch-structured:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+    }
+
+    @Test
+    void shouldBuildDetailedProfileAndBranchPreviewFromHighLevelPlans() throws Exception {
+        final byte[] displayArchive = facade.writeDtt(template());
+        final String displayArchiveBase64 = java.util.Base64.getEncoder().encodeToString(displayArchive);
+        final byte[] zipPayload = zipWithEntries(Map.of("nested/Display.dtt", displayArchive));
+
+        final ProfileImportPlanRequest profileBase64Plan = new ProfileImportPlanRequest(
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        displayArchiveBase64,
+                        null,
+                        Map.of("ip", "10.10.10.90"),
+                        new DeviceTypeMetadata("display-preview", "Display Preview", "Display Preview", "preview", "7.0.0", null)
+                ))
+        );
+        final ProfileImportPlanRequest profileZipPlan = new ProfileImportPlanRequest(
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        null,
+                        "nested/Display.dtt",
+                        Map.of("ip", "10.10.10.91"),
+                        null
+                ))
+        );
+        final BranchImportPlanRequest branchBase64Plan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "branch-preview",
+                        "Branch Preview",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                displayArchiveBase64,
+                                null,
+                                Map.of("ip", "10.10.10.92"),
+                                null,
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+        final BranchImportPlanRequest branchZipPlan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "branch-preview-zip",
+                        "Branch Preview Zip",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                null,
+                                "nested/Display.dtt",
+                                Map.of("ip", "10.10.10.93"),
+                                null,
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+
+        final var detailedProfilePreview = facade.previewProfileImportDetailed(profileBase64Plan);
+        final var detailedProfileZipPreview = facade.previewProfileImportDetailed(zipPayload, profileZipPlan);
+        final var detailedBranchPreview = facade.previewBranchImportDetailed(branchBase64Plan);
+        final var detailedBranchZipPreview = facade.previewBranchImportDetailed(zipPayload, branchZipPlan);
+
+        assertThat(detailedProfilePreview.profile().deviceTypes()).containsKey("display-preview");
+        assertThat(detailedProfilePreview.computationsByDeviceType())
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(detailedProfileZipPreview.profile().deviceTypes()).containsKey("display");
+        assertThat(detailedProfileZipPreview.computationsByDeviceType())
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(detailedBranchPreview.branchEquipment().branches().get("branch-preview").deviceTypes())
+                .containsKey("display");
+        assertThat(detailedBranchPreview.computationsByTarget())
+                .containsEntry("branch-preview:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(detailedBranchZipPreview.branchEquipment().branches().get("branch-preview-zip").deviceTypes())
+                .containsKey("display");
+        assertThat(detailedBranchZipPreview.computationsByTarget())
+                .containsEntry("branch-preview-zip:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+    }
+
     @Test
     void shouldSupportBase64AndZipFacadeModes() throws Exception {
         final DttArchiveTemplate template = template();
@@ -1787,9 +1956,13 @@ class DefaultDeviceTemplateLibraryFacadeTest {
     }
 
     private DttArchiveTemplate template() {
+        return templateWithId("display", "Display");
+    }
+
+    private DttArchiveTemplate templateWithId(String id, String name) {
         return new DttArchiveTemplate(
-                new DttArchiveDescriptor("DTT", "1.0", "display", null),
-                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                new DttArchiveDescriptor("DTT", "1.0", id, null),
+                new DeviceTypeMetadata(id, name, name, "desc"),
                 Map.of(),
                 Map.of(),
                 Map.of(),

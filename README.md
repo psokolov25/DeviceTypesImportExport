@@ -153,7 +153,10 @@ String profileJson = facade.toProfileJson(
 - `prepareProfileAssemblyRequestFromZip(...)` — делает то же самое для zip-пакета с несколькими `.dtt`.
 - `prepareBranchAssemblyRequest(...)` — из branch-import-плана подготавливает `BranchEquipmentAssemblyRequest`, включая override устройств и поля `kind`.
 - `prepareBranchAssemblyRequestFromZip(...)` — тот же сценарий для zip-пакета.
-- `computeProfileImportPreview(...)` / `computeBranchImportPreview(...)` — вычисляют диагностические счётчики default/override-значений до фактической сборки.
+- `computeProfileImportPreview(...)` / `computeBranchImportPreview(...)` — вычисляют диагностические счётчики default/override-значений до фактической сборки для Base64/legacy/structured сценариев.
+- `computeProfileImportPreview(byte[] zipPayload, ...)` / `computeBranchImportPreview(byte[] zipPayload, ...)` — делают то же самое для zip-based import-plan, включая выбор `archiveEntryName` и legacy-режим `все .dtt -> все branchId`.
+- `previewProfileImportDetailed(...)` / `previewBranchImportDetailed(...)` — возвращают одним вызовом и собранную preview-модель, и диагностику defaults/overrides.
+- `previewProfileImportDetailed(byte[] zipPayload, ...)` / `previewBranchImportDetailed(byte[] zipPayload, ...)` — тот же режим для zip-based import-plan.
 
 Пример использования для profile: 
 
@@ -179,6 +182,11 @@ ProfileImportPlanRequest plan = new ProfileImportPlanRequest(
 EquipmentProfileAssemblyRequest assemblyRequest = facade.prepareProfileAssemblyRequest(plan);
 EquipmentProfile profile = facade.assembleProfile(assemblyRequest);
 Map<String, ImportPreviewComputationEntry> preview = facade.computeProfileImportPreview(plan);
+
+byte[] zipPayload = Files.readAllBytes(Path.of("device-types.zip"));
+Map<String, ImportPreviewComputationEntry> zipPreview = facade.computeProfileImportPreview(zipPayload, plan);
+ProfileImportPreviewResult detailedPreview = facade.previewProfileImportDetailed(zipPayload, plan);
+EquipmentProfile previewModel = detailedPreview.profile();
 ```
 
 Пример использования для branch: 

@@ -45,6 +45,16 @@ class AdditionalApiDtoTest {
                 "dev-1",
                 Map.of("port", 9100)
         );
+        final ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewResult profilePreview =
+                new ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewResult(
+                        new ru.aritmos.dtt.json.profile.EquipmentProfile(Map.of()),
+                        Map.of("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(1, 2))
+                );
+        final ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult branchPreview =
+                new ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult(
+                        new ru.aritmos.dtt.json.branch.BranchEquipment(Map.of(), java.util.List.of()),
+                        Map.of("branch-1:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(3, 4))
+                );
 
         assertThat(schema.parametersMap()).containsKey("ip");
         assertThat(scriptSet.eventHandlers()).containsKey("EVENT");
@@ -52,5 +62,7 @@ class AdditionalApiDtoTest {
         assertThat(exportResult.deviceTypeId()).isEqualTo("display");
         assertThat(importResult.template().metadata().id()).isEqualTo("display");
         assertThat(override.deviceId()).isEqualTo("dev-1");
+        assertThat(profilePreview.computationsByDeviceType()).containsKey("display");
+        assertThat(branchPreview.computationsByTarget()).containsKey("branch-1:display");
     }
 }

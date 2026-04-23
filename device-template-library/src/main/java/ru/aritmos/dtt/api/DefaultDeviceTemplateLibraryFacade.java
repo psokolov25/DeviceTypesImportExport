@@ -19,11 +19,13 @@ import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchMetadataImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry;
 import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewResult;
 import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
@@ -379,20 +381,34 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
 
     @Override
     public Map<String, ImportPreviewComputationEntry> computeProfileImportPreview(ProfileImportPlanRequest request) {
+        return computeProfileImportPreview(null, request);
+    }
+
+    @Override
+    public Map<String, ImportPreviewComputationEntry> computeProfileImportPreview(byte[] zipPayload, ProfileImportPlanRequest request) {
         Objects.requireNonNull(request, "request is required");
+        final Map<String, byte[]> archivesByEntryName = zipPayload == null ? null : readDttFilesFromZipByEntryName(zipPayload);
         final Map<String, ImportPreviewComputationEntry> result = new LinkedHashMap<>();
         if (request.deviceTypes() != null && !request.deviceTypes().isEmpty()) {
             for (ProfileDeviceTypeImportSourceRequest deviceType : request.deviceTypes()) {
-                final DttArchiveTemplate archive = readDtt(resolveArchiveBytes(deviceType.archiveBase64(), deviceType.archiveEntryName(), null));
+                final DttArchiveTemplate archive = readDtt(resolveArchiveBytes(deviceType.archiveBase64(), deviceType.archiveEntryName(), archivesByEntryName));
                 final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
                 final int overrides = deviceType.deviceTypeParamValues() == null ? 0 : deviceType.deviceTypeParamValues().size();
                 result.put(archive.metadata().id(), new ImportPreviewComputationEntry(defaults, overrides));
             }
             return result;
         }
-        if (request.archivesBase64() != null) {
+        if (request.archivesBase64() != null && !request.archivesBase64().isEmpty()) {
             for (String archiveBase64 : request.archivesBase64()) {
                 final DttArchiveTemplate archive = readDtt(decodeBase64Archive(archiveBase64));
+                final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
+                result.put(archive.metadata().id(), new ImportPreviewComputationEntry(defaults, 0));
+            }
+            return result;
+        }
+        if (archivesByEntryName != null) {
+            for (byte[] archiveBytes : archivesByEntryName.values()) {
+                final DttArchiveTemplate archive = readDtt(archiveBytes);
                 final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
                 result.put(archive.metadata().id(), new ImportPreviewComputationEntry(defaults, 0));
             }
@@ -402,23 +418,83 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
 
     @Override
     public Map<String, ImportPreviewComputationEntry> computeBranchImportPreview(BranchImportPlanRequest request) {
+        return computeBranchImportPreview(null, request);
+    }
+
+    @Override
+    public Map<String, ImportPreviewComputationEntry> computeBranchImportPreview(byte[] zipPayload, BranchImportPlanRequest request) {
         Objects.requireNonNull(request, "request is required");
+        final Map<String, byte[]> archivesByEntryName = zipPayload == null ? null : readDttFilesFromZipByEntryName(zipPayload);
         final Map<String, ImportPreviewComputationEntry> result = new LinkedHashMap<>();
-        if (request.branches() == null || request.branches().isEmpty()) {
+        if (request.branches() != null && !request.branches().isEmpty()) {
+            for (BranchImportSourceRequest branch : request.branches()) {
+                if (branch.deviceTypes() == null) {
+                    continue;
+                }
+                for (BranchDeviceTypeImportSourceRequest deviceType : branch.deviceTypes()) {
+                    final DttArchiveTemplate archive = readDtt(resolveArchiveBytes(deviceType.archiveBase64(), deviceType.archiveEntryName(), archivesByEntryName));
+                    final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
+                    final int overrides = deviceType.deviceTypeParamValues() == null ? 0 : deviceType.deviceTypeParamValues().size();
+                    result.put(branch.branchId() + ":" + archive.metadata().id(), new ImportPreviewComputationEntry(defaults, overrides));
+                }
+            }
             return result;
         }
-        for (BranchImportSourceRequest branch : request.branches()) {
-            if (branch.deviceTypes() == null) {
-                continue;
+        if (request.branchIds() == null || request.branchIds().isEmpty()) {
+            return result;
+        }
+        if (request.archivesBase64() != null && !request.archivesBase64().isEmpty()) {
+            for (String branchId : request.branchIds()) {
+                for (String archiveBase64 : request.archivesBase64()) {
+                    final DttArchiveTemplate archive = readDtt(decodeBase64Archive(archiveBase64));
+                    final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
+                    result.put(branchId + ":" + archive.metadata().id(), new ImportPreviewComputationEntry(defaults, 0));
+                }
             }
-            for (BranchDeviceTypeImportSourceRequest deviceType : branch.deviceTypes()) {
-                final DttArchiveTemplate archive = readDtt(resolveArchiveBytes(deviceType.archiveBase64(), deviceType.archiveEntryName(), null));
-                final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
-                final int overrides = deviceType.deviceTypeParamValues() == null ? 0 : deviceType.deviceTypeParamValues().size();
-                result.put(branch.branchId() + ":" + archive.metadata().id(), new ImportPreviewComputationEntry(defaults, overrides));
+            return result;
+        }
+        if (archivesByEntryName != null) {
+            for (String branchId : request.branchIds()) {
+                for (byte[] archiveBytes : archivesByEntryName.values()) {
+                    final DttArchiveTemplate archive = readDtt(archiveBytes);
+                    final int defaults = archive.defaultValues() == null ? 0 : archive.defaultValues().size();
+                    result.put(branchId + ":" + archive.metadata().id(), new ImportPreviewComputationEntry(defaults, 0));
+                }
             }
         }
         return result;
+    }
+
+    @Override
+    public ProfileImportPreviewResult previewProfileImportDetailed(ProfileImportPlanRequest request) {
+        return new ProfileImportPreviewResult(
+                assembleProfile(request),
+                computeProfileImportPreview(request)
+        );
+    }
+
+    @Override
+    public ProfileImportPreviewResult previewProfileImportDetailed(byte[] zipPayload, ProfileImportPlanRequest request) {
+        return new ProfileImportPreviewResult(
+                assembleProfile(zipPayload, request),
+                computeProfileImportPreview(zipPayload, request)
+        );
+    }
+
+    @Override
+    public BranchImportPreviewResult previewBranchImportDetailed(BranchImportPlanRequest request) {
+        return new BranchImportPreviewResult(
+                assembleBranch(request),
+                computeBranchImportPreview(request)
+        );
+    }
+
+    @Override
+    public BranchImportPreviewResult previewBranchImportDetailed(byte[] zipPayload, BranchImportPlanRequest request) {
+        return new BranchImportPreviewResult(
+                assembleBranch(zipPayload, request),
+                computeBranchImportPreview(zipPayload, request)
+        );
     }
 
     @Override

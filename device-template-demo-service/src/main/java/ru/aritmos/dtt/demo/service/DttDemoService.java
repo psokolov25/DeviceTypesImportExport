@@ -194,10 +194,10 @@ public class DttDemoService {
     }
 
     public ProfilePreviewDetailedResponse previewProfileDetailed(ImportDttSetToProfileRequest request) {
-        final var preview = facade.assembleProfile(toLibraryProfileImportPlan(request));
+        final var preview = facade.previewProfileImportDetailed(toLibraryProfileImportPlan(request));
         return new ProfilePreviewDetailedResponse(
-                toJsonNode(facade.toProfileJson(preview)),
-                toDemoPreviewComputations(facade.computeProfileImportPreview(toLibraryProfileImportPlan(request)))
+                toJsonNode(facade.toProfileJson(preview.profile())),
+                toDemoPreviewComputations(preview.computationsByDeviceType())
         );
     }
 
@@ -355,10 +355,10 @@ public class DttDemoService {
     }
 
     public BranchPreviewDetailedResponse previewBranchDetailed(ImportDttSetToBranchRequest request) {
-        final BranchEquipment preview = facade.assembleBranch(toLibraryBranchImportPlan(request));
+        final var preview = facade.previewBranchImportDetailed(toLibraryBranchImportPlan(request));
         return new BranchPreviewDetailedResponse(
-                toJsonNode(facade.toBranchJson(preview)),
-                toDemoPreviewComputations(facade.computeBranchImportPreview(toLibraryBranchImportPlan(request)))
+                toJsonNode(facade.toBranchJson(preview.branchEquipment())),
+                toDemoPreviewComputations(preview.computationsByTarget())
         );
     }
 

@@ -11,8 +11,10 @@ import ru.aritmos.dtt.api.dto.ValidationResult;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult;
 import ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewResult;
 import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
@@ -281,18 +283,91 @@ public interface DeviceTemplateLibraryFacade {
     /**
      * Вычисляет preview-диагностику profile-импорта на уровне high-level плана.
      *
+     * <p>Поддерживаются legacy- и structured-сценарии на базе Base64-архивов.
+     * Для zip-based сценариев используйте перегрузку с {@code zipPayload}.
+     *
      * @param request high-level план импорта profile JSON
      * @return map `deviceTypeId -> вычисленная диагностика`
      */
     Map<String, ImportPreviewComputationEntry> computeProfileImportPreview(ProfileImportPlanRequest request);
 
     /**
+     * Вычисляет preview-диагностику profile-импорта для zip-based high-level плана.
+     *
+     * <p>Если structured-список {@code deviceTypes} не передан, библиотека вычисляет диагностику
+     * по всем `.dtt` entry внутри zip. Если structured-список передан, каждый элемент может ссылаться
+     * на конкретный {@code archiveEntryName}.
+     *
+     * @param zipPayload zip-пакет с `.dtt` entry
+     * @param request high-level план импорта profile JSON
+     * @return map `deviceTypeId -> вычисленная диагностика`
+     */
+    Map<String, ImportPreviewComputationEntry> computeProfileImportPreview(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
      * Вычисляет preview-диагностику branch-импорта на уровне high-level плана.
+     *
+     * <p>Поддерживаются как legacy-сценарий {@code archivesBase64 + branchIds}, так и structured-описание
+     * {@code branches}. Для zip-based сценариев используйте перегрузку с {@code zipPayload}.
      *
      * @param request high-level план импорта branch equipment JSON
      * @return map `branchId:deviceTypeId -> вычисленная диагностика`
      */
     Map<String, ImportPreviewComputationEntry> computeBranchImportPreview(BranchImportPlanRequest request);
+
+    /**
+     * Вычисляет preview-диагностику branch-импорта для zip-based high-level плана.
+     *
+     * <p>В legacy-сценарии все `.dtt` entry внутри zip проецируются во все указанные {@code branchIds}.
+     * В structured-сценарии каждый тип устройства может ссылаться на конкретный {@code archiveEntryName}.
+     *
+     * @param zipPayload zip-пакет с `.dtt` entry
+     * @param request high-level план импорта branch equipment JSON
+     * @return map `branchId:deviceTypeId -> вычисленная диагностика`
+     */
+    Map<String, ImportPreviewComputationEntry> computeBranchImportPreview(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет детальный preview profile-импорта на уровне high-level плана.
+     *
+     * <p>Метод возвращает и собранную preview-модель {@code EquipmentProfile}, и карту вычисленных
+     * defaults/overrides. Это позволяет прикладной службе не выполнять два раздельных вызова
+     * {@code assembleProfile(...)} и {@code computeProfileImportPreview(...)}.
+     *
+     * @param request high-level план импорта profile JSON
+     * @return DTO детального preview profile-импорта
+     */
+    ProfileImportPreviewResult previewProfileImportDetailed(ProfileImportPlanRequest request);
+
+    /**
+     * Выполняет детальный preview profile-импорта для zip-based high-level плана.
+     *
+     * @param zipPayload zip-пакет с `.dtt` entry
+     * @param request high-level план импорта profile JSON
+     * @return DTO детального preview profile-импорта
+     */
+    ProfileImportPreviewResult previewProfileImportDetailed(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
+     * Выполняет детальный preview branch-импорта на уровне high-level плана.
+     *
+     * <p>Метод возвращает и собранную preview-модель {@code BranchEquipment}, и карту вычисленных
+     * defaults/overrides. Это позволяет прикладной службе не выполнять два раздельных вызова
+     * {@code assembleBranch(...)} и {@code computeBranchImportPreview(...)}.
+     *
+     * @param request high-level план импорта branch equipment JSON
+     * @return DTO детального preview branch-импорта
+     */
+    BranchImportPreviewResult previewBranchImportDetailed(BranchImportPlanRequest request);
+
+    /**
+     * Выполняет детальный preview branch-импорта для zip-based high-level плана.
+     *
+     * @param zipPayload zip-пакет с `.dtt` entry
+     * @param request high-level план импорта branch equipment JSON
+     * @return DTO детального preview branch-импорта
+     */
+    BranchImportPreviewResult previewBranchImportDetailed(byte[] zipPayload, BranchImportPlanRequest request);
 
     /**
      * Выполняет preview single-export из profile-модели в `.dtt`.

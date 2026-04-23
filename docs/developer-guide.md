@@ -157,7 +157,13 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 - `prepareBranchAssemblyRequest(...)`
 - `prepareBranchAssemblyRequestFromZip(...)`
 - `computeProfileImportPreview(...)`
+- `computeProfileImportPreview(byte[] zipPayload, ...)`
 - `computeBranchImportPreview(...)`
+- `computeBranchImportPreview(byte[] zipPayload, ...)`
+- `previewProfileImportDetailed(...)`
+- `previewProfileImportDetailed(byte[] zipPayload, ...)`
+- `previewBranchImportDetailed(...)`
+- `previewBranchImportDetailed(byte[] zipPayload, ...)`
 
 Что именно делает этот слой:
 
@@ -168,8 +174,27 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 5. Для branch-сценариев применяет override устройств и override поля `kind`.
 6. Если в `templateOrigin` сохранена branch-specific topology, использует именно её, а не generic fallback-проекцию.
 7. Возвращает готовый assembly-request, который затем передаётся в `assembleProfile(...)` или `assembleBranch(...)`.
+8. Для preview-диагностики умеет считать default/override как в Base64-сценариях, так и в zip-сценариях с `archiveEntryName` и legacy-режиме `все .dtt -> все branchId`.
+9. Для детального preview может одним вызовом вернуть и собранную preview-модель, и диагностические счётчики defaults/overrides без ручной склейки нескольких вызовов фасада.
 
 Это позволяет держать HTTP-слой тонким: контроллер и application-service только валидируют входной payload и делегируют подготовку импорта в библиотеку.
+
+
+##### Когда нужен именно детальный preview
+
+Используйте `previewProfileImportDetailed(...)` или `previewBranchImportDetailed(...)`, когда вашей службе нужно одновременно:
+
+- получить уже собранную preview-модель;
+- показать пользователю диагностику по defaults/overrides;
+- не дублировать orchestration `assemble + computePreview` в собственном application-service.
+
+Пример:
+
+```java
+ProfileImportPreviewResult preview = facade.previewProfileImportDetailed(plan);
+EquipmentProfile previewProfile = preview.profile();
+Map<String, ImportPreviewComputationEntry> counters = preview.computationsByDeviceType();
+```
 
 ### 4.1. Карта сценариев с быстрым выбором метода
 

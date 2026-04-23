@@ -47,9 +47,12 @@
 
 ## 4) Следующая итерация
 
-1. Добавить отдельные facade-методы preview-диагностики для zip-based import-plan, чтобы не требовалось вручную разрешать `archiveEntryName` вне библиотеки.
-2. Продолжить вынос вспомогательной экспортной orchestration-логики из demo-service в library facade там, где она ещё не даёт существенного библиотечного контракта.
-3. Добавить офлайн-сценарий сборки/прогона тестов в контейнере без скачивания Maven Wrapper дистрибутива.
+1. [x] Добавлены отдельные facade-методы preview-диагностики для zip-based import-plan; библиотека сама разрешает `archiveEntryName` и считает preview для structured и legacy zip-сценариев.
+2. [x] Детальный preview import-plan вынесен в library facade как отдельный контракт (`previewProfileImportDetailed`, `previewBranchImportDetailed`), чтобы demo-service не склеивал вручную `assemble + computePreview`.
+3. Продолжить вынос вспомогательной экспортной orchestration-логики из demo-service в library facade там, где она ещё не даёт существенного библиотечного контракта.
+4. Добавить офлайн-сценарий сборки/прогона тестов в контейнере без скачивания Maven Wrapper дистрибутива.
 
 - [x] Совместная сборка profile и branch с наследованием metadata вынесена в библиотеку.
+- [x] Детальный preview profile/branch import теперь сводится к прямому thin-adapter поверх фасада библиотеки.
 - [ ] Проверить, какие ещё сценарии demo-service можно свести к прямому thin-adapter поверх фасада библиотеки без промежуточной ручной оркестрации.
+- [x] Preview-диагностика high-level import-plan теперь покрывает legacy Base64, legacy zip, structured Base64 и structured zip сценарии.
