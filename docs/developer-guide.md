@@ -210,38 +210,59 @@ Map<String, ImportPreviewComputationEntry> counters = preview.computationsByDevi
 4. **Нужно сравнить входную версию и версию в шаблоне**  
    Используйте `compareDttVersion(...)`.
 
-5. **Нужно импортировать DTT-set в profile**  
+5. **Нужно вернуть карточку шаблона (inspect) без ручного чтения archive DTO**  
+   Используйте `inspectDtt(...)`.
+
+6. **Нужно нормализовать metadata типов устройств для UI/JSON ответа**  
+   Используйте `normalizeDeviceTypeMetadata(...)`.
+
+7. **Нужно получить готовый JSON и агрегированные счётчики после сборки profile/branch**  
+   Используйте `toProfileAssemblyView(...)` и `toBranchAssemblyView(...)`.
+
+8. **Нужно импортировать DTT-set в profile**  
    Используйте `importDttSetToProfile(...)` / `importDttBase64SetToProfile(...)` / `importDttZipToProfile(...)`.
 
-6. **Нужно импортировать DTT-set в branch equipment**  
+9. **Нужно импортировать DTT-set в branch equipment**  
    Используйте `importDttSetToBranch(...)` / `importDttBase64SetToBranch(...)` / `importDttZipToBranch(...)`.
 
-7. **Нужно merge в существующий branch equipment JSON**  
+10. **Нужно merge в существующий branch equipment JSON**  
    Используйте `importDtt*ToExistingBranch(...)` или прямой `mergeBranchEquipment(...)`.
 
-8. **Нужен безопасный preview перед применением**  
-   Используйте `previewDttSetToProfile(...)` / `previewDttSetToBranch(...)` и Base64/zip аналоги.
+11. **Нужен безопасный preview перед применением**  
+    Используйте `previewDttSetToProfile(...)` / `previewDttSetToBranch(...)` и Base64/zip аналоги.
 
-9. **Нужно работать с zip на уровне конкретных entry**  
+12. **Нужен preview high-level import-plan без ручного prepare/assemble в прикладном слое**  
+   Используйте `previewProfileImport(...)`, `previewProfileImport(byte[] zipPayload, ...)`,
+   `previewBranchImport(...)`, `previewBranchImport(byte[] zipPayload, ...)`.
+
+13. **Нужно работать с zip на уровне конкретных entry**  
    Используйте `readDttFilesFromZipByEntryName(...)` + `resolveDttArchiveEntry(...)`.
 
-10. **Нужно выгрузить DTT из profile/branch**  
+14. **Нужно выгрузить DTT из profile/branch**  
     Используйте `exportDttSetFromProfile*` / `exportDttSetFromBranch*` или zip-режимы `exportProfileToDttZip(...)`, `exportBranchToDttZip(...)`.
 
-11. **Нужно проверить single-export без фактической выгрузки файла**  
+15. **Нужно проверить single-export без фактической выгрузки файла**  
     Используйте `previewSingleDttExportFromProfile(...)` / `previewSingleDttExportFromBranch(...)`.
 
-12. **Нужно получить один `.dtt` в бинарном виде (download endpoint)**  
+16. **Нужно получить один `.dtt` в бинарном виде (download endpoint)**  
     Используйте `exportSingleDttFromProfile(...)` / `exportSingleDttFromBranch(...)`.
 
-13. **Нужно выполнять single-export/preview прямо из string JSON**  
+17. **Нужно получить один `.dtt` в Base64 для JSON-ответа без ручного encode**  
+    Используйте `exportSingleDttFromProfileBase64(...)`, `exportSingleDttFromProfileJsonBase64(...)`,
+    `exportSingleDttFromBranchBase64(...)`, `exportSingleDttFromBranchJsonBase64(...)`.
+
+18. **Нужно получить и bytes, и Base64 одного `.dtt` одним вызовом**  
+    Используйте `exportSingleDttResultFromProfile(...)`, `exportSingleDttResultFromProfileJson(...)`,
+    `exportSingleDttResultFromBranch(...)`, `exportSingleDttResultFromBranchJson(...)`.
+
+19. **Нужно выполнять single-export/preview прямо из string JSON**  
     Используйте `exportSingleDttFromProfileJson(...)`, `exportSingleDttFromBranchJson(...)`,
     `previewSingleDttExportFromProfileJson(...)`, `previewSingleDttExportFromBranchJson(...)`.
 
-14. **Нужно импортировать DTT-set в существующий branch, где текущее состояние хранится строкой JSON**  
+20. **Нужно импортировать DTT-set в существующий branch, где текущее состояние хранится строкой JSON**  
     Используйте `importDttBase64SetToExistingBranchJson(...)` / `importDttZipToExistingBranchJson(...)`.
 
-15. **Нужно сформировать zip DTT-set напрямую из string JSON**  
+21. **Нужно сформировать zip DTT-set напрямую из string JSON**  
     Используйте `exportProfileToDttZip(String, ...)` / `exportBranchToDttZip(String, ...)`.
 
 ## 5. Базовые алгоритмы интеграции
@@ -1021,6 +1042,17 @@ curl -X POST "http://localhost:8080/api/dtt/import/profile/upload/multipart"   -
   -Dtest=OpenApiSpecContractTest,DttControllerExamplesContractTest,DttSwaggerExamplesTest \
   -Dsurefire.failIfNoSpecifiedTests=false
 ```
+
+Офлайн-сценарий (без сетевого скачивания зависимостей) для контейнера:
+
+```bash
+./scripts/offline-test.sh
+```
+
+Скрипт запускает тесты в offline-режиме (`-o`) и использует:
+
+1. `./mvnw` (если доступен);
+2. `mvn` из PATH как fallback.
 
 
 ### 7.6. Настройка default-иконки типа устройства (`defaultDTTIcon`)

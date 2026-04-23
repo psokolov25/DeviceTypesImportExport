@@ -88,6 +88,36 @@ class DefaultTemplateValidationServiceTest {
         assertThat(result.issues()).extracting("code").contains("GROOVY_CONTEXT_ERROR");
     }
 
+    @Test
+    void shouldDetectUnsupportedDttFormatVersion() {
+        final DttArchiveTemplate template = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "2.0", "display", null),
+                new DeviceTypeMetadata("display", "Display", "Дисплей", "desc"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+
+        final var result = validationService.validate(template);
+
+        assertThat(result.valid()).isFalse();
+        assertThat(result.issues())
+                .anySatisfy(issue -> {
+                    assertThat(issue.code()).isEqualTo("UNSUPPORTED_FORMAT_VERSION");
+                    assertThat(issue.path()).isEqualTo("manifest.yml:formatVersion");
+                });
+    }
+
     private DttArchiveTemplate templateWithScripts(String onStart, String handler) {
         return new DttArchiveTemplate(
                 new DttArchiveDescriptor("DTT", "1.0", "display", null),
