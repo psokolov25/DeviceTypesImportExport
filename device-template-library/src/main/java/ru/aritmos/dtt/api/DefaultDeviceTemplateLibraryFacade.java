@@ -2,12 +2,14 @@ package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
+import ru.aritmos.dtt.api.dto.DttVersionComparisonResult;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
 import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
+import ru.aritmos.dtt.api.dto.SingleDttExportPreviewResult;
 import ru.aritmos.dtt.api.dto.ValidationResult;
 import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
@@ -18,6 +20,7 @@ import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
 import ru.aritmos.dtt.archive.DttArchiveReader;
 import ru.aritmos.dtt.archive.DttFileNames;
+import ru.aritmos.dtt.archive.DttIconSupport;
 import ru.aritmos.dtt.archive.DttArchiveWriter;
 import ru.aritmos.dtt.archive.model.DttArchiveDescriptor;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
@@ -137,6 +140,36 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public List<DeviceTypeMetadata> extractDeviceTypeMetadataFromDttOrZip(byte[] payload) {
+        try {
+            final DttArchiveTemplate template = readDtt(payload);
+            return List.of(toMetadataSnapshot(template));
+        } catch (RuntimeException ignored) {
+            return readDttFilesFromZipByEntryName(payload).values().stream()
+                    .map(this::readDtt)
+                    .map(this::toMetadataSnapshot)
+                    .toList();
+        }
+    }
+
+    @Override
+    public String resolveDeviceTypeArchiveBaseName(byte[] archiveBytes, String fallbackName) {
+        final DttArchiveTemplate template = readDtt(archiveBytes);
+        return DttFileNames.resolveBaseName(template.metadata(), fallbackName);
+    }
+
+    @Override
+    public DttVersionComparisonResult compareDttVersion(byte[] archiveBytes, String inputVersion) {
+        final DttArchiveTemplate template = readDtt(archiveBytes);
+        final String normalizedInput = DttVersionSupport.normalize(inputVersion);
+        final String normalizedDtt = DttVersionSupport.normalize(template.descriptor().deviceTypeVersion());
+        final int comparison = DttVersionSupport.compare(normalizedInput, normalizedDtt);
+        final String source = comparison == 0 ? "EQUAL" : (comparison > 0 ? "INPUT" : "DTT");
+        final String greater = comparison >= 0 ? normalizedInput : normalizedDtt;
+        return new DttVersionComparisonResult(normalizedInput, normalizedDtt, greater, source);
+    }
+
+    @Override
     public EquipmentProfile assembleProfile(EquipmentProfileAssemblyRequest request) {
         return assemblyService.assembleEquipmentProfile(request);
     }
@@ -144,6 +177,11 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public BranchEquipment assembleBranch(BranchEquipmentAssemblyRequest request) {
         return assemblyService.assembleBranchEquipment(request);
+    }
+
+    @Override
+    public BranchEquipment mergeBranchEquipment(BranchEquipment existing, BranchEquipment incoming, MergeStrategy mergeStrategy) {
+        return assemblyService.mergeBranchEquipment(existing, incoming, mergeStrategy);
     }
 
     @Override
@@ -164,6 +202,97 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public String toBranchJson(BranchEquipment branchEquipment) {
         return branchJsonGenerator.generate(branchEquipment);
+    }
+
+    @Override
+    public SingleDttExportPreviewResult previewSingleDttExportFromProfile(EquipmentProfile profile, String deviceTypeId, String dttVersion) {
+        try {
+            final Map<String, String> encoded = exportDttSetFromProfileBase64(new ProfileExportRequest(profile, List.of(deviceTypeId), dttVersion));
+            final String archiveBase64 = encoded.get(deviceTypeId);
+            if (archiveBase64 == null || archiveBase64.isBlank()) {
+                throw new IllegalArgumentException("deviceTypeId not found in profile: " + deviceTypeId);
+            }
+            final int size = Base64.getDecoder().decode(archiveBase64).length;
+            return new SingleDttExportPreviewResult(true, deviceTypeId, size, null, null);
+        } catch (RuntimeException exception) {
+            return toFailedPreview(deviceTypeId, exception, false);
+        }
+    }
+
+    @Override
+    public SingleDttExportPreviewResult previewSingleDttExportFromBranch(BranchEquipment branchEquipment,
+                                                                         List<String> branchIds,
+                                                                         String deviceTypeId,
+                                                                         MergeStrategy mergeStrategy,
+                                                                         String dttVersion) {
+        try {
+            final Map<String, String> encoded = exportDttSetFromBranchBase64(
+                    new BranchEquipmentExportRequest(branchEquipment, branchIds, List.of(deviceTypeId), mergeStrategy, dttVersion)
+            );
+            final String archiveBase64 = encoded.get(deviceTypeId);
+            if (archiveBase64 == null || archiveBase64.isBlank()) {
+                throw new IllegalArgumentException("deviceTypeId not found in branch equipment: " + deviceTypeId);
+            }
+            final int size = Base64.getDecoder().decode(archiveBase64).length;
+            return new SingleDttExportPreviewResult(true, deviceTypeId, size, null, null);
+        } catch (RuntimeException exception) {
+            return toFailedPreview(deviceTypeId, exception, true);
+        }
+    }
+
+    @Override
+    public SingleDttExportPreviewResult previewSingleDttExportFromProfileJson(String profileJson, String deviceTypeId, String dttVersion) {
+        return previewSingleDttExportFromProfile(parseProfileJson(profileJson), deviceTypeId, dttVersion);
+    }
+
+    @Override
+    public SingleDttExportPreviewResult previewSingleDttExportFromBranchJson(String branchJson,
+                                                                              List<String> branchIds,
+                                                                              String deviceTypeId,
+                                                                              MergeStrategy mergeStrategy,
+                                                                              String dttVersion) {
+        return previewSingleDttExportFromBranch(parseBranchJson(branchJson), branchIds, deviceTypeId, mergeStrategy, dttVersion);
+    }
+
+    @Override
+    public byte[] exportSingleDttFromProfile(EquipmentProfile profile, String deviceTypeId, String dttVersion) {
+        final Map<String, byte[]> archives = exportDttSetFromProfile(new ProfileExportRequest(profile, List.of(deviceTypeId), dttVersion))
+                .archivesByDeviceTypeId();
+        final byte[] archive = archives.get(deviceTypeId);
+        if (archive == null || archive.length == 0) {
+            throw new IllegalArgumentException("deviceTypeId not found in profile: " + deviceTypeId);
+        }
+        return archive;
+    }
+
+    @Override
+    public byte[] exportSingleDttFromProfileJson(String profileJson, String deviceTypeId, String dttVersion) {
+        return exportSingleDttFromProfile(parseProfileJson(profileJson), deviceTypeId, dttVersion);
+    }
+
+    @Override
+    public byte[] exportSingleDttFromBranch(BranchEquipment branchEquipment,
+                                            List<String> branchIds,
+                                            String deviceTypeId,
+                                            MergeStrategy mergeStrategy,
+                                            String dttVersion) {
+        final Map<String, byte[]> archives = exportDttSetFromBranch(
+                new BranchEquipmentExportRequest(branchEquipment, branchIds, List.of(deviceTypeId), mergeStrategy, dttVersion)
+        ).archivesByDeviceTypeId();
+        final byte[] archive = archives.get(deviceTypeId);
+        if (archive == null || archive.length == 0) {
+            throw new IllegalArgumentException("deviceTypeId not found in branch equipment: " + deviceTypeId);
+        }
+        return archive;
+    }
+
+    @Override
+    public byte[] exportSingleDttFromBranchJson(String branchJson,
+                                                List<String> branchIds,
+                                                String deviceTypeId,
+                                                MergeStrategy mergeStrategy,
+                                                String dttVersion) {
+        return exportSingleDttFromBranch(parseBranchJson(branchJson), branchIds, deviceTypeId, mergeStrategy, dttVersion);
     }
 
     @Override
@@ -338,10 +467,64 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchEquipment importDttBase64SetToExistingBranchJson(List<String> archivesBase64,
+                                                                  String existingBranchJson,
+                                                                  List<String> branchIds,
+                                                                  MergeStrategy mergeStrategy) {
+        return importDttBase64SetToExistingBranch(
+                archivesBase64,
+                parseBranchJson(existingBranchJson),
+                branchIds,
+                mergeStrategy
+        );
+    }
+
+    @Override
     public BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64,
                                                        List<String> branchIds,
                                                        MergeStrategy mergeStrategy) {
         return previewDttSetToBranch(decodeBase64Archives(archivesBase64), branchIds, mergeStrategy);
+    }
+
+    @Override
+    public Map<String, byte[]> readDttFilesFromZipByEntryName(byte[] zipPayload) {
+        Objects.requireNonNull(zipPayload, "zipPayload is required");
+        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipPayload))) {
+            final Map<String, byte[]> archivesByEntryName = new LinkedHashMap<>();
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (entry.isDirectory() || entry.getName() == null || !entry.getName().endsWith(".dtt")) {
+                    continue;
+                }
+                archivesByEntryName.put(entry.getName(), input.readAllBytes());
+            }
+            if (archivesByEntryName.isEmpty()) {
+                throw new IllegalArgumentException("Zip payload must contain at least one .dtt file");
+            }
+            return archivesByEntryName;
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Invalid zip payload", exception);
+        }
+    }
+
+    @Override
+    public byte[] resolveDttArchiveEntry(Map<String, byte[]> archivesByEntryName, String archiveEntryName) {
+        Objects.requireNonNull(archivesByEntryName, "archivesByEntryName is required");
+        if (archiveEntryName == null || archiveEntryName.isBlank()) {
+            throw new IllegalArgumentException("archiveEntryName must not be blank");
+        }
+        final byte[] exact = archivesByEntryName.get(archiveEntryName);
+        if (exact != null) {
+            return exact;
+        }
+        final String normalized = normalizeDttArchiveEntryName(archiveEntryName);
+        for (Map.Entry<String, byte[]> entry : archivesByEntryName.entrySet()) {
+            if (normalizeDttArchiveEntryName(entry.getKey()).equalsIgnoreCase(normalized)) {
+                return entry.getValue();
+            }
+        }
+        throw new IllegalArgumentException("DTT archive entry not found in uploaded zip: " + archiveEntryName
+                + ". Available entries: " + archivesByEntryName.keySet());
     }
 
     @Override
@@ -365,6 +548,19 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                                                         List<String> branchIds,
                                                         MergeStrategy mergeStrategy) {
         return importDttSetToExistingBranch(readDttFilesFromZip(zipPayload), existingBranchEquipment, branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchEquipment importDttZipToExistingBranchJson(byte[] zipPayload,
+                                                            String existingBranchJson,
+                                                            List<String> branchIds,
+                                                            MergeStrategy mergeStrategy) {
+        return importDttZipToExistingBranch(
+                zipPayload,
+                parseBranchJson(existingBranchJson),
+                branchIds,
+                mergeStrategy
+        );
     }
 
     @Override
@@ -429,8 +625,28 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public byte[] exportProfileToDttZip(String profileJson, List<String> deviceTypeIds, String dttVersion) {
+        return exportProfileToDttZip(new ProfileExportRequest(parseProfileJson(profileJson), deviceTypeIds, dttVersion));
+    }
+
+    @Override
     public byte[] exportBranchToDttZip(BranchEquipmentExportRequest request) {
         return writeDttZip(exportDttSetFromBranch(request).archivesByDeviceTypeId());
+    }
+
+    @Override
+    public byte[] exportBranchToDttZip(String branchJson,
+                                       List<String> branchIds,
+                                       List<String> deviceTypeIds,
+                                       MergeStrategy mergeStrategy,
+                                       String dttVersion) {
+        return exportBranchToDttZip(new BranchEquipmentExportRequest(
+                parseBranchJson(branchJson),
+                branchIds,
+                deviceTypeIds,
+                mergeStrategy,
+                dttVersion
+        ));
     }
 
     @Override
@@ -1309,23 +1525,14 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     private List<byte[]> readDttFilesFromZip(byte[] zipPayload) {
-        Objects.requireNonNull(zipPayload, "zipPayload is required");
-        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(zipPayload))) {
-            final List<byte[]> archives = new java.util.ArrayList<>();
-            ZipEntry entry;
-            while ((entry = input.getNextEntry()) != null) {
-                if (entry.isDirectory() || !entry.getName().endsWith(".dtt")) {
-                    continue;
-                }
-                archives.add(input.readAllBytes());
-            }
-            if (archives.isEmpty()) {
-                throw new IllegalArgumentException("Zip payload must contain at least one .dtt file");
-            }
-            return archives;
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("Invalid zip payload", exception);
-        }
+        return new java.util.ArrayList<>(readDttFilesFromZipByEntryName(zipPayload).values());
+    }
+
+    private String normalizeDttArchiveEntryName(String archiveEntryName) {
+        final String normalized = archiveEntryName.replace('\\', '/');
+        final int slashIndex = normalized.lastIndexOf('/');
+        final String fileName = slashIndex >= 0 ? normalized.substring(slashIndex + 1) : normalized;
+        return fileName.toLowerCase().endsWith(".dtt") ? fileName.substring(0, fileName.length() - 4) : fileName;
     }
 
     private byte[] writeDttZip(Map<String, byte[]> archivesByDeviceTypeId) {
@@ -1363,6 +1570,29 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 encoded.put(deviceTypeId, Base64.getEncoder().encodeToString(archive))
         );
         return encoded;
+    }
+
+    private DeviceTypeMetadata toMetadataSnapshot(DttArchiveTemplate template) {
+        return new DeviceTypeMetadata(
+                template.metadata().id(),
+                template.metadata().name(),
+                template.metadata().displayName(),
+                template.metadata().description(),
+                template.descriptor().deviceTypeVersion(),
+                DttIconSupport.resolveOrDefault(template.metadata().iconBase64())
+        );
+    }
+
+    private SingleDttExportPreviewResult toFailedPreview(String deviceTypeId,
+                                                         RuntimeException exception,
+                                                         boolean preferMergeConflictCode) {
+        final String message = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+        final String messageLower = message.toLowerCase();
+        final boolean mergeLike = messageLower.contains("merge")
+                || messageLower.contains("conflict")
+                || messageLower.contains("already exists");
+        final String code = (mergeLike || preferMergeConflictCode) ? "MERGE_CONFLICT" : "EXPORT_PREVIEW_ERROR";
+        return new SingleDttExportPreviewResult(false, deviceTypeId, null, code, message);
     }
 
 }

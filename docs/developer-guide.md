@@ -99,6 +99,13 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 
 ### 4.2. Три уровня API
 
+#### Термины интеграции
+
+- **Merge-стратегия** — правило разрешения конфликтов `deviceTypeId` при сборке/импорте.
+- **Preview** — диагностический dry-run: можно проверить успех и получить причины ошибок, не выполняя фактическую выгрузку клиенту.
+- **Single-export** — экспорт одного типа устройства (`deviceTypeId`) в один `.dtt`.
+- **String JSON flow** — сценарий, где сервис не строит object-модель, а передаёт raw JSON строку напрямую в фасад.
+
 #### Уровень 1. Архивный
 
 Используйте, если хотите управлять содержимым одного шаблона:
@@ -114,10 +121,12 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 
 - `assembleProfile(...)`
 - `assembleBranch(...)`
+- `mergeBranchEquipment(...)`
 - `parseProfileJson(...)`
 - `parseBranchJson(...)`
 - `toProfileJson(...)`
 - `toBranchJson(...)`
+- `compareDttVersion(...)`
 
 #### Уровень 3. Batch-интеграционный
 
@@ -127,10 +136,60 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 - `importDttSetToBranch(...)`
 - `importDttZipToProfile(...)`
 - `importDttZipToBranch(...)`
+- `readDttFilesFromZipByEntryName(...)`
+- `resolveDttArchiveEntry(...)`
 - `exportDttSetFromProfile(...)`
 - `exportDttSetFromBranch(...)`
 - `exportProfileToDttZip(...)`
 - `exportBranchToDttZip(...)`
+
+### 4.1. Карта сценариев с быстрым выбором метода
+
+1. **Нужно провалидировать один архив**  
+   Используйте `readDtt(...)` + `validate(...)`.
+
+2. **Нужно быстро извлечь карточки типов устройств из `.dtt`/zip**  
+   Используйте `extractDeviceTypeMetadataFromDttOrZip(...)`.
+
+3. **Нужно вычислить имя файла для download/export**  
+   Используйте `resolveDeviceTypeArchiveBaseName(...)`.
+
+4. **Нужно сравнить входную версию и версию в шаблоне**  
+   Используйте `compareDttVersion(...)`.
+
+5. **Нужно импортировать DTT-set в profile**  
+   Используйте `importDttSetToProfile(...)` / `importDttBase64SetToProfile(...)` / `importDttZipToProfile(...)`.
+
+6. **Нужно импортировать DTT-set в branch equipment**  
+   Используйте `importDttSetToBranch(...)` / `importDttBase64SetToBranch(...)` / `importDttZipToBranch(...)`.
+
+7. **Нужно merge в существующий branch equipment JSON**  
+   Используйте `importDtt*ToExistingBranch(...)` или прямой `mergeBranchEquipment(...)`.
+
+8. **Нужен безопасный preview перед применением**  
+   Используйте `previewDttSetToProfile(...)` / `previewDttSetToBranch(...)` и Base64/zip аналоги.
+
+9. **Нужно работать с zip на уровне конкретных entry**  
+   Используйте `readDttFilesFromZipByEntryName(...)` + `resolveDttArchiveEntry(...)`.
+
+10. **Нужно выгрузить DTT из profile/branch**  
+    Используйте `exportDttSetFromProfile*` / `exportDttSetFromBranch*` или zip-режимы `exportProfileToDttZip(...)`, `exportBranchToDttZip(...)`.
+
+11. **Нужно проверить single-export без фактической выгрузки файла**  
+    Используйте `previewSingleDttExportFromProfile(...)` / `previewSingleDttExportFromBranch(...)`.
+
+12. **Нужно получить один `.dtt` в бинарном виде (download endpoint)**  
+    Используйте `exportSingleDttFromProfile(...)` / `exportSingleDttFromBranch(...)`.
+
+13. **Нужно выполнять single-export/preview прямо из string JSON**  
+    Используйте `exportSingleDttFromProfileJson(...)`, `exportSingleDttFromBranchJson(...)`,
+    `previewSingleDttExportFromProfileJson(...)`, `previewSingleDttExportFromBranchJson(...)`.
+
+14. **Нужно импортировать DTT-set в существующий branch, где текущее состояние хранится строкой JSON**  
+    Используйте `importDttBase64SetToExistingBranchJson(...)` / `importDttZipToExistingBranchJson(...)`.
+
+15. **Нужно сформировать zip DTT-set напрямую из string JSON**  
+    Используйте `exportProfileToDttZip(String, ...)` / `exportBranchToDttZip(String, ...)`.
 
 ## 5. Базовые алгоритмы интеграции
 

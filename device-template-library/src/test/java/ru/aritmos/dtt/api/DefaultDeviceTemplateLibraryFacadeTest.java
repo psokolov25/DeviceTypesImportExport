@@ -17,11 +17,13 @@ import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +41,18 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         assertThat(restored.metadata().id()).isEqualTo("display");
         assertThat(facade.validate(bytes).valid()).isTrue();
+    }
+
+    @Test
+    void shouldCompareInputVersionWithVersionFromDttViaFacade() {
+        final byte[] bytes = facade.writeDtt(template());
+
+        final var result = facade.compareDttVersion(bytes, "2.0.0");
+
+        assertThat(result.inputVersion()).isEqualTo("2.0.0");
+        assertThat(result.dttVersion()).isEqualTo("1.0");
+        assertThat(result.greaterVersion()).isEqualTo("2.0.0");
+        assertThat(result.greaterSource()).isEqualTo("INPUT");
     }
 
     @Test
@@ -219,6 +233,184 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         final String zipBase64 = facade.exportProfileToDttZipBase64(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(zipBase64).isNotBlank();
+
+        final String profileJson = facade.toProfileJson(profileFromBase64);
+        final byte[] zipFromProfileJson = facade.exportProfileToDttZip(profileJson, List.of("display"), "2.0.0");
+        assertThat(countDttEntries(zipFromProfileJson)).isEqualTo(1);
+
+        final var branch = facade.importDttSetToBranch(List.of(archiveBytes), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final String branchJson = facade.toBranchJson(branch);
+        final byte[] zipFromBranchJson = facade.exportBranchToDttZip(
+                branchJson,
+                List.of("branch-1"),
+                List.of("display"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                "2.0.0"
+        );
+        assertThat(countDttEntries(zipFromBranchJson)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReadAndResolveDttEntriesFromZipViaFacade() throws Exception {
+        final byte[] displayDtt = facade.writeDtt(template());
+        final byte[] cashboxDtt = facade.writeDtt(new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "cashbox", "1.0"),
+                new DeviceTypeMetadata("cashbox", "Cashbox", "Cashbox", "desc"),
+                Map.of(),
+                Map.of(),
+                Map.of("deviceTypeKind", "cashbox"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        ));
+        final byte[] zipPayload = zipWithEntries(Map.of(
+                "nested/Display.dtt", displayDtt,
+                "Cashbox.dtt", cashboxDtt
+        ));
+
+        final Map<String, byte[]> archivesByEntryName = facade.readDttFilesFromZipByEntryName(zipPayload);
+        assertThat(archivesByEntryName).containsKeys("nested/Display.dtt", "Cashbox.dtt");
+
+        final byte[] resolvedByExact = facade.resolveDttArchiveEntry(archivesByEntryName, "nested/Display.dtt");
+        final byte[] resolvedByNormalized = facade.resolveDttArchiveEntry(archivesByEntryName, "cashbox");
+        assertThat(facade.readDtt(resolvedByExact).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(resolvedByNormalized).metadata().id()).isEqualTo("cashbox");
+    }
+
+    @Test
+    void shouldExtractMetadataAndResolveArchiveBaseNameViaFacade() throws Exception {
+        final DttArchiveTemplate displayTemplate = template();
+        final byte[] displayDtt = facade.writeDtt(displayTemplate);
+        final byte[] cashboxDtt = facade.writeDtt(new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "cashbox", "2.0.0"),
+                new DeviceTypeMetadata("cashbox", "Cashbox", "Cashbox", "desc"),
+                Map.of(),
+                Map.of(),
+                Map.of("deviceTypeKind", "cashbox"),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        ));
+        final byte[] zipPayload = zipWithEntries(Map.of(
+                "Display.dtt", displayDtt,
+                "nested/Cashbox.dtt", cashboxDtt
+        ));
+
+        final List<DeviceTypeMetadata> metadataFromDtt = facade.extractDeviceTypeMetadataFromDttOrZip(displayDtt);
+        final List<DeviceTypeMetadata> metadataFromZip = facade.extractDeviceTypeMetadataFromDttOrZip(zipPayload);
+        final String archiveBaseName = facade.resolveDeviceTypeArchiveBaseName(displayDtt, "fallback-name");
+
+        assertThat(metadataFromDtt).hasSize(1);
+        assertThat(metadataFromDtt.get(0).id()).isEqualTo("display");
+        assertThat(metadataFromZip).extracting(DeviceTypeMetadata::id).containsExactlyInAnyOrder("display", "cashbox");
+        assertThat(metadataFromZip).extracting(DeviceTypeMetadata::version).contains("2.0.0");
+        assertThat(archiveBaseName).isEqualTo("Display");
+    }
+
+    @Test
+    void shouldPreviewSingleExportFromProfileAndBranchViaFacade() {
+        final var typeTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of("ip", "127.0.0.1")
+        );
+        final EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(typeTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final BranchEquipment branch = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(typeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final var profilePreview = facade.previewSingleDttExportFromProfile(profile, "display", "1.2.3");
+        final var branchPreview = facade.previewSingleDttExportFromBranch(branch, List.of("branch-1"), "display", MergeStrategy.FAIL_IF_EXISTS, "1.2.3");
+        final var failedPreview = facade.previewSingleDttExportFromProfile(profile, "missing", "1.2.3");
+
+        assertThat(profilePreview.success()).isTrue();
+        assertThat(profilePreview.archiveSizeBytes()).isGreaterThan(0);
+        assertThat(branchPreview.success()).isTrue();
+        assertThat(branchPreview.archiveSizeBytes()).isGreaterThan(0);
+        assertThat(failedPreview.success()).isFalse();
+        assertThat(failedPreview.issueCode()).isEqualTo("EXPORT_PREVIEW_ERROR");
+    }
+
+    @Test
+    void shouldExportSingleDttFromProfileAndBranchViaFacade() {
+        final var typeTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of("ip", "127.0.0.1")
+        );
+        final EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(typeTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final BranchEquipment branch = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(typeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final byte[] profileArchive = facade.exportSingleDttFromProfile(profile, "display", "3.0.0");
+        final byte[] branchArchive = facade.exportSingleDttFromBranch(branch, List.of("branch-1"), "display", MergeStrategy.FAIL_IF_EXISTS, "3.0.0");
+
+        assertThat(facade.readDtt(profileArchive).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(branchArchive).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(branchArchive).descriptor().deviceTypeVersion()).isEqualTo("3.0.0");
+
+        final String profileJson = facade.toProfileJson(profile);
+        final String branchJson = facade.toBranchJson(branch);
+        final byte[] profileArchiveFromJson = facade.exportSingleDttFromProfileJson(profileJson, "display", "3.0.0");
+        final byte[] branchArchiveFromJson = facade.exportSingleDttFromBranchJson(
+                branchJson,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.0"
+        );
+        final var profilePreviewFromJson = facade.previewSingleDttExportFromProfileJson(profileJson, "display", "3.0.0");
+        final var branchPreviewFromJson = facade.previewSingleDttExportFromBranchJson(
+                branchJson,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.0"
+        );
+
+        assertThat(facade.readDtt(profileArchiveFromJson).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(branchArchiveFromJson).metadata().id()).isEqualTo("display");
+        assertThat(profilePreviewFromJson.success()).isTrue();
+        assertThat(branchPreviewFromJson.success()).isTrue();
     }
 
 
@@ -335,6 +527,119 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         );
 
         final var mergedType = merged.branches().get("branch-1").deviceTypes().get("display");
+        assertThat(mergedType.template().deviceTypeParamValues()).containsEntry("ip", "10.0.0.20");
+        assertThat(mergedType.eventHandlers()).containsKeys("OLD_EVENT", "NEW_EVENT");
+    }
+
+    @Test
+    void shouldImportIntoExistingBranchFromJsonConvenienceMethods() throws Exception {
+        final var existingType = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "old-desc"),
+                Map.of("ip", "10.0.0.10")
+        );
+        final var existing = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(existingType, true),
+                                List.of(),
+                                "display_kind",
+                                null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final DttArchiveTemplate importedTemplate = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.0", "display", "1.0.0"),
+                new DeviceTypeMetadata("display", "Display", "Display", "new-desc"),
+                Map.of(),
+                Map.of(),
+                Map.of("deviceTypeKind", "display_kind"),
+                Map.of("ip", "10.0.0.20"),
+                Map.of(),
+                Map.of(),
+                null, null, null, null, null,
+                Map.of("NEW_EVENT", "println 'new'"),
+                Map.of()
+        );
+        final byte[] archive = facade.writeDtt(importedTemplate);
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archive);
+        final String existingJson = facade.toBranchJson(existing);
+        final byte[] zipPayload = zipWithEntries(Map.of("display.dtt", archive));
+
+        final BranchEquipment mergedFromBase64Json = facade.importDttBase64SetToExistingBranchJson(
+                List.of(archiveBase64),
+                existingJson,
+                List.of("branch-1"),
+                MergeStrategy.MERGE_NON_NULLS
+        );
+        final BranchEquipment mergedFromZipJson = facade.importDttZipToExistingBranchJson(
+                zipPayload,
+                existingJson,
+                List.of("branch-1"),
+                MergeStrategy.MERGE_NON_NULLS
+        );
+
+        assertThat(mergedFromBase64Json.branches().get("branch-1").deviceTypes().get("display").template().deviceTypeParamValues())
+                .containsEntry("ip", "10.0.0.20");
+        assertThat(mergedFromZipJson.branches().get("branch-1").deviceTypes().get("display").template().deviceTypeParamValues())
+                .containsEntry("ip", "10.0.0.20");
+    }
+
+    @Test
+    void shouldMergeBranchEquipmentViaFacadeMethod() {
+        final var existingType = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "old-desc"),
+                Map.of("ip", "10.0.0.10")
+        );
+        final var incomingType = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "new-desc"),
+                Map.of("ip", "10.0.0.20")
+        );
+        final BranchEquipment existing = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(existingType, true),
+                                List.of(),
+                                "display_kind",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                Map.of("OLD_EVENT", new ru.aritmos.dtt.json.branch.BranchScript(Map.of(), List.of(), "println 'old'")),
+                                Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final BranchEquipment incoming = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(incomingType, true),
+                                List.of(),
+                                "display_kind",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                Map.of("NEW_EVENT", new ru.aritmos.dtt.json.branch.BranchScript(Map.of(), List.of(), "println 'new'")),
+                                Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final BranchEquipment merged = facade.mergeBranchEquipment(existing, incoming, MergeStrategy.MERGE_NON_NULLS);
+        final var mergedType = merged.branches().get("branch-1").deviceTypes().get("display");
+
         assertThat(mergedType.template().deviceTypeParamValues()).containsEntry("ip", "10.0.0.20");
         assertThat(mergedType.eventHandlers()).containsKeys("OLD_EVENT", "NEW_EVENT");
     }
@@ -1236,6 +1541,19 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         final Map<String, Object> ip = castToMap(restored.deviceTypeParametersSchema().get("ip"));
         assertThat(restored.metadata().description()).contains("First branch version");
         assertThat(ip).containsEntry("displayName", "IP A");
+    }
+
+    private byte[] zipWithEntries(Map<String, byte[]> entries) throws IOException {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+             ZipOutputStream zipOutput = new ZipOutputStream(output)) {
+            for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+                zipOutput.putNextEntry(new ZipEntry(entry.getKey()));
+                zipOutput.write(entry.getValue());
+                zipOutput.closeEntry();
+            }
+            zipOutput.finish();
+            return output.toByteArray();
+        }
     }
 
     private DttArchiveTemplate template() {

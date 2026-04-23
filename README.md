@@ -95,7 +95,9 @@
 
 - read/write DTT bytes;
 - validate DTT bytes/template;
+- compare DTT/template version against input (`compareDttVersion`);
 - assemble profile/branch модели;
+- merge branch equipment моделей (`mergeBranchEquipment`);
 - parse/generate profile/branch JSON.
 - batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`);
 - batch export/import DTT set из branch (`exportDttSetFromBranch` / `importDttSetToBranch`).
@@ -107,6 +109,9 @@
   - Base64 (`importDttBase64SetToProfile`, `importDttBase64SetToBranch`, `importDttBase64SetToExistingBranch`);
   - upload-download zip (`importDttZipToProfile`, `importDttZipToBranch`, `importDttZipToExistingBranch`, `exportProfileToDttZip`, `exportBranchToDttZip`);
   - zip+Base64 (`exportProfileToDttZipBase64`, `exportBranchToDttZipBase64`).
+- utility-сценарии работы с zip-набором `.dtt`:
+  - извлечение `.dtt`-entry из zip (`readDttFilesFromZipByEntryName`);
+  - разрешение конкретного entry по точному/нормализованному имени (`resolveDttArchiveEntry`).
 - dual-mode JSON на уровне фасада библиотеки:
   - object-model запросы (`ProfileExportRequest`, `BranchEquipmentExportRequest`);
   - string JSON (`exportDttSetFromProfileJson`, `exportDttSetFromBranchJson`) с поддержкой передачи `dttVersion`.
@@ -122,6 +127,163 @@ String profileJson = facade.toProfileJson(
         facade.assembleProfile(profileRequest)
 );
 ```
+
+#### Полная карта facade-фич: кейсы и примеры
+
+Ниже — сводка по ключевым сценариям, которые покрывает библиотечный фасад.
+
+##### Термины (короткий глоссарий)
+
+- **Profile JSON** — карта `deviceTypes` без branch-обёртки.
+- **Branch equipment JSON** — полный JSON уровня `DeviceManager.json` с набором branch.
+- **Single-export** — экспорт одного `deviceTypeId` в один `.dtt`.
+- **Preview** — dry-run вычисление результата/диагностики без фактической выдачи файла клиенту.
+- **Merge-стратегия** — правило, как разрешать конфликты при совпадении `deviceTypeId`:
+  - `FAIL_IF_EXISTS` — остановить операцию с ошибкой конфликта;
+  - `REPLACE` — заменить существующее значение входящим;
+  - `MERGE_NON_NULLS` — брать непустые поля из входящих данных;
+  - `MERGE_PRESERVE_EXISTING` — сохранять существующие поля, дополняя отсутствующие;
+  - `CREATE_COPY_WITH_SUFFIX` — создавать копию конфликтующего типа с суффиксом.
+
+1. **Чтение / запись / валидация DTT**
+   - Методы: `readDtt`, `writeDtt`, `validate(template)`, `validate(bytes)`.
+   - Кейс: принять `.dtt` из внешней системы, провалидировать и сохранить нормализованный архив.
+
+2. **Извлечение metadata и имени архива**
+   - Методы: `extractDeviceTypeMetadataFromDttOrZip`, `resolveDeviceTypeArchiveBaseName`.
+   - Кейс: endpoint загрузки должен показать пользователю список типов устройств из zip-набора ещё до импорта.
+   - Пример:
+   ```java
+   List<DeviceTypeMetadata> metadata = facade.extractDeviceTypeMetadataFromDttOrZip(uploadPayload);
+   String fileName = facade.resolveDeviceTypeArchiveBaseName(singleDttBytes, "device-type");
+   ```
+
+3. **Сравнение версий**
+   - Метод: `compareDttVersion`.
+   - Кейс: определить, какая версия больше — из входного запроса или из `.dtt`.
+
+4. **Сборка profile/branch из structured DTO**
+   - Методы: `assembleProfile`, `assembleBranch`.
+   - Кейс: импорт с override-значениями параметров и metadata.
+
+5. **Merge существующего branch equipment**
+   - Метод: `mergeBranchEquipment`.
+   - Кейс: применить входящий результат импорта к уже существующему `DeviceManager.json`.
+   - Merge-стратегии: `FAIL_IF_EXISTS`, `REPLACE`, `MERGE_NON_NULLS`, `MERGE_PRESERVE_EXISTING`, `CREATE_COPY_WITH_SUFFIX`.
+
+6. **Parse / generate JSON**
+   - Методы: `parseProfileJson`, `parseBranchJson`, `toProfileJson`, `toBranchJson`.
+   - Кейс: одновременно поддерживать object-model и raw JSON в интеграционном слое.
+
+7. **Batch import в profile**
+   - Методы: `importDttSetToProfile`, `importDttBase64SetToProfile`, `importDttZipToProfile`.
+   - Preview: `previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`.
+
+8. **Batch import в branch**
+   - Методы: `importDttSetToBranch`, `importDttBase64SetToBranch`, `importDttZipToBranch`.
+   - Preview: `previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`.
+
+9. **Импорт в существующий branch**
+   - Методы: `importDttSetToExistingBranch`, `importDttBase64SetToExistingBranch`, `importDttZipToExistingBranch`.
+   - Кейс: patch/merge без пересборки всего branch JSON вручную.
+
+10. **Utility для zip-набора `.dtt`**
+    - Методы: `readDttFilesFromZipByEntryName`, `resolveDttArchiveEntry`.
+    - Кейс: multipart-загрузка zip с выбором конкретного `.dtt` по имени entry.
+    - Пример:
+    ```java
+    Map<String, byte[]> entries = facade.readDttFilesFromZipByEntryName(zipPayload);
+    byte[] chosen = facade.resolveDttArchiveEntry(entries, "nested/display");
+    ```
+
+11. **Export из profile**
+    - Методы: `exportDttSetFromProfile*`, `exportProfileToDttZip*`.
+    - Кейс: выгрузка всех или выбранных `deviceTypeId` в bytes/Base64/zip.
+
+12. **Export из branch**
+    - Методы: `exportDttSetFromBranch*`, `exportBranchToDttZip*`.
+    - Кейс: выгрузка по фильтрам `branchIds` и `deviceTypeIds`, включая merge-стратегии на конфликте ID.
+
+13. **Комбинированная сборка profile + branch**
+    - Метод: `importDttSetToProfileAndBranchWithMetadata`.
+    - Кейс: за один вызов получить обе модели и применить metadata-override по profile/branch.
+
+14. **Preview single-export с диагностикой**
+    - Методы: `previewSingleDttExportFromProfile`, `previewSingleDttExportFromBranch`.
+    - Кейс: перед реальным download проверить, что экспорт одного типа устройства возможен, и получить типизированную причину ошибки (`EXPORT_PREVIEW_ERROR` / `MERGE_CONFLICT`).
+
+15. **Single-export в бинарный `.dtt`**
+    - Методы: `exportSingleDttFromProfile`, `exportSingleDttFromBranch`.
+    - Подкатегории кейсов:
+      - **Profile-only**: выгрузить один `deviceTypeId` из карты `deviceTypes`.
+      - **Branch-aware**: выгрузить один `deviceTypeId` из выбранных `branchIds` c merge-стратегией.
+      - **API download**: использовать метод для endpoint-ов, отдающих `application/octet-stream`, без промежуточного Base64.
+    - Пример:
+    ```java
+    byte[] singleFromProfile = facade.exportSingleDttFromProfile(profile, "display", "3.0.0");
+    byte[] singleFromBranch = facade.exportSingleDttFromBranch(
+            branchEquipment,
+            List.of("branch-1"),
+            "display",
+            MergeStrategy.FAIL_IF_EXISTS,
+            "3.0.0"
+    );
+    ```
+
+16. **Single-export и preview из string JSON (без ручного parse)**
+    - Методы:
+      - `exportSingleDttFromProfileJson`
+      - `exportSingleDttFromBranchJson`
+      - `previewSingleDttExportFromProfileJson`
+      - `previewSingleDttExportFromBranchJson`
+    - Подкатегории кейсов:
+      - **Thin-controller**: REST-слой получает raw JSON строкой и сразу делегирует в фасад.
+      - **Interop pipeline**: данные приходят из внешнего источника как строка JSON, без object-моделей.
+      - **Pre-check + download**: сначала preview из JSON, затем фактический экспорт.
+    - Пример:
+    ```java
+    SingleDttExportPreviewResult preview = facade.previewSingleDttExportFromProfileJson(
+            profileJson,
+            "display",
+            "3.0.0"
+    );
+    if (preview.success()) {
+        byte[] archive = facade.exportSingleDttFromProfileJson(profileJson, "display", "3.0.0");
+    }
+    ```
+
+17. **Импорт в существующий branch из string JSON + Base64/zip входа**
+    - Методы:
+      - `importDttBase64SetToExistingBranchJson`
+      - `importDttZipToExistingBranchJson`
+    - Подкатегории кейсов:
+      - **Legacy integration**: существующий `DeviceManager.json` хранится как строка в БД/конфиге.
+      - **Migration patch**: нужно подмешать новый DTT-set в существующий branch без промежуточного parse в прикладном коде.
+      - **Upload gateway**: API принимает zip/Base64 от клиента, а current state приходит как raw JSON.
+    - Пример (приближённый к жизни):
+    ```java
+    // currentStateJson пришёл из БД как строка JSON
+    String currentStateJson = repository.loadBranchJson("branch-msk-01");
+    List<String> archivesBase64 = request.getArchivesBase64();
+
+    BranchEquipment merged = facade.importDttBase64SetToExistingBranchJson(
+            archivesBase64,
+            currentStateJson,
+            List.of("branch-msk-01", "branch-msk-02"),
+            MergeStrategy.MERGE_NON_NULLS
+    );
+
+    repository.saveBranchJson("branch-msk-01", facade.toBranchJson(merged));
+    ```
+
+18. **Экспорт DTT zip из string JSON (profile/branch)**
+    - Методы:
+      - `exportProfileToDttZip(String profileJson, ...)`
+      - `exportBranchToDttZip(String branchJson, ...)`
+    - Подкатегории кейсов:
+      - **No-model integration**: сервис оперирует только raw JSON строками.
+      - **Gateway proxy**: JSON получен от внешнего API и сразу уходит на экспорт.
+      - **Batch download**: формирование zip-набора `.dtt` для выдачи пользователю.
 
 #### Канонический branch JSON (`DeviceManager.json`) и script-секции
 
