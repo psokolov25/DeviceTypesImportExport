@@ -157,6 +157,8 @@ String profileJson = facade.toProfileJson(
 - `computeProfileImportPreview(byte[] zipPayload, ...)` / `computeBranchImportPreview(byte[] zipPayload, ...)` — делают то же самое для zip-based import-plan, включая выбор `archiveEntryName` и legacy-режим `все .dtt -> все branchId`.
 - `previewProfileImportDetailed(...)` / `previewBranchImportDetailed(...)` — возвращают одним вызовом и собранную preview-модель, и диагностику defaults/overrides.
 - `previewProfileImportDetailed(byte[] zipPayload, ...)` / `previewBranchImportDetailed(byte[] zipPayload, ...)` — тот же режим для zip-based import-plan.
+- `previewProfileImport(...)` / `previewBranchImport(...)` — выполняют прямую preview-сборку high-level import-plan без ручного `prepare + preview`.
+- `previewProfileImport(byte[] zipPayload, ...)` / `previewBranchImport(byte[] zipPayload, ...)` — прямой preview-режим для zip-based import-plan.
 
 Пример использования для profile: 
 
@@ -181,6 +183,7 @@ ProfileImportPlanRequest plan = new ProfileImportPlanRequest(
 
 EquipmentProfileAssemblyRequest assemblyRequest = facade.prepareProfileAssemblyRequest(plan);
 EquipmentProfile profile = facade.assembleProfile(assemblyRequest);
+EquipmentProfile previewOnly = facade.previewProfileImport(plan);
 Map<String, ImportPreviewComputationEntry> preview = facade.computeProfileImportPreview(plan);
 
 byte[] zipPayload = Files.readAllBytes(Path.of("device-types.zip"));
@@ -225,18 +228,21 @@ BranchImportPlanRequest plan = new BranchImportPlanRequest(
 
 BranchEquipmentAssemblyRequest assemblyRequest = facade.prepareBranchAssemblyRequest(plan);
 BranchEquipment branchEquipment = facade.assembleBranch(assemblyRequest);
+BranchEquipment previewOnly = facade.previewBranchImport(plan);
 ```
 
 1. **Чтение / запись / валидация DTT**
-   - Методы: `readDtt`, `writeDtt`, `validate(template)`, `validate(bytes)`.
+   - Методы: `readDtt`, `writeDtt`, `validate(template)`, `validate(bytes)`, `inspectDtt`.
    - Кейс: принять `.dtt` из внешней системы, провалидировать и сохранить нормализованный архив.
 
 2. **Извлечение metadata и имени архива**
-   - Методы: `extractDeviceTypeMetadataFromDttOrZip`, `resolveDeviceTypeArchiveBaseName`.
+   - Методы: `extractDeviceTypeMetadataFromDttOrZip`, `normalizeDeviceTypeMetadata`, `resolveDeviceTypeArchiveBaseName`.
    - Кейс: endpoint загрузки должен показать пользователю список типов устройств из zip-набора ещё до импорта.
    - Пример:
    ```java
-   List<DeviceTypeMetadata> metadata = facade.extractDeviceTypeMetadataFromDttOrZip(uploadPayload);
+   List<DeviceTypeMetadata> metadata = facade.normalizeDeviceTypeMetadata(
+           facade.extractDeviceTypeMetadataFromDttOrZip(uploadPayload)
+   );
    String fileName = facade.resolveDeviceTypeArchiveBaseName(singleDttBytes, "device-type");
    ```
 
@@ -261,19 +267,23 @@ BranchEquipment branchEquipment = facade.assembleBranch(assemblyRequest);
    - Методы: `parseProfileJson`, `parseBranchJson`, `toProfileJson`, `toBranchJson`.
    - Кейс: одновременно поддерживать object-model и raw JSON в интеграционном слое.
 
-8. **Batch import в profile**
+8. **Прикладные представления результата сборки**
+   - Методы: `toProfileAssemblyView`, `toBranchAssemblyView`.
+   - Кейс: получить за один вызов JSON и агрегированные счётчики (`deviceTypesCount`/`branchesCount`) без ручной пост-обработки в adapter-слое.
+
+9. **Batch import в profile**
    - Методы: `importDttSetToProfile`, `importDttBase64SetToProfile`, `importDttZipToProfile`.
    - Preview: `previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`.
 
-9. **Batch import в branch**
+10. **Batch import в branch**
    - Методы: `importDttSetToBranch`, `importDttBase64SetToBranch`, `importDttZipToBranch`.
    - Preview: `previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`.
 
-10. **Импорт в существующий branch**
+11. **Импорт в существующий branch**
    - Методы: `importDttSetToExistingBranch`, `importDttBase64SetToExistingBranch`, `importDttZipToExistingBranch`.
    - Кейс: patch/merge без пересборки всего branch JSON вручную.
 
-11. **Utility для zip-набора `.dtt`**
+12. **Utility для zip-набора `.dtt`**
     - Методы: `readDttFilesFromZipByEntryName`, `resolveDttArchiveEntry`.
     - Кейс: multipart-загрузка zip с выбором конкретного `.dtt` по имени entry.
     - Пример:
@@ -282,23 +292,23 @@ BranchEquipment branchEquipment = facade.assembleBranch(assemblyRequest);
     byte[] chosen = facade.resolveDttArchiveEntry(entries, "nested/display");
     ```
 
-12. **Export из profile**
+13. **Export из profile**
     - Методы: `exportDttSetFromProfile*`, `exportProfileToDttZip*`.
     - Кейс: выгрузка всех или выбранных `deviceTypeId` в bytes/Base64/zip.
 
-13. **Export из branch**
+14. **Export из branch**
     - Методы: `exportDttSetFromBranch*`, `exportBranchToDttZip*`.
     - Кейс: выгрузка по фильтрам `branchIds` и `deviceTypeIds`, включая merge-стратегии на конфликте ID.
 
-14. **Комбинированная сборка profile + branch**
+15. **Комбинированная сборка profile + branch**
     - Метод: `importDttSetToProfileAndBranchWithMetadata`.
     - Кейс: за один вызов получить обе модели и применить metadata-override по profile/branch.
 
-15. **Preview single-export с диагностикой**
+16. **Preview single-export с диагностикой**
     - Методы: `previewSingleDttExportFromProfile`, `previewSingleDttExportFromBranch`.
     - Кейс: перед реальным download проверить, что экспорт одного типа устройства возможен, и получить типизированную причину ошибки (`EXPORT_PREVIEW_ERROR` / `MERGE_CONFLICT`).
 
-16. **Single-export в бинарный `.dtt`**
+17. **Single-export в бинарный `.dtt`**
     - Методы: `exportSingleDttFromProfile`, `exportSingleDttFromBranch`.
     - Подкатегории кейсов:
       - **Profile-only**: выгрузить один `deviceTypeId` из карты `deviceTypes`.
@@ -316,7 +326,45 @@ BranchEquipment branchEquipment = facade.assembleBranch(assemblyRequest);
     );
     ```
 
-17. **Single-export и preview из string JSON (без ручного parse)**
+18. **Single-export в Base64 (thin-adapter без ручного encode)**
+    - Методы:
+      - `exportSingleDttFromProfileBase64`
+      - `exportSingleDttFromProfileJsonBase64`
+      - `exportSingleDttFromBranchBase64`
+      - `exportSingleDttFromBranchJsonBase64`
+    - Подкатегории кейсов:
+      - **JSON API response**: endpoint возвращает один `.dtt` как Base64-строку в JSON.
+      - **Message bus payload**: один `.dtt` отправляется как строковый payload в очередь/шину.
+      - **Thin-controller**: HTTP-слой не дублирует `Base64.getEncoder().encodeToString(...)`.
+    - Пример:
+    ```java
+    String archiveBase64 = facade.exportSingleDttFromBranchJsonBase64(
+            branchJson,
+            List.of("branch-msk-01"),
+            "display-wd3264-red-window",
+            MergeStrategy.MERGE_NON_NULLS,
+            "3.0.0"
+    );
+    ```
+
+19. **Single-export в unified DTO (`ExportResult`)**
+    - Методы:
+      - `exportSingleDttResultFromProfile`
+      - `exportSingleDttResultFromProfileJson`
+      - `exportSingleDttResultFromBranch`
+      - `exportSingleDttResultFromBranchJson`
+    - Подкатегории кейсов:
+      - **Dual transport**: один вызов отдаёт и `archiveBytes` для file-download, и `archiveBase64` для JSON-ответа.
+      - **Message + storage pipeline**: `archiveBytes` сразу сохраняются как бинарный артефакт, а `archiveBase64` публикуется в событие.
+      - **Стабильный контракт**: прикладной слой не склеивает вручную id/types + bytes + Base64.
+    - Пример:
+    ```java
+    ExportResult result = facade.exportSingleDttResultFromProfile(profile, "display", "3.0.0");
+    byte[] downloadPayload = result.archiveBytes();
+    String apiPayload = result.archiveBase64();
+    ```
+
+20. **Single-export и preview из string JSON (без ручного parse)**
     - Методы:
       - `exportSingleDttFromProfileJson`
       - `exportSingleDttFromBranchJson`
@@ -338,7 +386,7 @@ BranchEquipment branchEquipment = facade.assembleBranch(assemblyRequest);
     }
     ```
 
-18. **Импорт в существующий branch из string JSON + Base64/zip входа**
+21. **Импорт в существующий branch из string JSON + Base64/zip входа**
     - Методы:
       - `importDttBase64SetToExistingBranchJson`
       - `importDttZipToExistingBranchJson`
@@ -485,6 +533,12 @@ dtt:
   -pl device-template-demo-service -am test \
   -Dtest=OpenApiSpecContractTest,DttControllerExamplesContractTest,DttSwaggerExamplesTest \
   -Dsurefire.failIfNoSpecifiedTests=false
+```
+
+Офлайн-прогон тестов (без сетевого скачивания зависимостей) в контейнере:
+
+```bash
+./scripts/offline-test.sh
 ```
 
 Что считается обязательным признаком актуальности примеров:
@@ -1429,7 +1483,7 @@ java -jar device-template-demo-service/target/device-template-demo-service-0.1.0
 ## Ближайшие шаги
 
 1. Расширить canonical-модель до полного покрытия profile/branch и parameter schema уровней (включая nested структуры).
-2. Добавить preview endpoint-ы сборки profile/branch с отображением рассчитанных defaults/overrides без сохранения.
+2. Расширить сценарии UI-предпросмотра profile/branch с объясняемой визуализацией рассчитанных defaults/overrides.
 3. Расширить валидацию Groovy с проверкой доменных контекстов выполнения (не только синтаксис).
 
 ## 8) Новый orchestration-слой facade API
@@ -1440,6 +1494,10 @@ java -jar device-template-demo-service/target/device-template-demo-service-0.1.0
 - `assembleProfile(byte[] zipPayload, ProfileImportPlanRequest)`
 - `assembleBranch(BranchImportPlanRequest)`
 - `assembleBranch(byte[] zipPayload, BranchImportPlanRequest)`
+- `previewProfileImport(ProfileImportPlanRequest)`
+- `previewProfileImport(byte[] zipPayload, ProfileImportPlanRequest)`
+- `previewBranchImport(BranchImportPlanRequest)`
+- `previewBranchImport(byte[] zipPayload, BranchImportPlanRequest)`
 - `mergeIntoExistingBranch(BranchEquipment, BranchImportPlanRequest)`
 - `mergeIntoExistingBranch(byte[] zipPayload, BranchEquipment, BranchImportPlanRequest)`
 - `mergeIntoExistingBranchJson(String, BranchImportPlanRequest)`

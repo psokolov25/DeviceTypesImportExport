@@ -1,12 +1,16 @@
 package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
+import ru.aritmos.dtt.api.dto.BranchAssemblyView;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
+import ru.aritmos.dtt.api.dto.DttInspectionResult;
 import ru.aritmos.dtt.api.dto.DttVersionComparisonResult;
 import ru.aritmos.dtt.api.dto.DeviceTypeTemplate;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
+import ru.aritmos.dtt.api.dto.ExportResult;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.ProfileAssemblyView;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
 import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.SingleDttExportPreviewResult;
@@ -38,6 +42,7 @@ import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.assembly.DefaultTemplateAssemblyService;
 import ru.aritmos.dtt.exception.TemplateAssemblyException;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
+import ru.aritmos.dtt.json.branch.BranchDeviceTypeMetadata;
 import ru.aritmos.dtt.json.branch.BranchScript;
 import ru.aritmos.dtt.json.branch.BranchDeviceType;
 import ru.aritmos.dtt.json.branch.DeviceInstanceTemplate;
@@ -152,6 +157,22 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public DttInspectionResult inspectDtt(byte[] archiveBytes) {
+        final DttArchiveTemplate template = readDtt(archiveBytes);
+        return new DttInspectionResult(
+                template.descriptor().formatName(),
+                template.descriptor().formatVersion(),
+                template.metadata().id(),
+                template.metadata().name(),
+                template.descriptor().deviceTypeVersion(),
+                template.metadata().description(),
+                template.metadata().iconBase64(),
+                template.eventHandlers() == null ? 0 : template.eventHandlers().size(),
+                template.commands() == null ? 0 : template.commands().size()
+        );
+    }
+
+    @Override
     public List<DeviceTypeMetadata> extractDeviceTypeMetadataFromDttOrZip(byte[] payload) {
         try {
             final DttArchiveTemplate template = readDtt(payload);
@@ -162,6 +183,30 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                     .map(this::toMetadataSnapshot)
                     .toList();
         }
+    }
+
+    @Override
+    public List<DeviceTypeMetadata> normalizeDeviceTypeMetadata(List<DeviceTypeMetadata> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return List.of();
+        }
+        return metadata.stream()
+                .filter(Objects::nonNull)
+                .map(item -> {
+                    final String safeId = firstNonBlank(item.id(), "unknown-device-type");
+                    final String name = firstNonBlank(item.name(), safeId);
+                    final String displayName = firstNonBlank(item.displayName(), name, safeId);
+                    final String description = firstNonBlank(item.description(), name, safeId, "");
+                    return new DeviceTypeMetadata(
+                            safeId,
+                            name,
+                            displayName,
+                            description,
+                            item.version(),
+                            DttIconSupport.resolveOrDefault(item.iconBase64())
+                    );
+                })
+                .toList();
     }
 
     @Override
@@ -197,6 +242,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public EquipmentProfile previewProfileImport(ProfileImportPlanRequest request) {
+        return assemblyService.previewEquipmentProfile(prepareProfileAssemblyRequest(request));
+    }
+
+    @Override
+    public EquipmentProfile previewProfileImport(byte[] zipPayload, ProfileImportPlanRequest request) {
+        return assemblyService.previewEquipmentProfile(prepareProfileAssemblyRequestFromZip(zipPayload, request));
+    }
+
+    @Override
     public BranchEquipment assembleBranch(BranchEquipmentAssemblyRequest request) {
         return assemblyService.assembleBranchEquipment(request);
     }
@@ -209,6 +264,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public BranchEquipment assembleBranch(byte[] zipPayload, BranchImportPlanRequest request) {
         return assembleBranch(prepareBranchAssemblyRequestFromZip(zipPayload, request));
+    }
+
+    @Override
+    public BranchEquipment previewBranchImport(BranchImportPlanRequest request) {
+        return assemblyService.previewBranchEquipment(prepareBranchAssemblyRequest(request));
+    }
+
+    @Override
+    public BranchEquipment previewBranchImport(byte[] zipPayload, BranchImportPlanRequest request) {
+        return assemblyService.previewBranchEquipment(prepareBranchAssemblyRequestFromZip(zipPayload, request));
     }
 
     @Override
@@ -298,6 +363,32 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     @Override
     public String toBranchJson(BranchEquipment branchEquipment) {
         return branchJsonGenerator.generate(branchEquipment);
+    }
+
+    @Override
+    public ProfileAssemblyView toProfileAssemblyView(EquipmentProfile profile) {
+        final String profileJson = toProfileJson(profile);
+        final int count = profile == null || profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
+        return new ProfileAssemblyView(profileJson, count);
+    }
+
+    @Override
+    public BranchAssemblyView toBranchAssemblyView(BranchEquipment branchEquipment) {
+        final String branchJson = toBranchJson(branchEquipment);
+        final int branchesCount = branchEquipment == null || branchEquipment.branches() == null ? 0 : branchEquipment.branches().size();
+        final List<DeviceTypeMetadata> metadata = (branchEquipment == null || branchEquipment.metadata() == null
+                ? List.<BranchDeviceTypeMetadata>of()
+                : branchEquipment.metadata()).stream()
+                .map(item -> new DeviceTypeMetadata(
+                        item.id(),
+                        item.name(),
+                        item.displayName(),
+                        item.description(),
+                        item.version(),
+                        item.imageBase64()
+                ))
+                .toList();
+        return new BranchAssemblyView(branchJson, branchesCount, metadata);
     }
 
     @Override
@@ -564,6 +655,27 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public String exportSingleDttFromProfileBase64(EquipmentProfile profile, String deviceTypeId, String dttVersion) {
+        return Base64.getEncoder().encodeToString(exportSingleDttFromProfile(profile, deviceTypeId, dttVersion));
+    }
+
+    @Override
+    public String exportSingleDttFromProfileJsonBase64(String profileJson, String deviceTypeId, String dttVersion) {
+        return Base64.getEncoder().encodeToString(exportSingleDttFromProfileJson(profileJson, deviceTypeId, dttVersion));
+    }
+
+    @Override
+    public ExportResult exportSingleDttResultFromProfile(EquipmentProfile profile, String deviceTypeId, String dttVersion) {
+        final byte[] archiveBytes = exportSingleDttFromProfile(profile, deviceTypeId, dttVersion);
+        return new ExportResult(deviceTypeId, archiveBytes, Base64.getEncoder().encodeToString(archiveBytes));
+    }
+
+    @Override
+    public ExportResult exportSingleDttResultFromProfileJson(String profileJson, String deviceTypeId, String dttVersion) {
+        return exportSingleDttResultFromProfile(parseProfileJson(profileJson), deviceTypeId, dttVersion);
+    }
+
+    @Override
     public byte[] exportSingleDttFromBranch(BranchEquipment branchEquipment,
                                             List<String> branchIds,
                                             String deviceTypeId,
@@ -586,6 +698,47 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                                                 MergeStrategy mergeStrategy,
                                                 String dttVersion) {
         return exportSingleDttFromBranch(parseBranchJson(branchJson), branchIds, deviceTypeId, mergeStrategy, dttVersion);
+    }
+
+    @Override
+    public String exportSingleDttFromBranchBase64(BranchEquipment branchEquipment,
+                                                  List<String> branchIds,
+                                                  String deviceTypeId,
+                                                  MergeStrategy mergeStrategy,
+                                                  String dttVersion) {
+        return Base64.getEncoder().encodeToString(
+                exportSingleDttFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion)
+        );
+    }
+
+    @Override
+    public String exportSingleDttFromBranchJsonBase64(String branchJson,
+                                                      List<String> branchIds,
+                                                      String deviceTypeId,
+                                                      MergeStrategy mergeStrategy,
+                                                      String dttVersion) {
+        return Base64.getEncoder().encodeToString(
+                exportSingleDttFromBranchJson(branchJson, branchIds, deviceTypeId, mergeStrategy, dttVersion)
+        );
+    }
+
+    @Override
+    public ExportResult exportSingleDttResultFromBranch(BranchEquipment branchEquipment,
+                                                        List<String> branchIds,
+                                                        String deviceTypeId,
+                                                        MergeStrategy mergeStrategy,
+                                                        String dttVersion) {
+        final byte[] archiveBytes = exportSingleDttFromBranch(branchEquipment, branchIds, deviceTypeId, mergeStrategy, dttVersion);
+        return new ExportResult(deviceTypeId, archiveBytes, Base64.getEncoder().encodeToString(archiveBytes));
+    }
+
+    @Override
+    public ExportResult exportSingleDttResultFromBranchJson(String branchJson,
+                                                            List<String> branchIds,
+                                                            String deviceTypeId,
+                                                            MergeStrategy mergeStrategy,
+                                                            String dttVersion) {
+        return exportSingleDttResultFromBranch(parseBranchJson(branchJson), branchIds, deviceTypeId, mergeStrategy, dttVersion);
     }
 
     @Override

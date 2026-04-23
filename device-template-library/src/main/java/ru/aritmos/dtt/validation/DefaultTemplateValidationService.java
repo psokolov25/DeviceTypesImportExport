@@ -22,6 +22,7 @@ public class DefaultTemplateValidationService implements TemplateValidationServi
     private static final String GROOVY_SYNTAX_ERROR = "GROOVY_SYNTAX_ERROR";
     private static final String GROOVY_CONTEXT_ERROR = "GROOVY_CONTEXT_ERROR";
     private static final String REQUIRED_FIELD_MISSING = "REQUIRED_FIELD_MISSING";
+    private static final String UNSUPPORTED_FORMAT_VERSION = "UNSUPPORTED_FORMAT_VERSION";
 
     private final GroovyShell groovyShell;
 
@@ -62,10 +63,20 @@ public class DefaultTemplateValidationService implements TemplateValidationServi
         }
         if (isBlank(template.descriptor().formatVersion())) {
             issues.add(new ValidationIssue(REQUIRED_FIELD_MISSING, "manifest.yml:formatVersion", "Пустой formatVersion"));
+        } else if (!isSupportedFormatVersion(template.descriptor().formatVersion())) {
+            issues.add(new ValidationIssue(
+                    UNSUPPORTED_FORMAT_VERSION,
+                    "manifest.yml:formatVersion",
+                    "Неподдерживаемая версия формата DTT: " + template.descriptor().formatVersion()
+            ));
         }
         if (template.metadata() == null || isBlank(template.metadata().id())) {
             issues.add(new ValidationIssue(REQUIRED_FIELD_MISSING, "template/device-type.yml:id", "Отсутствует id типа устройства"));
         }
+    }
+
+    private boolean isSupportedFormatVersion(String formatVersion) {
+        return formatVersion != null && formatVersion.matches("^1(\\.\\d+)?$");
     }
 
     private void validateGroovyMap(String directory, Map<String, String> scripts, List<ValidationIssue> issues) {

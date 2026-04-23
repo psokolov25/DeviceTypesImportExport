@@ -1,9 +1,13 @@
 package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
+import ru.aritmos.dtt.api.dto.BranchAssemblyView;
+import ru.aritmos.dtt.api.dto.DttInspectionResult;
 import ru.aritmos.dtt.api.dto.DttVersionComparisonResult;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
+import ru.aritmos.dtt.api.dto.ExportResult;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.ProfileAssemblyView;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
 import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.SingleDttExportPreviewResult;
@@ -63,6 +67,14 @@ public interface DeviceTemplateLibraryFacade {
     ValidationResult validate(byte[] archiveBytes);
 
     /**
+     * Выполняет быструю инспекцию DTT-архива и возвращает прикладной срез метаданных.
+     *
+     * @param archiveBytes bytes ZIP-архива `.dtt`
+     * @return результат инспекции DTT
+     */
+    DttInspectionResult inspectDtt(byte[] archiveBytes);
+
+    /**
      * Извлекает metadata типа устройства из одного `.dtt` или zip-набора `.dtt`.
      *
      * <p>Если payload является одиночным `.dtt`, возвращается список из одного элемента.
@@ -72,6 +84,17 @@ public interface DeviceTemplateLibraryFacade {
      * @return список metadata типов устройств
      */
     List<ru.aritmos.dtt.api.dto.DeviceTypeMetadata> extractDeviceTypeMetadataFromDttOrZip(byte[] payload);
+
+    /**
+     * Нормализует список метаданных типов устройств для прикладного отображения.
+     *
+     * <p>Метод заполняет fallback-значения для `name`/`displayName`/`description`,
+     * а также нормализует `iconBase64` через дефолтную иконку, если иконка не задана.
+     *
+     * @param metadata исходный список metadata
+     * @return нормализованный список metadata
+     */
+    List<ru.aritmos.dtt.api.dto.DeviceTypeMetadata> normalizeDeviceTypeMetadata(List<ru.aritmos.dtt.api.dto.DeviceTypeMetadata> metadata);
 
     /**
      * Возвращает базовое имя файла для DTT-архива на основе metadata типа устройства.
@@ -120,6 +143,26 @@ public interface DeviceTemplateLibraryFacade {
     EquipmentProfile assembleProfile(byte[] zipPayload, ProfileImportPlanRequest request);
 
     /**
+     * Выполняет preview-сборку profile JSON напрямую из high-level плана импорта.
+     *
+     * <p>В отличие от {@link #assembleProfile(ProfileImportPlanRequest)} метод использует preview-режим
+     * assembly-сервиса и предназначен для сценариев предварительного просмотра в прикладном API.
+     *
+     * @param request high-level план импорта profile JSON
+     * @return рассчитанная preview-модель профиля оборудования
+     */
+    EquipmentProfile previewProfileImport(ProfileImportPlanRequest request);
+
+    /**
+     * Выполняет preview-сборку profile JSON из zip-пакета и high-level плана импорта.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param request high-level план импорта profile JSON
+     * @return рассчитанная preview-модель профиля оборудования
+     */
+    EquipmentProfile previewProfileImport(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
      * Собирает branch equipment из DTT.
      *
      * @param request параметры сборки отделений
@@ -146,6 +189,23 @@ public interface DeviceTemplateLibraryFacade {
      * @return модель branch equipment
      */
     BranchEquipment assembleBranch(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON напрямую из high-level плана импорта.
+     *
+     * @param request high-level план импорта branch equipment JSON
+     * @return рассчитанная preview-модель оборудования отделений
+     */
+    BranchEquipment previewBranchImport(BranchImportPlanRequest request);
+
+    /**
+     * Выполняет preview-сборку branch equipment JSON из zip-пакета и high-level плана импорта.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param request high-level план импорта branch equipment JSON
+     * @return рассчитанная preview-модель оборудования отделений
+     */
+    BranchEquipment previewBranchImport(byte[] zipPayload, BranchImportPlanRequest request);
 
     /**
      * Выполняет high-level импорт в уже существующую branch equipment модель.
@@ -236,6 +296,23 @@ public interface DeviceTemplateLibraryFacade {
      * @return JSON
      */
     String toBranchJson(BranchEquipment branchEquipment);
+
+    /**
+     * Строит прикладное представление profile-результата с готовым JSON и количеством типов устройств.
+     *
+     * @param profile модель профиля
+     * @return представление profile-результата
+     */
+    ProfileAssemblyView toProfileAssemblyView(EquipmentProfile profile);
+
+    /**
+     * Строит прикладное представление branch-результата с готовым JSON, количеством branch
+     * и списком метаданных типов устройств.
+     *
+     * @param branchEquipment модель branch equipment
+     * @return представление branch-результата
+     */
+    BranchAssemblyView toBranchAssemblyView(BranchEquipment branchEquipment);
 
     /**
      * Подготавливает типизированный запрос сборки profile JSON из high-level плана импорта.
@@ -422,6 +499,28 @@ public interface DeviceTemplateLibraryFacade {
                                                                        String dttVersion);
 
     /**
+     * Экспортирует один тип устройства из profile-модели в DTO-результат
+     * с бинарным и Base64-представлением архива одновременно.
+     *
+     * @param profile профиль оборудования
+     * @param deviceTypeId идентификатор типа устройства
+     * @param dttVersion опциональная версия шаблона
+     * @return результат single-export для profile
+     */
+    ExportResult exportSingleDttResultFromProfile(EquipmentProfile profile, String deviceTypeId, String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из string profile JSON в DTO-результат
+     * с бинарным и Base64-представлением архива одновременно.
+     *
+     * @param profileJson строковое представление profile JSON
+     * @param deviceTypeId идентификатор типа устройства
+     * @param dttVersion опциональная версия шаблона
+     * @return результат single-export для profile JSON
+     */
+    ExportResult exportSingleDttResultFromProfileJson(String profileJson, String deviceTypeId, String dttVersion);
+
+    /**
      * Экспортирует один тип устройства из profile-модели в бинарный `.dtt`.
      *
      * @param profile профиль оборудования
@@ -440,6 +539,26 @@ public interface DeviceTemplateLibraryFacade {
      * @return бинарный `.dtt`
      */
     byte[] exportSingleDttFromProfileJson(String profileJson, String deviceTypeId, String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из profile-модели в `.dtt` и кодирует результат в Base64.
+     *
+     * @param profile профиль оборудования
+     * @param deviceTypeId идентификатор типа устройства
+     * @param dttVersion опциональная версия шаблона
+     * @return Base64-представление одного `.dtt`
+     */
+    String exportSingleDttFromProfileBase64(EquipmentProfile profile, String deviceTypeId, String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из строкового profile JSON в `.dtt` и кодирует результат в Base64.
+     *
+     * @param profileJson строковое представление profile JSON
+     * @param deviceTypeId идентификатор типа устройства
+     * @param dttVersion опциональная версия шаблона
+     * @return Base64-представление одного `.dtt`
+     */
+    String exportSingleDttFromProfileJsonBase64(String profileJson, String deviceTypeId, String dttVersion);
 
     /**
      * Экспортирует один тип устройства из branch equipment модели в бинарный `.dtt`.
@@ -472,6 +591,72 @@ public interface DeviceTemplateLibraryFacade {
                                          String deviceTypeId,
                                          MergeStrategy mergeStrategy,
                                          String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из branch equipment модели в DTO-результат
+     * с бинарным и Base64-представлением архива одновременно.
+     *
+     * @param branchEquipment branch equipment модель
+     * @param branchIds опциональный фильтр branchId
+     * @param deviceTypeId идентификатор типа устройства
+     * @param mergeStrategy стратегия merge конфликтов между branch
+     * @param dttVersion опциональная версия шаблона
+     * @return результат single-export для branch equipment
+     */
+    ExportResult exportSingleDttResultFromBranch(BranchEquipment branchEquipment,
+                                                 List<String> branchIds,
+                                                 String deviceTypeId,
+                                                 MergeStrategy mergeStrategy,
+                                                 String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из string branch equipment JSON в DTO-результат
+     * с бинарным и Base64-представлением архива одновременно.
+     *
+     * @param branchJson строковое представление branch equipment JSON
+     * @param branchIds опциональный фильтр branchId
+     * @param deviceTypeId идентификатор типа устройства
+     * @param mergeStrategy стратегия merge конфликтов между branch
+     * @param dttVersion опциональная версия шаблона
+     * @return результат single-export для branch equipment JSON
+     */
+    ExportResult exportSingleDttResultFromBranchJson(String branchJson,
+                                                     List<String> branchIds,
+                                                     String deviceTypeId,
+                                                     MergeStrategy mergeStrategy,
+                                                     String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из branch equipment модели в `.dtt` и кодирует результат в Base64.
+     *
+     * @param branchEquipment branch equipment модель
+     * @param branchIds опциональный фильтр branchId
+     * @param deviceTypeId идентификатор типа устройства
+     * @param mergeStrategy стратегия merge конфликтов между branch
+     * @param dttVersion опциональная версия шаблона
+     * @return Base64-представление одного `.dtt`
+     */
+    String exportSingleDttFromBranchBase64(BranchEquipment branchEquipment,
+                                           List<String> branchIds,
+                                           String deviceTypeId,
+                                           MergeStrategy mergeStrategy,
+                                           String dttVersion);
+
+    /**
+     * Экспортирует один тип устройства из строкового branch equipment JSON в `.dtt` и кодирует результат в Base64.
+     *
+     * @param branchJson строковое представление branch equipment JSON
+     * @param branchIds опциональный фильтр branchId
+     * @param deviceTypeId идентификатор типа устройства
+     * @param mergeStrategy стратегия merge конфликтов между branch
+     * @param dttVersion опциональная версия шаблона
+     * @return Base64-представление одного `.dtt`
+     */
+    String exportSingleDttFromBranchJsonBase64(String branchJson,
+                                               List<String> branchIds,
+                                               String deviceTypeId,
+                                               MergeStrategy mergeStrategy,
+                                               String dttVersion);
 
     /**
      * Экспортирует все типы устройств из profile модели в набор DTT-архивов.

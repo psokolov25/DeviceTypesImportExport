@@ -53,6 +53,20 @@ class DefaultDeviceTemplateLibraryFacadeTest {
     }
 
     @Test
+    void shouldInspectArchiveViaFacade() {
+        final byte[] bytes = facade.writeDtt(template());
+        final DttArchiveTemplate archive = facade.readDtt(bytes);
+
+        final var inspection = facade.inspectDtt(bytes);
+
+        assertThat(inspection.formatName()).isEqualTo("DTT");
+        assertThat(inspection.deviceTypeId()).isEqualTo("display");
+        assertThat(inspection.deviceTypeVersion()).isEqualTo(archive.descriptor().deviceTypeVersion());
+        assertThat(inspection.eventHandlersCount()).isEqualTo(archive.eventHandlers() == null ? 0 : archive.eventHandlers().size());
+        assertThat(inspection.commandsCount()).isEqualTo(archive.commands() == null ? 0 : archive.commands().size());
+    }
+
+    @Test
     void shouldCompareInputVersionWithVersionFromDttViaFacade() {
         final byte[] bytes = facade.writeDtt(template());
 
@@ -98,6 +112,53 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         final String branchJson = facade.toBranchJson(branch);
         assertThat(branchJson).contains("branch-1");
         assertThat(facade.parseBranchJson(branchJson).branches()).containsKey("branch-1");
+    }
+
+    @Test
+    void shouldBuildProfileAndBranchAssemblyViewsViaFacade() {
+        final var deviceTypeTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of("ip", "127.0.0.1")
+        );
+        final EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final BranchEquipment branch = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final var profileView = facade.toProfileAssemblyView(profile);
+        final var branchView = facade.toBranchAssemblyView(branch);
+
+        assertThat(profileView.deviceTypesCount()).isEqualTo(1);
+        assertThat(profileView.profileJson()).contains("display");
+        assertThat(branchView.branchesCount()).isEqualTo(1);
+        assertThat(branchView.branchJson()).contains("branch-1");
+        assertThat(branchView.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
+    }
+
+    @Test
+    void shouldNormalizeDeviceTypeMetadataViaFacade() {
+        final List<DeviceTypeMetadata> normalized = facade.normalizeDeviceTypeMetadata(List.of(
+                new DeviceTypeMetadata("display", "", null, null, "1.0.0", null)
+        ));
+
+        assertThat(normalized).hasSize(1);
+        assertThat(normalized.get(0).name()).isEqualTo("display");
+        assertThat(normalized.get(0).displayName()).isEqualTo("display");
+        assertThat(normalized.get(0).description()).isNotNull();
+        assertThat(normalized.get(0).iconBase64()).isNotBlank();
     }
 
 
@@ -615,6 +676,62 @@ class DefaultDeviceTemplateLibraryFacadeTest {
     }
 
     @Test
+    void shouldPreviewProfileAndBranchViaHighLevelPlans() throws Exception {
+        final byte[] archive = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archive);
+        final byte[] zipPayload = zipWithEntries(Map.of("nested/Display.dtt", archive));
+
+        final ProfileImportPlanRequest profilePlan = new ProfileImportPlanRequest(
+                List.of(archiveBase64),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of()
+        );
+        final BranchImportPlanRequest branchPlan = new BranchImportPlanRequest(
+                List.of(archiveBase64),
+                List.of("branch-preview"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of()
+        );
+
+        final EquipmentProfile profilePreview = facade.previewProfileImport(profilePlan);
+        final BranchEquipment branchPreview = facade.previewBranchImport(branchPlan);
+
+        assertThat(profilePreview.deviceTypes()).containsKey("display");
+        assertThat(branchPreview.branches()).containsKey("branch-preview");
+        assertThat(branchPreview.branches().get("branch-preview").deviceTypes()).containsKey("display");
+
+        final ProfileImportPlanRequest profileZipPlan = new ProfileImportPlanRequest(
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(null, "nested/Display.dtt", Map.of("ip", "10.10.10.94"), null))
+        );
+        final BranchImportPlanRequest branchZipPlan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "branch-preview-zip",
+                        "Branch Preview Zip",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                null,
+                                "nested/Display.dtt",
+                                Map.of("ip", "10.10.10.95"),
+                                null,
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+
+        final EquipmentProfile profileZipPreview = facade.previewProfileImport(zipPayload, profileZipPlan);
+        final BranchEquipment branchZipPreview = facade.previewBranchImport(zipPayload, branchZipPlan);
+
+        assertThat(profileZipPreview.deviceTypes()).containsKey("display");
+        assertThat(branchZipPreview.branches()).containsKey("branch-preview-zip");
+        assertThat(branchZipPreview.branches().get("branch-preview-zip").deviceTypes()).containsKey("display");
+    }
+
+    @Test
     void shouldSupportBase64AndZipFacadeModes() throws Exception {
         final DttArchiveTemplate template = template();
         final byte[] archiveBytes = facade.writeDtt(template);
@@ -782,15 +899,53 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         final byte[] profileArchive = facade.exportSingleDttFromProfile(profile, "display", "3.0.0");
         final byte[] branchArchive = facade.exportSingleDttFromBranch(branch, List.of("branch-1"), "display", MergeStrategy.FAIL_IF_EXISTS, "3.0.0");
+        final String profileArchiveBase64 = facade.exportSingleDttFromProfileBase64(profile, "display", "3.0.0");
+        final String branchArchiveBase64 = facade.exportSingleDttFromBranchBase64(
+                branch,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.0"
+        );
+        final var profileExportResult = facade.exportSingleDttResultFromProfile(profile, "display", "3.0.0");
+        final var branchExportResult = facade.exportSingleDttResultFromBranch(
+                branch,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.0"
+        );
 
         assertThat(facade.readDtt(profileArchive).metadata().id()).isEqualTo("display");
         assertThat(facade.readDtt(branchArchive).metadata().id()).isEqualTo("display");
         assertThat(facade.readDtt(branchArchive).descriptor().deviceTypeVersion()).isEqualTo("3.0.0");
+        assertThat(facade.readDtt(java.util.Base64.getDecoder().decode(profileArchiveBase64)).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(java.util.Base64.getDecoder().decode(branchArchiveBase64)).metadata().id()).isEqualTo("display");
+        assertThat(profileExportResult.deviceTypeId()).isEqualTo("display");
+        assertThat(branchExportResult.deviceTypeId()).isEqualTo("display");
+        assertThat(facade.readDtt(profileExportResult.archiveBytes()).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(java.util.Base64.getDecoder().decode(branchExportResult.archiveBase64())).metadata().id()).isEqualTo("display");
 
         final String profileJson = facade.toProfileJson(profile);
         final String branchJson = facade.toBranchJson(branch);
         final byte[] profileArchiveFromJson = facade.exportSingleDttFromProfileJson(profileJson, "display", "3.0.0");
         final byte[] branchArchiveFromJson = facade.exportSingleDttFromBranchJson(
+                branchJson,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.0"
+        );
+        final String profileArchiveFromJsonBase64 = facade.exportSingleDttFromProfileJsonBase64(profileJson, "display", "3.0.0");
+        final String branchArchiveFromJsonBase64 = facade.exportSingleDttFromBranchJsonBase64(
+                branchJson,
+                List.of("branch-1"),
+                "display",
+                MergeStrategy.FAIL_IF_EXISTS,
+                "3.0.0"
+        );
+        final var profileExportResultFromJson = facade.exportSingleDttResultFromProfileJson(profileJson, "display", "3.0.0");
+        final var branchExportResultFromJson = facade.exportSingleDttResultFromBranchJson(
                 branchJson,
                 List.of("branch-1"),
                 "display",
@@ -808,6 +963,10 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         assertThat(facade.readDtt(profileArchiveFromJson).metadata().id()).isEqualTo("display");
         assertThat(facade.readDtt(branchArchiveFromJson).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(java.util.Base64.getDecoder().decode(profileArchiveFromJsonBase64)).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(java.util.Base64.getDecoder().decode(branchArchiveFromJsonBase64)).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(profileExportResultFromJson.archiveBytes()).metadata().id()).isEqualTo("display");
+        assertThat(facade.readDtt(java.util.Base64.getDecoder().decode(branchExportResultFromJson.archiveBase64())).metadata().id()).isEqualTo("display");
         assertThat(profilePreviewFromJson.success()).isTrue();
         assertThat(branchPreviewFromJson.success()).isTrue();
     }

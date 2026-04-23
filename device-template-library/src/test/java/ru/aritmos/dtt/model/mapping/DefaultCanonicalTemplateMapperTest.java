@@ -204,6 +204,94 @@ class DefaultCanonicalTemplateMapperTest {
                 .containsEntry("exampleValue", "A-zone");
     }
 
+    @Test
+    void shouldRoundTripMixedNullableObjectArraySchemaWithDefaultsAndExamples() {
+        final DttArchiveTemplate archive = new DttArchiveTemplate(
+                new DttArchiveDescriptor("DTT", "1.3", "terminal", "5.4.0"),
+                new DeviceTypeMetadata("terminal", "Terminal", "Terminal", "desc"),
+                Map.of(
+                        "settings", Map.of(
+                                "name", "settings",
+                                "type", "Object",
+                                "nullable", true,
+                                "parametersMap", Map.of(
+                                        "retryCount", Map.of(
+                                                "name", "retryCount",
+                                                "type", "Number",
+                                                "nullable", false,
+                                                "defaultValue", 3
+                                        ),
+                                        "zones", Map.of(
+                                                "name", "zones",
+                                                "type", "Array",
+                                                "items", Map.of(
+                                                        "name", "zoneItem",
+                                                        "type", "Object",
+                                                        "nullable", false,
+                                                        "parametersMap", Map.of(
+                                                                "label", Map.of(
+                                                                        "name", "label",
+                                                                        "type", "String",
+                                                                        "nullable", true,
+                                                                        "exampleValue", "left-window"
+                                                                ),
+                                                                "active", Map.of(
+                                                                        "name", "active",
+                                                                        "type", "Boolean",
+                                                                        "nullable", false,
+                                                                        "defaultValue", true
+                                                                )
+                                                        )
+                                                )
+                                        )
+                                )
+                        )
+                ),
+                Map.of(
+                        "devicePayload", Map.of(
+                                "name", "devicePayload",
+                                "type", "Object",
+                                "parametersMap", Map.of(
+                                        "enabled", Map.of(
+                                                "name", "enabled",
+                                                "type", "Boolean",
+                                                "nullable", true
+                                        )
+                                )
+                        )
+                ),
+                Map.of("hint", "value"),
+                Map.of("settings", Map.of("retryCount", 5)),
+                Map.of("settings", Map.of("zones", java.util.List.of(Map.of("label", "main", "active", true)))),
+                Map.of("sourceKind", "BRANCH_JSON", "sourceSummary", "branch-round-trip"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
+        );
+
+        final var canonical = mapper.toCanonical(archive);
+        final var restored = mapper.toArchive(canonical);
+
+        final Map<String, Object> settings = castToMap(restored.deviceTypeParametersSchema().get("settings"));
+        assertThat(settings).containsEntry("nullable", true);
+        final Map<String, Object> settingsMap = castToMap(settings.get("parametersMap"));
+        final Map<String, Object> zones = castToMap(settingsMap.get("zones"));
+        final Map<String, Object> zoneItems = castToMap(zones.get("items"));
+        final Map<String, Object> zoneItemsMap = castToMap(zoneItems.get("parametersMap"));
+        final Map<String, Object> label = castToMap(zoneItemsMap.get("label"));
+        final Map<String, Object> active = castToMap(zoneItemsMap.get("active"));
+        assertThat(label).containsEntry("nullable", true).containsEntry("exampleValue", "left-window");
+        assertThat(active).containsEntry("type", "Boolean").containsEntry("defaultValue", true);
+
+        assertThat(restored.defaultValues()).containsKey("settings");
+        assertThat(restored.exampleValues()).containsKey("settings");
+        assertThat(restored.templateOrigin()).containsEntry("sourceKind", "BRANCH_JSON");
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> castToMap(Object value) {
         return (Map<String, Object>) value;

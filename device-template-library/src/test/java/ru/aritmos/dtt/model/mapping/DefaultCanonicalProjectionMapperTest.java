@@ -157,6 +157,66 @@ class DefaultCanonicalProjectionMapperTest {
                 .containsEntry("nullable", true);
     }
 
+    @Test
+    void shouldProjectCanonicalTemplateToBranchWithNestedObjectArrayMetadata() {
+        final CanonicalDeviceTypeTemplate template = new CanonicalDeviceTypeTemplate(
+                "1.0",
+                new CanonicalDeviceTypeMetadata("terminal", "Terminal", "Terminal", "desc"),
+                new CanonicalParameterSchema(Map.of(
+                        "settings", new CanonicalParameterDefinition(
+                                "settings",
+                                "Object",
+                                Map.of("displayName", "Settings"),
+                                Map.of(
+                                        "zones", new CanonicalParameterDefinition(
+                                                "zones",
+                                                "Array",
+                                                Map.of(),
+                                                Map.of(),
+                                                new CanonicalParameterDefinition(
+                                                        "zone",
+                                                        "Object",
+                                                        Map.of(),
+                                                        Map.of(
+                                                                "label", new CanonicalParameterDefinition(
+                                                                        "label",
+                                                                        "String",
+                                                                        Map.of("nullable", true),
+                                                                        Map.of(),
+                                                                        null
+                                                                )
+                                                        ),
+                                                        null
+                                                )
+                                        )
+                                ),
+                                null
+                        )
+                )),
+                new CanonicalParameterSchema(Map.of()),
+                new CanonicalTemplateValues(Map.of()),
+                new CanonicalTemplateValues(Map.of(
+                        "settings", Map.of("zones", List.of(Map.of("label", "A-window")))
+                )),
+                new CanonicalTemplateValues(Map.of()),
+                new CanonicalTemplateOrigin("BRANCH_EQUIPMENT_JSON", "", Map.of()),
+                new CanonicalScriptSet(null, null, null, null, null, Map.of(), Map.of())
+        );
+
+        final var branchProjection = mapper.toBranchProjection(template, "terminal_kind");
+        final Map<String, Object> settings = castToMap(branchProjection.deviceTypeParamValues().get("settings"));
+        final Map<String, Object> settingsValue = castToMap(settings.get("value"));
+        final Map<String, Object> zonesContainer = castToMap(settingsValue.get("zones"));
+        final List<?> zones = (List<?>) zonesContainer.get("value");
+        final Map<String, Object> firstZone = castToMap(zones.get(0));
+        final Map<String, Object> firstZoneValue = castToMap(firstZone.get("value"));
+        final Map<String, Object> label = castToMap(firstZoneValue.get("label"));
+        assertThat(label)
+                .containsEntry("type", "String")
+                .containsEntry("nullable", true)
+                .containsEntry("value", "A-window");
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> castToMap(Object value) {
         return (Map<String, Object>) value;
