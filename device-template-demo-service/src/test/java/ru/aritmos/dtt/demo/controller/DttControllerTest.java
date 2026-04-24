@@ -151,7 +151,8 @@ class DttControllerTest {
                         List.of(new ImportBranchDeviceTypeMetadataOverrideRequest(
                                 "display",
                                 new ImportDeviceTypeMetadataOverrideRequest("display", "Branch Display", "Branch Display", "branch")
-                        ))
+                        )),
+                        List.of()
                 )),
                 MergeStrategy.FAIL_IF_EXISTS
         );

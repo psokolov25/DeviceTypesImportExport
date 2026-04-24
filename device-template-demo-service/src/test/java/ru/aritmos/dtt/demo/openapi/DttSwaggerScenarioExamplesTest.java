@@ -105,10 +105,12 @@ class DttSwaggerScenarioExamplesTest {
 
         final var response = controller.importProfileBranchWithMetadata(request);
 
-        assertThat(response.profileJson().toString()).contains("Profile Display");
-        assertThat(response.branchJson().toString()).contains("Branch Display");
+        assertThat(response.profileJson().toString()).contains("Дисплей с красным названием окна");
+        assertThat(response.profileJson().toString()).contains("Дисплей с синим названием окна");
+        assertThat(response.branchJson().toString()).contains("Дисплей красного окна (СПб Петроград)");
+        assertThat(response.branchJson().toString()).contains("blue-1");
         assertThat(response.branchJson().path("metadata").isArray()).isTrue();
-        assertThat(response.branchJson().path("metadata").size()).isEqualTo(1);
+        assertThat(response.branchJson().path("metadata").size()).isGreaterThanOrEqualTo(2);
     }
 
     private static byte[] decode(String base64) {

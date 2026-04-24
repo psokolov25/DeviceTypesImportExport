@@ -1037,6 +1037,114 @@ curl -X POST "http://localhost:8080/api/dtt/import/branch/upload/multipart"   -H
 curl -X POST "http://localhost:8080/api/dtt/import/profile/upload/multipart"   -H "accept: application/json"   -H "Content-Type: multipart/form-data"   -F "zipPayload=@display-derived-set.zip;type=application/zip"   -F "metadataJson={...валидный JSON как выше...}"
 ```
 
+### Вариант для одновременной сборки profile + branch из одного общего DTT
+
+Этот сценарий нужен, когда в архиве есть «базовый» тип (например, просто `Дисплей`), а в итоговых JSON должны появиться разные производные типы с собственными `name/displayName/description`:
+- `Дисплей с красным названием окна`;
+- `Дисплей с синим названием окна`;
+- и у каждого варианта — свой набор устройств в branch.
+
+```json
+{
+  "deviceTypes": [
+    {
+      "archiveBase64": "<BASE64 Display.dtt>",
+      "deviceTypeParamValues": {
+        "SecondZoneColor": "red",
+        "TicketZone": "9"
+      },
+      "metadataOverride": {
+        "id": "display-red-window",
+        "name": "Дисплей с красным названием окна",
+        "displayName": "Дисплей с красным названием окна",
+        "description": "Производный тип из общего DTT: красное окно"
+      }
+    },
+    {
+      "archiveBase64": "<BASE64 Display.dtt>",
+      "deviceTypeParamValues": {
+        "SecondZoneColor": "blue",
+        "TicketZone": "10"
+      },
+      "metadataOverride": {
+        "id": "display-blue-window",
+        "name": "Дисплей с синим названием окна",
+        "displayName": "Дисплей с синим названием окна",
+        "description": "Производный тип из общего DTT: синее окно"
+      }
+    }
+  ],
+  "branches": [
+    {
+      "branchId": "branch-spb-petrograd",
+      "metadataOverrides": [
+        {
+          "deviceTypeId": "display-red-window",
+          "metadata": {
+            "id": "display-red-window-branch",
+            "name": "Дисплей красного окна (СПб Петроград)",
+            "displayName": "Дисплей красного окна (СПб Петроград)",
+            "description": "Branch override имени/описания для красного типа"
+          }
+        }
+      ],
+      "deviceTypeOverrides": [
+        {
+          "profileDeviceTypeId": "display-red-window",
+          "deviceTypeParamValues": {
+            "SecondZoneColor": "red",
+            "TicketZone": "11"
+          },
+          "kind": "display",
+          "devices": [
+            {
+              "id": "red-1",
+              "name": "red-1",
+              "displayName": "Red 1",
+              "description": "Красный дисплей 1",
+              "deviceParamValues": {
+                "IP": "10.10.10.11",
+                "Port": 22224
+              }
+            }
+          ]
+        },
+        {
+          "profileDeviceTypeId": "display-blue-window",
+          "deviceTypeParamValues": {
+            "SecondZoneColor": "blue",
+            "TicketZone": "12"
+          },
+          "kind": "display",
+          "devices": [
+            {
+              "id": "blue-1",
+              "name": "blue-1",
+              "displayName": "Blue 1",
+              "description": "Синий дисплей 1",
+              "deviceParamValues": {
+                "IP": "10.10.10.21",
+                "Port": 22224
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mergeStrategy": "FAIL_IF_EXISTS"
+}
+```
+
+Пример запроса:
+
+```bash
+curl -X POST "http://localhost:8080/api/dtt/import/profile-branch" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{...валидный JSON как выше...}'
+```
+
 ### 7.5. Чек-лист качества OpenAPI примеров для вашей службы
 
 При сопровождении demo-service/OpenAPI проверяйте следующие инварианты:

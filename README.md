@@ -1055,6 +1055,109 @@ Map<String, String> base64ByDeviceType = facade.exportDttSetFromBranchBase64(req
 2. Клонировать его в несколько `DttArchiveTemplate` с разными metadata/default values/example values.
 3. Либо сохранить эти производные DTT как отдельные артефакты, либо сразу импортировать их в `EquipmentProfile`/`BranchEquipment`.
 
+#### REST-пример: один общий DTT -> несколько типов с разными названиями/описаниями + profile+branch
+
+Если нужен единый вызов, который сразу собирает **и profile JSON, и branch JSON**, используйте
+`POST /api/dtt/import/profile-branch` и передайте один и тот же `archiveBase64` несколько раз
+с разными `metadataOverride` и `deviceTypeParamValues`.
+
+Так вы из базового `Дисплей` получаете в итоговом JSON, например:
+- `Дисплей с красным названием окна`;
+- `Дисплей с синим названием окна`;
+- и для каждого варианта — свой набор устройств в branch.
+
+```json
+{
+  "deviceTypes": [
+    {
+      "archiveBase64": "<BASE64 Display.dtt>",
+      "deviceTypeParamValues": {
+        "SecondZoneColor": "red",
+        "TicketZone": "9"
+      },
+      "metadataOverride": {
+        "id": "display-red-window",
+        "name": "Дисплей с красным названием окна",
+        "displayName": "Дисплей с красным названием окна",
+        "description": "Производный тип из общего DTT: красное окно"
+      }
+    },
+    {
+      "archiveBase64": "<BASE64 Display.dtt>",
+      "deviceTypeParamValues": {
+        "SecondZoneColor": "blue",
+        "TicketZone": "10"
+      },
+      "metadataOverride": {
+        "id": "display-blue-window",
+        "name": "Дисплей с синим названием окна",
+        "displayName": "Дисплей с синим названием окна",
+        "description": "Производный тип из общего DTT: синее окно"
+      }
+    }
+  ],
+  "branches": [
+    {
+      "branchId": "branch-spb-petrograd",
+      "metadataOverrides": [
+        {
+          "deviceTypeId": "display-red-window",
+          "metadata": {
+            "id": "display-red-window-branch",
+            "name": "Дисплей красного окна (СПб Петроград)",
+            "displayName": "Дисплей красного окна (СПб Петроград)",
+            "description": "Branch override имени/описания для красного типа"
+          }
+        }
+      ],
+      "deviceTypeOverrides": [
+        {
+          "profileDeviceTypeId": "display-red-window",
+          "deviceTypeParamValues": {
+            "SecondZoneColor": "red",
+            "TicketZone": "11"
+          },
+          "kind": "display",
+          "devices": [
+            {
+              "id": "red-1",
+              "name": "red-1",
+              "displayName": "Red 1",
+              "description": "Красный дисплей 1",
+              "deviceParamValues": {
+                "IP": "10.10.10.11",
+                "Port": 22224
+              }
+            }
+          ]
+        },
+        {
+          "profileDeviceTypeId": "display-blue-window",
+          "deviceTypeParamValues": {
+            "SecondZoneColor": "blue",
+            "TicketZone": "12"
+          },
+          "kind": "display",
+          "devices": [
+            {
+              "id": "blue-1",
+              "name": "blue-1",
+              "displayName": "Blue 1",
+              "description": "Синий дисплей 1",
+              "deviceParamValues": {
+                "IP": "10.10.10.21",
+                "Port": 22224
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mergeStrategy": "FAIL_IF_EXISTS"
+}
+```
+
 #### Шаг 1. Сконструировать два производных DTT из одного базового
 
 ```java
