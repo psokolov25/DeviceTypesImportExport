@@ -574,14 +574,27 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
             "    {\n" +
             "      \"archiveBase64\": \"" + SAMPLE_DTT_DISPLAY_BASE64 + "\",\n" +
             "      \"deviceTypeParamValues\": {\n" +
-            "        \"TicketZone\": \"9\",\n" +
-            "        \"ServicePointNameZone\": \"1\"\n" +
+            "        \"SecondZoneColor\": \"red\",\n" +
+            "        \"TicketZone\": \"9\"\n" +
             "      },\n" +
             "      \"metadataOverride\": {\n" +
-            "        \"id\": \"display-wd3264\",\n" +
-            "        \"name\": \"Profile Display\",\n" +
-            "        \"displayName\": \"Profile Display\",\n" +
-            "        \"description\": \"Profile Display\"\n" +
+            "        \"id\": \"display-wd3264-red-window\",\n" +
+            "        \"name\": \"Дисплей с красным названием окна\",\n" +
+            "        \"displayName\": \"Дисплей с красным названием окна\",\n" +
+            "        \"description\": \"Производный тип из общего DTT: красное окно\"\n" +
+            "      }\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"archiveBase64\": \"" + SAMPLE_DTT_DISPLAY_BASE64 + "\",\n" +
+            "      \"deviceTypeParamValues\": {\n" +
+            "        \"SecondZoneColor\": \"blue\",\n" +
+            "        \"TicketZone\": \"10\"\n" +
+            "      },\n" +
+            "      \"metadataOverride\": {\n" +
+            "        \"id\": \"display-wd3264-blue-window\",\n" +
+            "        \"name\": \"Дисплей с синим названием окна\",\n" +
+            "        \"displayName\": \"Дисплей с синим названием окна\",\n" +
+            "        \"description\": \"Производный тип из общего DTT: синее окно\"\n" +
             "      }\n" +
             "    }\n" +
             "  ],\n" +
@@ -590,13 +603,55 @@ public static final String IMPORT_PROFILE_RESPONSE_EXAMPLE = """
             "      \"branchId\": \"branch-spb-petrograd\",\n" +
             "      \"metadataOverrides\": [\n" +
             "        {\n" +
-            "          \"deviceTypeId\": \"display-wd3264\",\n" +
+            "          \"deviceTypeId\": \"display-wd3264-red-window\",\n" +
             "          \"metadata\": {\n" +
-            "            \"id\": \"display-wd3264-branch\",\n" +
-            "            \"name\": \"Branch Display\",\n" +
-            "            \"displayName\": \"Branch Display\",\n" +
-            "            \"description\": \"Branch Display\"\n" +
+            "            \"id\": \"display-wd3264-red-window-branch\",\n" +
+            "            \"name\": \"Дисплей красного окна (СПб Петроград)\",\n" +
+            "            \"displayName\": \"Дисплей красного окна (СПб Петроград)\",\n" +
+            "            \"description\": \"Branch override имени/описания для красного типа\"\n" +
             "          }\n" +
+            "        }\n" +
+            "      ],\n" +
+            "      \"deviceTypeOverrides\": [\n" +
+            "        {\n" +
+            "          \"profileDeviceTypeId\": \"display-wd3264-red-window\",\n" +
+            "          \"deviceTypeParamValues\": {\n" +
+            "            \"SecondZoneColor\": \"red\",\n" +
+            "            \"TicketZone\": \"11\"\n" +
+            "          },\n" +
+            "          \"kind\": \"display\",\n" +
+            "          \"devices\": [\n" +
+            "            {\n" +
+            "              \"id\": \"red-1\",\n" +
+            "              \"name\": \"red-1\",\n" +
+            "              \"displayName\": \"Red 1\",\n" +
+            "              \"description\": \"Красный дисплей 1\",\n" +
+            "              \"deviceParamValues\": {\n" +
+            "                \"IP\": \"10.10.10.11\",\n" +
+            "                \"Port\": 22224\n" +
+            "              }\n" +
+            "            }\n" +
+            "          ]\n" +
+            "        },\n" +
+            "        {\n" +
+            "          \"profileDeviceTypeId\": \"display-wd3264-blue-window\",\n" +
+            "          \"deviceTypeParamValues\": {\n" +
+            "            \"SecondZoneColor\": \"blue\",\n" +
+            "            \"TicketZone\": \"12\"\n" +
+            "          },\n" +
+            "          \"kind\": \"display\",\n" +
+            "          \"devices\": [\n" +
+            "            {\n" +
+            "              \"id\": \"blue-1\",\n" +
+            "              \"name\": \"blue-1\",\n" +
+            "              \"displayName\": \"Blue 1\",\n" +
+            "              \"description\": \"Синий дисплей 1\",\n" +
+            "              \"deviceParamValues\": {\n" +
+            "                \"IP\": \"10.10.10.21\",\n" +
+            "                \"Port\": 22224\n" +
+            "              }\n" +
+            "            }\n" +
+            "          ]\n" +
             "        }\n" +
             "      ]\n" +
             "    }\n" +

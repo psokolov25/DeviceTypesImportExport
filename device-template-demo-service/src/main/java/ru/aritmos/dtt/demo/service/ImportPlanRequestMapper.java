@@ -2,13 +2,16 @@ package ru.aritmos.dtt.demo.service;
 
 import jakarta.inject.Singleton;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
+import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchDerivedDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchMetadataImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
 import ru.aritmos.dtt.demo.dto.ImportBranchMetadataRequest;
+import ru.aritmos.dtt.demo.dto.ImportBranchDerivedDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.ImportDeviceTypeMetadataOverrideRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
@@ -125,7 +128,28 @@ public class ImportPlanRequestMapper {
                 request.branchId(),
                 request.metadataOverrides() == null ? List.of() : request.metadataOverrides().stream()
                         .map(override -> new BranchDeviceTypeMetadataOverrideImportRequest(override.deviceTypeId(), toLibraryMetadataOverride(override.metadata())))
+                        .toList(),
+                request.deviceTypeOverrides() == null ? List.of() : request.deviceTypeOverrides().stream()
+                        .map(this::toLibraryBranchDerivedDeviceTypeImport)
                         .toList()
+        );
+    }
+
+    private BranchDerivedDeviceTypeImportRequest toLibraryBranchDerivedDeviceTypeImport(ImportBranchDerivedDeviceTypeRequest request) {
+        return new BranchDerivedDeviceTypeImportRequest(
+                request.profileDeviceTypeId(),
+                request.deviceTypeParamValues(),
+                toLibraryMetadataOverride(request.metadataOverride()),
+                request.devices() == null ? List.of() : request.devices().stream()
+                        .map(device -> new DeviceInstanceImportRequest(
+                                device.id(),
+                                device.name(),
+                                device.displayName(),
+                                device.description(),
+                                device.deviceParamValues()
+                        ))
+                        .toList(),
+                request.kind()
         );
     }
 

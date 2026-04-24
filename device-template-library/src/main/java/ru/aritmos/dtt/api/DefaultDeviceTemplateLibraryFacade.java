@@ -23,6 +23,7 @@ import ru.aritmos.dtt.api.dto.branch.BranchImportRequest;
 import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchDerivedDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportApplyView;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult;
@@ -406,17 +407,20 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         Objects.requireNonNull(request, "request must not be null");
         final List<ProfileDeviceTypeImportSourceRequest> deviceTypes = request.deviceTypes() == null ? List.of() : request.deviceTypes();
         final List<BranchMetadataImportRequest> branches = request.branches() == null ? List.of() : request.branches();
-
-        final List<byte[]> archives = deviceTypes.stream()
-                .map(deviceType -> resolveArchiveBytes(deviceType.archiveBase64(), deviceType.archiveEntryName(), null))
-                .toList();
-
-        final Map<String, DeviceTypeMetadata> profileMetadataOverrides = new LinkedHashMap<>();
-        for (ProfileDeviceTypeImportSourceRequest deviceType : deviceTypes) {
-            final byte[] archiveBytes = resolveArchiveBytes(deviceType.archiveBase64(), deviceType.archiveEntryName(), null);
-            final DttArchiveTemplate archive = readDtt(archiveBytes);
-            profileMetadataOverrides.put(archive.metadata().id(), mergeMetadata(archive.metadata(), deviceType.metadataOverride()));
+        if (deviceTypes.isEmpty()) {
+            throw new IllegalArgumentException("deviceTypes must contain at least one DTT archive");
         }
+        if (branches.isEmpty()) {
+            throw new IllegalArgumentException("branches must contain at least one branch");
+        }
+        if (deviceTypes.stream().anyMatch(deviceType -> deviceType.archiveEntryName() != null && !deviceType.archiveEntryName().isBlank())) {
+            throw new IllegalArgumentException("archiveEntryName is not supported in profile+branch plan without zip payload context");
+        }
+        final EquipmentProfile resolvedProfile = assembleProfile(new ProfileImportPlanRequest(
+                List.of(),
+                request.mergeStrategy(),
+                deviceTypes
+        ));
 
         final Map<String, Map<String, DeviceTypeMetadata>> branchMetadataOverrides = new LinkedHashMap<>();
         for (BranchMetadataImportRequest branch : branches) {
@@ -432,12 +436,93 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
             branchMetadataOverrides.put(branch.branchId(), byType);
         }
 
-        return importDttSetToProfileAndBranchWithMetadata(
-                archives,
-                branches.stream().map(BranchMetadataImportRequest::branchId).toList(),
-                profileMetadataOverrides,
-                branchMetadataOverrides,
-                request.mergeStrategy()
+        final List<BranchImportRequest> branchRequests = branches.stream()
+                .map(branch -> {
+                    final String branchId = branch.branchId();
+                    final String displayName = firstNonBlank(branch.displayName(), branchId);
+                    final List<BranchDeviceTypeImportRequest> branchDeviceTypes =
+                            resolveProfileBranchDeviceTypes(branch, branchId, resolvedProfile, branchMetadataOverrides);
+                    return new BranchImportRequest(branchId, displayName, branchDeviceTypes);
+                })
+                .toList();
+
+        final BranchEquipment branchEquipment = assembleBranch(new BranchEquipmentAssemblyRequest(branchRequests, request.mergeStrategy()));
+        return new ProfileBranchAssemblyResult(resolvedProfile, branchEquipment);
+    }
+
+    private List<BranchDeviceTypeImportRequest> resolveProfileBranchDeviceTypes(
+            BranchMetadataImportRequest branch,
+            String branchId,
+            EquipmentProfile profile,
+            Map<String, Map<String, DeviceTypeMetadata>> branchMetadataOverrides
+    ) {
+        if (branch.deviceTypeOverrides() == null || branch.deviceTypeOverrides().isEmpty()) {
+            return profile.deviceTypes().entrySet().stream()
+                    .map(entry -> toProfileBasedBranchDeviceTypeImportRequest(
+                            branchId,
+                            entry.getKey(),
+                            entry.getValue(),
+                            resolveBranchMetadataOverride(branchMetadataOverrides, branchId, entry.getKey()),
+                            null
+                    ))
+                    .toList();
+        }
+        return branch.deviceTypeOverrides().stream()
+                .map(override -> {
+                    final String profileDeviceTypeId = override.profileDeviceTypeId();
+                    if (profileDeviceTypeId == null || profileDeviceTypeId.isBlank()) {
+                        throw new IllegalArgumentException("profileDeviceTypeId must not be blank for branch " + branchId);
+                    }
+                    final DeviceTypeTemplate baseTemplate = profile.deviceTypes().get(profileDeviceTypeId);
+                    if (baseTemplate == null) {
+                        throw new IllegalArgumentException("Unknown profileDeviceTypeId '" + profileDeviceTypeId
+                                + "' for branch " + branchId + ". Known ids: " + profile.deviceTypes().keySet());
+                    }
+                    final DeviceTypeMetadata metadataFromLegacyOverride =
+                            resolveBranchMetadataOverride(branchMetadataOverrides, branchId, profileDeviceTypeId);
+                    final DeviceTypeMetadata mergedOverride =
+                            mergeMetadata(metadataFromLegacyOverride, override.metadataOverride());
+                    return toProfileBasedBranchDeviceTypeImportRequest(
+                            branchId,
+                            profileDeviceTypeId,
+                            baseTemplate,
+                            mergedOverride,
+                            override
+                    );
+                })
+                .toList();
+    }
+
+    private BranchDeviceTypeImportRequest toProfileBasedBranchDeviceTypeImportRequest(
+            String branchId,
+            String profileDeviceTypeId,
+            DeviceTypeTemplate baseTemplate,
+            DeviceTypeMetadata metadataOverride,
+            BranchDerivedDeviceTypeImportRequest branchOverride
+    ) {
+        final DeviceTypeMetadata branchMetadata = mergeMetadata(baseTemplate.metadata(), metadataOverride);
+        final Map<String, Object> branchValues = mergeValues(
+                baseTemplate.deviceTypeParamValues(),
+                branchOverride == null ? null : branchOverride.deviceTypeParamValues()
+        );
+        final String kind = firstNonBlank(branchOverride == null ? null : branchOverride.kind());
+        final List<DeviceInstanceImportRequest> devices =
+                branchOverride == null || branchOverride.devices() == null ? List.of() : branchOverride.devices();
+        if (branchMetadata.id() == null || branchMetadata.id().isBlank()) {
+            throw new IllegalArgumentException("Resolved branch deviceTypeId is blank for profileDeviceTypeId "
+                    + profileDeviceTypeId + " in branch " + branchId);
+        }
+        return new BranchDeviceTypeImportRequest(
+                new EquipmentProfileDeviceTypeRequest(new DeviceTypeTemplate(branchMetadata, branchValues), true),
+                devices,
+                kind,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                Map.of()
         );
     }
 

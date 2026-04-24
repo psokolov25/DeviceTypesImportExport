@@ -7,6 +7,7 @@ import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
@@ -16,6 +17,7 @@ import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchDerivedDeviceTypeImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchMetadataImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
@@ -360,7 +362,8 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                         List.of(new BranchDeviceTypeMetadataOverrideImportRequest(
                                 "display",
                                 new DeviceTypeMetadata("display", "Display Branch", "Display Branch", "branch-desc")
-                        ))
+                        )),
+                        List.of()
                 )),
                 MergeStrategy.FAIL_IF_EXISTS
         );
@@ -370,6 +373,105 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(result.profile().deviceTypes().get("display").metadata().name()).isEqualTo("Display Profile");
         assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display").template().metadata().name())
                 .isEqualTo("Display Branch");
+    }
+
+    @Test
+    void shouldAssembleProfileAndBranchWithMultipleDerivedDeviceTypesFromSingleDtt() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final ProfileBranchMetadataImportPlanRequest request = new ProfileBranchMetadataImportPlanRequest(
+                List.of(
+                        new ProfileDeviceTypeImportSourceRequest(
+                                archiveBase64,
+                                null,
+                                Map.of("SecondZoneColor", "red"),
+                                new DeviceTypeMetadata("display-red", "Display Red", "Display Red", "red")
+                        ),
+                        new ProfileDeviceTypeImportSourceRequest(
+                                archiveBase64,
+                                null,
+                                Map.of("SecondZoneColor", "blue"),
+                                new DeviceTypeMetadata("display-blue", "Display Blue", "Display Blue", "blue")
+                        )
+                ),
+                List.of(new BranchMetadataImportRequest(
+                        "branch-1",
+                        "Main branch",
+                        List.of(new BranchDeviceTypeMetadataOverrideImportRequest(
+                                "display-red",
+                                new DeviceTypeMetadata("display-red", "Display Red Branch", "Display Red Branch", "red-branch")
+                        )),
+                        List.of()
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final ProfileBranchAssemblyResult result = facade.assembleProfileAndBranchWithMetadata(request);
+
+        assertThat(result.profile().deviceTypes()).containsKeys("display-red", "display-blue");
+        assertThat(result.profile().deviceTypes().get("display-red").metadata().name()).isEqualTo("Display Red");
+        assertThat(result.profile().deviceTypes().get("display-red").metadata().description()).isEqualTo("red");
+        assertThat(result.profile().deviceTypes().get("display-blue").metadata().name()).isEqualTo("Display Blue");
+        assertThat(result.profile().deviceTypes().get("display-blue").metadata().description()).isEqualTo("blue");
+        assertThat(result.profile().deviceTypes().get("display-red").deviceTypeParamValues())
+                .containsEntry("SecondZoneColor", "red");
+        assertThat(result.profile().deviceTypes().get("display-blue").deviceTypeParamValues())
+                .containsEntry("SecondZoneColor", "blue");
+        assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes()).containsKeys("display-red", "display-blue");
+        assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display-red").template().metadata().name())
+                .isEqualTo("Display Red Branch");
+        assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display-red").template().metadata().description())
+                .isEqualTo("red-branch");
+        assertThat(result.branchEquipment().branches().get("branch-1").deviceTypes().get("display-blue").template().metadata().name())
+                .isEqualTo("Display Blue");
+    }
+
+    @Test
+    void shouldApplyBranchDerivedOverridesForDevicesAndTypeParametersInProfileBranchPlan() {
+        final byte[] archiveBytes = facade.writeDtt(template());
+        final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
+
+        final ProfileBranchMetadataImportPlanRequest request = new ProfileBranchMetadataImportPlanRequest(
+                List.of(
+                        new ProfileDeviceTypeImportSourceRequest(
+                                archiveBase64,
+                                null,
+                                Map.of("SecondZoneColor", "green"),
+                                new DeviceTypeMetadata("display-green", "Display Green", "Display Green", "green")
+                        )
+                ),
+                List.of(new BranchMetadataImportRequest(
+                        "branch-2",
+                        "Branch 2",
+                        List.of(),
+                        List.of(new BranchDerivedDeviceTypeImportRequest(
+                                "display-green",
+                                Map.of("SecondZoneColor", "black"),
+                                new DeviceTypeMetadata("display-green", "Display Green Branch", "Display Green Branch", "green-branch"),
+                                List.of(new DeviceInstanceImportRequest(
+                                        "device-1",
+                                        "device-1",
+                                        "Display Device 1",
+                                        "main display",
+                                        Map.of("IP", "10.10.10.10")
+                                )),
+                                "DisplayKind"
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
+
+        final ProfileBranchAssemblyResult result = facade.assembleProfileAndBranchWithMetadata(request);
+
+        assertThat(result.profile().deviceTypes().get("display-green").deviceTypeParamValues())
+                .containsEntry("SecondZoneColor", "green");
+        assertThat(result.branchEquipment().branches().get("branch-2").deviceTypes().get("display-green").template().deviceTypeParamValues())
+                .containsEntry("SecondZoneColor", "black");
+        assertThat(result.branchEquipment().branches().get("branch-2").deviceTypes().get("display-green").kind())
+                .isEqualTo("DisplayKind");
+        assertThat(result.branchEquipment().branches().get("branch-2").deviceTypes().get("display-green").devices())
+                .containsKey("device-1");
     }
 
     @Test
