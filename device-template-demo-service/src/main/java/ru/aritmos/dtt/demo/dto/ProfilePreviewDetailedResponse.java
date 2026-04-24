@@ -2,6 +2,7 @@ package ru.aritmos.dtt.demo.dto;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
+import ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry;
 
 import java.util.Map;
 
@@ -16,6 +17,6 @@ public record ProfilePreviewDetailedResponse(
         @Schema(description = "Preview profile JSON как объект")
         JsonNode profileJson,
         @Schema(description = "Сводка по defaults/overrides для каждого типа устройства")
-        Map<String, PreviewComputationEntry> computationsByDeviceType
+        Map<String, ImportPreviewComputationEntry> computationsByDeviceType
 ) {
 }

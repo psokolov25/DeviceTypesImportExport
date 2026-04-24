@@ -2,6 +2,7 @@ package ru.aritmos.dtt.demo.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
 
 import java.util.List;
 
@@ -22,6 +23,6 @@ public record ImportDttZipToExistingBranchUploadRequest(
         @Schema(description = "Стратегия merge", example = "FAIL_IF_EXISTS")
         MergeStrategy mergeStrategy,
         @Schema(description = "Структурированное описание отделений и используемых .dtt файлов")
-        List<ImportUploadedBranchRequest> branches
+        List<BranchImportSourceRequest> branches
 ) {
 }

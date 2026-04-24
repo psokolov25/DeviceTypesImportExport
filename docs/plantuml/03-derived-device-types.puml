@@ -8,22 +8,16 @@ skinparam ArrowColor #4b5563
 
 title Один DTT -> несколько производных типов / наборов устройств
 
-rectangle "Исходный шаблон
-Display WD3264.dtt" as Base
-rectangle "Шаг 1
-Facade.readDtt(bytes)" as Read
-rectangle "Шаг 2
-Клонировать metadata
-и значения параметров" as Clone
+rectangle "Исходный шаблон\nDisplay WD3264.dtt" as BaseTpl
+rectangle "Шаг 1\nFacade.readDtt(bytes)" as Read
+rectangle "Шаг 2\nКлонировать metadata\nи значения параметров" as Clone
 rectangle "Display WD3264 Красное окно.dtt" as Red
 rectangle "Display WD3264 Синее окно.dtt" as Blue
-rectangle "Шаг 3
-Собрать zip из нескольких .dtt" as Zip
-rectangle "Шаг 4
-Импортировать в profile/branch
-с override devices" as Import
+rectangle "Шаг 3\nСобрать zip из нескольких .dtt" as Zip
+rectangle "Шаг 4\nИмпортировать в profile/branch\nс override devices" as Import
 
-Base --> Read --> Clone
+BaseTpl --> Read
+Read --> Clone
 Clone --> Red
 Clone --> Blue
 Red --> Zip

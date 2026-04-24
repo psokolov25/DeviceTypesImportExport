@@ -1,6 +1,7 @@
 package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
+import ru.aritmos.dtt.api.dto.BatchDttExportView;
 import ru.aritmos.dtt.api.dto.BranchAssemblyView;
 import ru.aritmos.dtt.api.dto.DttInspectionResult;
 import ru.aritmos.dtt.api.dto.DttVersionComparisonResult;
@@ -15,10 +16,14 @@ import ru.aritmos.dtt.api.dto.ValidationResult;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentAssemblyRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportApplyView;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewView;
 import ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportApplyView;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewResult;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewView;
 import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.model.DttArchiveTemplate;
 import ru.aritmos.dtt.json.branch.BranchEquipment;
@@ -134,6 +139,11 @@ public interface DeviceTemplateLibraryFacade {
     EquipmentProfile assembleProfile(ProfileImportPlanRequest request);
 
     /**
+     * Собирает profile напрямую из high-level плана импорта и возвращает прикладное view-представление.
+     */
+    ProfileAssemblyView assembleProfileView(ProfileImportPlanRequest request);
+
+    /**
      * Собирает профиль оборудования напрямую из zip-пакета с DTT-архивами и high-level плана импорта.
      *
      * @param zipPayload zip-пакет с файлами `.dtt`
@@ -141,6 +151,21 @@ public interface DeviceTemplateLibraryFacade {
      * @return модель профиля
      */
     EquipmentProfile assembleProfile(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
+     * Собирает profile напрямую из zip-пакета и high-level плана импорта и возвращает view-представление.
+     */
+    ProfileAssemblyView assembleProfileView(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
+     * Выполняет apply profile-импорта и возвращает расширенное view с JSON/counts и диагностикой defaults/overrides.
+     */
+    ProfileImportApplyView assembleProfileApplyView(ProfileImportPlanRequest request);
+
+    /**
+     * Выполняет apply profile-импорта из zip-пакета и возвращает расширенное view с JSON/counts и диагностикой.
+     */
+    ProfileImportApplyView assembleProfileApplyView(byte[] zipPayload, ProfileImportPlanRequest request);
 
     /**
      * Выполняет preview-сборку profile JSON напрямую из high-level плана импорта.
@@ -182,6 +207,11 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment assembleBranch(BranchImportPlanRequest request);
 
     /**
+     * Собирает branch equipment напрямую из high-level плана импорта и возвращает view-представление.
+     */
+    BranchAssemblyView assembleBranchView(BranchImportPlanRequest request);
+
+    /**
      * Собирает branch equipment напрямую из zip-пакета с DTT-архивами и high-level плана импорта.
      *
      * @param zipPayload zip-пакет с файлами `.dtt`
@@ -189,6 +219,21 @@ public interface DeviceTemplateLibraryFacade {
      * @return модель branch equipment
      */
     BranchEquipment assembleBranch(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Собирает branch equipment напрямую из zip-пакета и high-level плана импорта и возвращает view-представление.
+     */
+    BranchAssemblyView assembleBranchView(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет apply branch-импорта и возвращает расширенное view с JSON/counts/metadata и диагностикой.
+     */
+    BranchImportApplyView assembleBranchApplyView(BranchImportPlanRequest request);
+
+    /**
+     * Выполняет apply branch-импорта из zip-пакета и возвращает расширенное view с JSON/counts/metadata и диагностикой.
+     */
+    BranchImportApplyView assembleBranchApplyView(byte[] zipPayload, BranchImportPlanRequest request);
 
     /**
      * Выполняет preview-сборку branch equipment JSON напрямую из high-level плана импорта.
@@ -239,6 +284,11 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment mergeIntoExistingBranchJson(String existingBranchJson, BranchImportPlanRequest request);
 
     /**
+     * Выполняет high-level merge-импорт в существующий branch JSON и возвращает view-представление.
+     */
+    BranchAssemblyView mergeIntoExistingBranchJsonView(String existingBranchJson, BranchImportPlanRequest request);
+
+    /**
      * Выполняет high-level импорт в уже существующий branch equipment JSON из zip-пакета с DTT-архивами.
      *
      * @param zipPayload zip-пакет с файлами `.dtt`
@@ -247,6 +297,21 @@ public interface DeviceTemplateLibraryFacade {
      * @return объединённая branch equipment модель
      */
     BranchEquipment mergeIntoExistingBranchJson(byte[] zipPayload, String existingBranchJson, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет high-level merge-импорт в существующий branch JSON из zip-пакета и возвращает view-представление.
+     */
+    BranchAssemblyView mergeIntoExistingBranchJsonView(byte[] zipPayload, String existingBranchJson, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет apply merge-импорт в existing branch JSON и возвращает расширенное view с JSON/counts/metadata и диагностикой.
+     */
+    BranchImportApplyView mergeIntoExistingBranchJsonApplyView(String existingBranchJson, BranchImportPlanRequest request);
+
+    /**
+     * Выполняет apply merge-импорт в existing branch JSON из zip-пакета и возвращает расширенное view с JSON/counts/metadata и диагностикой.
+     */
+    BranchImportApplyView mergeIntoExistingBranchJsonApplyView(byte[] zipPayload, String existingBranchJson, BranchImportPlanRequest request);
 
     /**
      * Одновременно собирает profile и branch equipment из структурированного плана
@@ -313,6 +378,18 @@ public interface DeviceTemplateLibraryFacade {
      * @return представление branch-результата
      */
     BranchAssemblyView toBranchAssemblyView(BranchEquipment branchEquipment);
+
+    /**
+     * Строит прикладное представление branch-результата с нормализованными metadata типов устройств.
+     *
+     * <p>В отличие от {@link #toBranchAssemblyView(BranchEquipment)} дополнительно применяет
+     * нормализацию metadata (`name`/`displayName`/`description`/`iconBase64`) через
+     * {@link #normalizeDeviceTypeMetadata(List)}.
+     *
+     * @param branchEquipment модель branch equipment
+     * @return представление branch-результата с нормализованными metadata
+     */
+    BranchAssemblyView toNormalizedBranchAssemblyView(BranchEquipment branchEquipment);
 
     /**
      * Подготавливает типизированный запрос сборки profile JSON из high-level плана импорта.
@@ -426,6 +503,26 @@ public interface DeviceTemplateLibraryFacade {
     ProfileImportPreviewResult previewProfileImportDetailed(byte[] zipPayload, ProfileImportPlanRequest request);
 
     /**
+     * Возвращает прикладное представление детального preview profile-импорта.
+     *
+     * <p>Метод объединяет детальный preview и построение JSON/counts в одном вызове,
+     * чтобы внешние адаптеры не дублировали пост-обработку.
+     *
+     * @param request high-level план импорта profile JSON
+     * @return прикладное preview-представление profile-импорта
+     */
+    ProfileImportPreviewView previewProfileImportView(ProfileImportPlanRequest request);
+
+    /**
+     * Возвращает прикладное представление детального preview profile-импорта из zip-пакета DTT.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param request high-level план импорта profile JSON
+     * @return прикладное preview-представление profile-импорта
+     */
+    ProfileImportPreviewView previewProfileImportView(byte[] zipPayload, ProfileImportPlanRequest request);
+
+    /**
      * Выполняет детальный preview branch-импорта на уровне high-level плана.
      *
      * <p>Метод возвращает и собранную preview-модель {@code BranchEquipment}, и карту вычисленных
@@ -445,6 +542,23 @@ public interface DeviceTemplateLibraryFacade {
      * @return DTO детального preview branch-импорта
      */
     BranchImportPreviewResult previewBranchImportDetailed(byte[] zipPayload, BranchImportPlanRequest request);
+
+    /**
+     * Возвращает прикладное представление детального preview branch-импорта.
+     *
+     * @param request high-level план импорта branch equipment JSON
+     * @return прикладное preview-представление branch-импорта
+     */
+    BranchImportPreviewView previewBranchImportView(BranchImportPlanRequest request);
+
+    /**
+     * Возвращает прикладное представление детального preview branch-импорта из zip-пакета DTT.
+     *
+     * @param zipPayload zip-пакет с файлами `.dtt`
+     * @param request high-level план импорта branch equipment JSON
+     * @return прикладное preview-представление branch-импорта
+     */
+    BranchImportPreviewView previewBranchImportView(byte[] zipPayload, BranchImportPlanRequest request);
 
     /**
      * Выполняет preview single-export из profile-модели в `.dtt`.
@@ -683,6 +797,11 @@ public interface DeviceTemplateLibraryFacade {
     Map<String, String> exportDttSetFromProfileBase64(ProfileExportRequest request);
 
     /**
+     * Экспортирует набор DTT-архивов из profile модели в прикладное view-представление.
+     */
+    BatchDttExportView exportDttSetFromProfileView(ProfileExportRequest request);
+
+    /**
      * Экспортирует набор DTT-архивов из строкового profile JSON с явной версией шаблона типа устройства.
      *
      * @param profileJson строковое представление карты deviceTypes
@@ -702,6 +821,11 @@ public interface DeviceTemplateLibraryFacade {
     EquipmentProfile importDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует набор DTT-архивов в profile и возвращает прикладное view-представление.
+     */
+    ProfileAssemblyView importDttSetToProfileView(List<byte[]> archives, MergeStrategy mergeStrategy);
+
+    /**
      * Выполняет preview-сборку profile JSON из набора DTT-архивов без сохранения результата.
      *
      * @param archives bytes-архивы DTT
@@ -709,6 +833,15 @@ public interface DeviceTemplateLibraryFacade {
      * @return рассчитанный профиль оборудования
      */
     EquipmentProfile previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy);
+
+    /**
+     * Выполняет preview legacy-импорта набора DTT в profile и возвращает прикладное view-представление.
+     *
+     * @param archives bytes-архивы DTT
+     * @param mergeStrategy стратегия разрешения конфликтов типов
+     * @return сериализованный JSON профиля и агрегированный счётчик типов устройств
+     */
+    ProfileAssemblyView previewDttSetToProfileView(List<byte[]> archives, MergeStrategy mergeStrategy);
 
     /**
      * Экспортирует все типы устройств из branch equipment модели в набор DTT-архивов.
@@ -734,6 +867,11 @@ public interface DeviceTemplateLibraryFacade {
      * @return архивы по id типа устройства в Base64
      */
     Map<String, String> exportDttSetFromBranchBase64(BranchEquipmentExportRequest request);
+
+    /**
+     * Экспортирует набор DTT-архивов из branch equipment модели в прикладное view-представление.
+     */
+    BatchDttExportView exportDttSetFromBranchView(BranchEquipmentExportRequest request);
 
     /**
      * Экспортирует набор DTT-архивов из строкового branch equipment JSON с явной версией шаблона типа устройства.
@@ -762,6 +900,11 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment importDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует набор DTT-архивов в branch equipment и возвращает прикладное view-представление.
+     */
+    BranchAssemblyView importDttSetToBranchView(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует набор DTT-архивов в уже существующую branch equipment модель.
      *
      * @param archives bytes-архивы DTT
@@ -776,6 +919,14 @@ public interface DeviceTemplateLibraryFacade {
                                                  MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует набор DTT-архивов в существующую branch equipment модель и возвращает view-представление.
+     */
+    BranchAssemblyView importDttSetToExistingBranchView(List<byte[]> archives,
+                                                        BranchEquipment existingBranchEquipment,
+                                                        List<String> branchIds,
+                                                        MergeStrategy mergeStrategy);
+
+    /**
      * Выполняет preview-сборку branch equipment из набора DTT-архивов без сохранения результата.
      *
      * @param archives bytes-архивы DTT
@@ -786,9 +937,24 @@ public interface DeviceTemplateLibraryFacade {
     BranchEquipment previewDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
+     * Выполняет preview legacy-импорта набора DTT в branch equipment и возвращает прикладное view-представление.
+     *
+     * @param archives bytes-архивы DTT
+     * @param branchIds идентификаторы отделений назначения
+     * @param mergeStrategy стратегия разрешения конфликтов типов внутри отделений
+     * @return сериализованный branch JSON, счётчик отделений и список метаданных типов устройств
+     */
+    BranchAssemblyView previewDttSetToBranchView(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует набор DTT-архивов в profile модель из Base64-представления.
      */
     EquipmentProfile importDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует набор DTT-архивов в profile из Base64-представления и возвращает view-представление.
+     */
+    ProfileAssemblyView importDttBase64SetToProfileView(List<String> archivesBase64, MergeStrategy mergeStrategy);
 
     /**
      * Выполняет preview-сборку profile JSON из Base64-представления набора DTT-архивов.
@@ -796,9 +962,19 @@ public interface DeviceTemplateLibraryFacade {
     EquipmentProfile previewDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy);
 
     /**
+     * Выполняет preview legacy-импорта Base64-набора DTT в profile и возвращает прикладное view-представление.
+     */
+    ProfileAssemblyView previewDttBase64SetToProfileView(List<String> archivesBase64, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует набор DTT-архивов в branch equipment модель из Base64-представления.
      */
     BranchEquipment importDttBase64SetToBranch(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует набор DTT-архивов в branch из Base64-представления и возвращает view-представление.
+     */
+    BranchAssemblyView importDttBase64SetToBranchView(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
      * Импортирует набор DTT-архивов в уже существующую branch equipment модель из Base64-представления.
@@ -807,6 +983,14 @@ public interface DeviceTemplateLibraryFacade {
                                                        BranchEquipment existingBranchEquipment,
                                                        List<String> branchIds,
                                                        MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует набор DTT-архивов в существующую branch модель из Base64-представления и возвращает view-представление.
+     */
+    BranchAssemblyView importDttBase64SetToExistingBranchView(List<String> archivesBase64,
+                                                              BranchEquipment existingBranchEquipment,
+                                                              List<String> branchIds,
+                                                              MergeStrategy mergeStrategy);
 
     /**
      * Импортирует набор DTT-архивов в уже существующий branch equipment JSON из Base64-представления,
@@ -818,9 +1002,22 @@ public interface DeviceTemplateLibraryFacade {
                                                            MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует набор DTT-архивов в существующий branch JSON из Base64-представления и возвращает view-представление.
+     */
+    BranchAssemblyView importDttBase64SetToExistingBranchJsonView(List<String> archivesBase64,
+                                                                  String existingBranchJson,
+                                                                  List<String> branchIds,
+                                                                  MergeStrategy mergeStrategy);
+
+    /**
      * Выполняет preview-сборку branch equipment из Base64-представления набора DTT-архивов.
      */
     BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Выполняет preview legacy-импорта Base64-набора DTT в branch equipment и возвращает прикладное view-представление.
+     */
+    BranchAssemblyView previewDttBase64SetToBranchView(List<String> archivesBase64, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
      * Читает zip-пакет и извлекает из него все `.dtt` файлы с сохранением исходных имён entry.
@@ -848,14 +1045,29 @@ public interface DeviceTemplateLibraryFacade {
     EquipmentProfile importDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует zip-архив с `.dtt` в profile и возвращает прикладное view-представление.
+     */
+    ProfileAssemblyView importDttZipToProfileView(byte[] zipPayload, MergeStrategy mergeStrategy);
+
+    /**
      * Выполняет preview-сборку profile JSON из zip-архива с `.dtt` файлами.
      */
     EquipmentProfile previewDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy);
 
     /**
+     * Выполняет preview legacy-импорта zip-набора DTT в profile и возвращает прикладное view-представление.
+     */
+    ProfileAssemblyView previewDttZipToProfileView(byte[] zipPayload, MergeStrategy mergeStrategy);
+
+    /**
      * Импортирует zip-архив с .dtt файлами в branch equipment модель.
      */
     BranchEquipment importDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует zip-архив с `.dtt` в branch equipment и возвращает прикладное view-представление.
+     */
+    BranchAssemblyView importDttZipToBranchView(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
 
     /**
      * Импортирует zip-архив с .dtt файлами в уже существующую branch equipment модель.
@@ -864,6 +1076,14 @@ public interface DeviceTemplateLibraryFacade {
                                                  BranchEquipment existingBranchEquipment,
                                                  List<String> branchIds,
                                                  MergeStrategy mergeStrategy);
+
+    /**
+     * Импортирует zip-архив с `.dtt` в существующую branch equipment модель и возвращает view-представление.
+     */
+    BranchAssemblyView importDttZipToExistingBranchView(byte[] zipPayload,
+                                                        BranchEquipment existingBranchEquipment,
+                                                        List<String> branchIds,
+                                                        MergeStrategy mergeStrategy);
 
     /**
      * Импортирует zip-архив с `.dtt` в уже существующий branch equipment JSON,
@@ -875,9 +1095,22 @@ public interface DeviceTemplateLibraryFacade {
                                                      MergeStrategy mergeStrategy);
 
     /**
+     * Импортирует zip-архив с `.dtt` в существующий branch JSON и возвращает view-представление.
+     */
+    BranchAssemblyView importDttZipToExistingBranchJsonView(byte[] zipPayload,
+                                                            String existingBranchJson,
+                                                            List<String> branchIds,
+                                                            MergeStrategy mergeStrategy);
+
+    /**
      * Выполняет preview-сборку branch equipment из zip-архива с `.dtt` файлами.
      */
     BranchEquipment previewDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
+
+    /**
+     * Выполняет preview legacy-импорта zip-набора DTT в branch equipment и возвращает прикладное view-представление.
+     */
+    BranchAssemblyView previewDttZipToBranchView(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy);
 
 
     /**

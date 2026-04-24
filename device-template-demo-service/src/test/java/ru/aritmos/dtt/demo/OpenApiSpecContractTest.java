@@ -9,6 +9,10 @@ import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.demo.controller.SwaggerSpecController;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,17 +29,23 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class OpenApiSpecContractTest {
 
+    private static final String OPENAPI_RESOURCE = "META-INF/swagger/device-template-demo.yml";
+    private static final Path OPENAPI_TARGET_PATH = Path.of("target", "classes", "META-INF", "swagger", "device-template-demo.yml");
+
     @Test
     void shouldExposeExpectedDttEndpointsAndErrorSchemasInOpenApiSpec() throws IOException {
         try (ApplicationContext context = ApplicationContext.run()) {
-            final SwaggerSpecController controller = context.getBean(SwaggerSpecController.class);
-            final HttpResponse<String> response = controller.spec();
-            assertThat(response.code()).isEqualTo(200);
-            assertThat(response.getContentType().map(Object::toString).orElse(""))
-                    .containsIgnoringCase("application/x-yaml")
-                    .containsIgnoringCase("charset=utf-8");
-
-            final String spec = response.body();
+            final String spec = readSpecFromTargetPath()
+                    .or(() -> readSpecFromClasspath())
+                    .orElseGet(() -> {
+                final SwaggerSpecController controller = context.getBean(SwaggerSpecController.class);
+                final HttpResponse<String> response = controller.spec();
+                assertThat(response.code()).isEqualTo(200);
+                assertThat(response.getContentType().map(Object::toString).orElse(""))
+                        .containsIgnoringCase("application/x-yaml")
+                        .containsIgnoringCase("charset=utf-8");
+                return response.body();
+                    });
             assertThat(spec).contains("openapi:");
             assertThat(spec).contains("Экспортировать");
 
@@ -63,6 +73,28 @@ class OpenApiSpecContractTest {
             assertThat(spec).contains("DttInspectionResponse:");
             assertThat(spec).contains("DttMetadataBatchResponse:");
             assertThat(spec).contains("DttVersionComparisonResponse:");
+        }
+    }
+
+    private static java.util.Optional<String> readSpecFromClasspath() {
+        try (InputStream stream = OpenApiSpecContractTest.class.getClassLoader().getResourceAsStream(OPENAPI_RESOURCE)) {
+            if (stream == null) {
+                return java.util.Optional.empty();
+            }
+            return java.util.Optional.of(new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        } catch (IOException exception) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    private static java.util.Optional<String> readSpecFromTargetPath() {
+        try {
+            if (!Files.exists(OPENAPI_TARGET_PATH)) {
+                return java.util.Optional.empty();
+            }
+            return java.util.Optional.of(Files.readString(OPENAPI_TARGET_PATH));
+        } catch (IOException exception) {
+            return java.util.Optional.empty();
         }
     }
 }

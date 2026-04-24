@@ -2,6 +2,7 @@ package ru.aritmos.dtt.demo.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
 
 import java.util.List;
 
@@ -25,7 +26,7 @@ public record ImportDttSetToExistingBranchRequest(
         @Schema(description = "Merge-стратегия", defaultValue = "FAIL_IF_EXISTS")
         MergeStrategy mergeStrategy,
         @Schema(description = "Структурированные запросы по отделениям с override-значениями")
-        List<ImportBranchRequest> branches
+        List<BranchImportSourceRequest> branches
 ) {
     public ImportDttSetToExistingBranchRequest(String existingBranchJson,
                                                List<String> archivesBase64,

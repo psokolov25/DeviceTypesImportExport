@@ -1,0 +1,54 @@
+@startuml
+title Import-plan -> preview-view -> apply (merge-стратегии)
+
+actor Client
+participant "Demo Controller" as C
+participant "DttDemoService" as S
+participant "DeviceTemplateLibraryFacade" as F
+participant "TemplateAssemblyService" as A
+
+== Profile/Branch preview ==
+Client -> C: POST /preview/structured
+C -> S: preview*Import*(...)
+S -> F: previewProfileImportView(...) /\npreviewBranchImportView(...)
+F -> A: prepare + computePreview
+F --> S: *PreviewView\n(json + counts + computations)
+S --> C: preview response DTO
+C --> Client: 200 OK
+
+== Apply (новый import-plan API) ==
+Client -> C: POST /import/structured
+C -> S: import*Structured(...)
+S -> F: assemble*ApplyView(...)
+F -> A: assemble...
+F -> A: computePreview(for diagnostics)
+F --> S: *ApplyView\n(json + counts + computations)
+S --> C: apply response DTO
+C --> Client: 200 OK
+
+== Merge в existing branch JSON ==
+Client -> C: POST /import/existing-branch/structured
+C -> S: import*ExistingBranch(...)
+S -> F: mergeIntoExistingBranchJsonApplyView(...)
+F -> A: assemble incoming branch
+F -> F: mergeBranchEquipment(existing, incoming, strategy)
+
+alt FAIL_IF_EXISTS
+  F --> S: TemplateAssemblyException (conflict)
+  S --> C: 409 CONFLICT
+else REPLACE
+  F --> S: existing branch replaced by incoming
+  S --> C: 200 OK + merged JSON
+else MERGE_NON_NULLS
+  F --> S: incoming non-null overlays existing
+  S --> C: 200 OK + merged JSON
+else MERGE_PRESERVE_EXISTING
+  F --> S: existing values preserved
+  S --> C: 200 OK + merged JSON
+else CREATE_COPY_WITH_SUFFIX
+  F --> S: conflicting type duplicated with suffix
+  S --> C: 200 OK + merged JSON
+end
+
+C --> Client: HTTP response
+@enduml

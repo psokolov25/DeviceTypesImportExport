@@ -1,0 +1,47 @@
+name: PlantUML SVG Sync
+
+on:
+  pull_request:
+    paths:
+      - 'docs/plantuml/*.puml'
+      - 'docs/plantuml/svg/*.svg'
+      - 'scripts/generate-plantuml-svg.sh'
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'docs/plantuml/*.puml'
+      - 'docs/plantuml/svg/*.svg'
+      - 'scripts/generate-plantuml-svg.sh'
+
+jobs:
+  verify-svg-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Graphviz for PlantUML jar renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+
+      - name: Download PlantUML jar for no-docker smoke check
+        run: |
+          mkdir -p .tools
+          curl -fsSL https://github.com/plantuml/plantuml/releases/download/v1.2025.3/plantuml-1.2025.3.jar -o .tools/plantuml.jar
+
+      - name: Generate SVG without Docker (jar fallback)
+        env:
+          PLANTUML_NO_DOCKER: "1"
+          PLANTUML_JAR_PATH: .tools/plantuml.jar
+          GRAPHVIZ_DOT: /usr/bin/dot
+        run: ./scripts/generate-plantuml-svg.sh
+
+      - name: Verify generated SVG are committed
+        run: |
+          if ! git diff --quiet -- docs/plantuml/svg; then
+            echo "Detected unsynchronized PlantUML SVG files."
+            echo "Run ./scripts/generate-plantuml-svg.sh and commit updated docs/plantuml/svg/*.svg"
+            git diff -- docs/plantuml/svg
+            exit 1
+          fi

@@ -2,6 +2,7 @@ package ru.aritmos.dtt.api;
 
 import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
+import ru.aritmos.dtt.api.dto.BranchAssemblyView;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.EquipmentProfileAssemblyRequest;
 import ru.aritmos.dtt.api.dto.EquipmentProfileDeviceTypeRequest;
@@ -149,6 +150,23 @@ class DefaultDeviceTemplateLibraryFacadeTest {
     }
 
     @Test
+    void shouldBuildNormalizedBranchAssemblyView() {
+        final BranchEquipment branchEquipment = new BranchEquipment(
+                Map.of("branch-1", new ru.aritmos.dtt.json.branch.BranchNode("branch-1", "Main", Map.of())),
+                List.of(new ru.aritmos.dtt.json.branch.BranchDeviceTypeMetadata("display", "", null, null, null, null))
+        );
+
+        final BranchAssemblyView normalizedView = facade.toNormalizedBranchAssemblyView(branchEquipment);
+
+        assertThat(normalizedView.branchesCount()).isEqualTo(1);
+        assertThat(normalizedView.deviceTypeMetadata()).hasSize(1);
+        assertThat(normalizedView.deviceTypeMetadata().get(0).name()).isEqualTo("display");
+        assertThat(normalizedView.deviceTypeMetadata().get(0).displayName()).isEqualTo("display");
+        assertThat(normalizedView.deviceTypeMetadata().get(0).description()).isNotBlank();
+        assertThat(normalizedView.deviceTypeMetadata().get(0).iconBase64()).isNotBlank();
+    }
+
+    @Test
     void shouldNormalizeDeviceTypeMetadataViaFacade() {
         final List<DeviceTypeMetadata> normalized = facade.normalizeDeviceTypeMetadata(List.of(
                 new DeviceTypeMetadata("display", "", null, null, "1.0.0", null)
@@ -179,6 +197,45 @@ class DefaultDeviceTemplateLibraryFacadeTest {
 
         assertThat(batch.archivesByDeviceTypeId()).containsKey("display");
         assertThat(imported.deviceTypes()).containsKey("display");
+    }
+
+    @Test
+    void shouldBuildBatchExportViewForProfileAndBranch() {
+        final var deviceTypeTemplate = new ru.aritmos.dtt.api.dto.DeviceTypeTemplate(
+                new DeviceTypeMetadata("display", "Display", "Display", "desc"),
+                Map.of("ip", "127.0.0.1")
+        );
+        final EquipmentProfile profile = facade.assembleProfile(new EquipmentProfileAssemblyRequest(
+                List.of(new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true)),
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+        final BranchEquipment branch = facade.assembleBranch(new BranchEquipmentAssemblyRequest(
+                List.of(new BranchImportRequest(
+                        "branch-1",
+                        "Main",
+                        List.of(new BranchDeviceTypeImportRequest(
+                                new EquipmentProfileDeviceTypeRequest(deviceTypeTemplate, true),
+                                List.of(),
+                                null, null, null, null, null, null, Map.of(), Map.of()
+                        ))
+                )),
+                MergeStrategy.FAIL_IF_EXISTS
+        ));
+
+        final var profileView = facade.exportDttSetFromProfileView(new ProfileExportRequest(profile, List.of("display"), null));
+        final var branchView = facade.exportDttSetFromBranchView(new BranchEquipmentExportRequest(
+                branch,
+                List.of("branch-1"),
+                List.of("display"),
+                MergeStrategy.FAIL_IF_EXISTS,
+                null
+        ));
+
+        assertThat(profileView.archivesCount()).isEqualTo(1);
+        assertThat(profileView.archivesBase64ByDeviceTypeId()).containsKey("display");
+        assertThat(branchView.archivesCount()).isEqualTo(1);
+        assertThat(branchView.archivesBase64ByDeviceTypeId()).containsKey("display");
     }
 
     @Test
@@ -658,6 +715,10 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         final var detailedProfileZipPreview = facade.previewProfileImportDetailed(zipPayload, profileZipPlan);
         final var detailedBranchPreview = facade.previewBranchImportDetailed(branchBase64Plan);
         final var detailedBranchZipPreview = facade.previewBranchImportDetailed(zipPayload, branchZipPlan);
+        final var profilePreviewView = facade.previewProfileImportView(profileBase64Plan);
+        final var profilePreviewZipView = facade.previewProfileImportView(zipPayload, profileZipPlan);
+        final var branchPreviewView = facade.previewBranchImportView(branchBase64Plan);
+        final var branchPreviewZipView = facade.previewBranchImportView(zipPayload, branchZipPlan);
 
         assertThat(detailedProfilePreview.profile().deviceTypes()).containsKey("display-preview");
         assertThat(detailedProfilePreview.computationsByDeviceType())
@@ -673,6 +734,121 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 .containsKey("display");
         assertThat(detailedBranchZipPreview.computationsByTarget())
                 .containsEntry("branch-preview-zip:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(profilePreviewView.profileJson()).contains("display-preview");
+        assertThat(profilePreviewView.deviceTypesCount()).isEqualTo(1);
+        assertThat(profilePreviewView.computationsByDeviceType())
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(profilePreviewZipView.profileJson()).contains("display");
+        assertThat(profilePreviewZipView.deviceTypesCount()).isEqualTo(1);
+        assertThat(profilePreviewZipView.computationsByDeviceType())
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(branchPreviewView.branchJson()).contains("branch-preview");
+        assertThat(branchPreviewView.branchesCount()).isEqualTo(1);
+        assertThat(branchPreviewView.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
+        assertThat(branchPreviewView.computationsByTarget())
+                .containsEntry("branch-preview:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(branchPreviewZipView.branchJson()).contains("branch-preview-zip");
+        assertThat(branchPreviewZipView.branchesCount()).isEqualTo(1);
+        assertThat(branchPreviewZipView.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
+        assertThat(branchPreviewZipView.computationsByTarget())
+                .containsEntry("branch-preview-zip:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+    }
+
+    @Test
+    void shouldBuildApplyViewsWithDiagnosticsFromHighLevelPlans() throws Exception {
+        final byte[] displayArchive = facade.writeDtt(template());
+        final String displayArchiveBase64 = java.util.Base64.getEncoder().encodeToString(displayArchive);
+        final byte[] zipPayload = zipWithEntries(Map.of("nested/Display.dtt", displayArchive));
+
+        final ProfileImportPlanRequest profilePlan = new ProfileImportPlanRequest(
+                List.of(),
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        displayArchiveBase64,
+                        null,
+                        Map.of("ip", "10.10.10.94"),
+                        new DeviceTypeMetadata("display-apply", "Display Apply", "Display Apply", "apply", "7.0.0", null)
+                ))
+        );
+        final ProfileImportPlanRequest profileZipPlan = new ProfileImportPlanRequest(
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new ProfileDeviceTypeImportSourceRequest(
+                        null,
+                        "nested/Display.dtt",
+                        Map.of("ip", "10.10.10.95"),
+                        null
+                ))
+        );
+        final BranchImportPlanRequest branchPlan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "branch-apply",
+                        "Branch Apply",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                displayArchiveBase64,
+                                null,
+                                Map.of("ip", "10.10.10.96"),
+                                null,
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+        final String existingBranchJson = """
+                {
+                  "branches": {
+                    "existing": {
+                      "id": "existing",
+                      "name": "Existing",
+                      "description": "existing branch",
+                      "deviceTypes": {}
+                    }
+                  }
+                }
+                """;
+        final BranchImportPlanRequest mergePlan = new BranchImportPlanRequest(
+                null,
+                null,
+                MergeStrategy.FAIL_IF_EXISTS,
+                List.of(new BranchImportSourceRequest(
+                        "existing",
+                        "Existing",
+                        List.of(new BranchDeviceTypeImportSourceRequest(
+                                null,
+                                "nested/Display.dtt",
+                                Map.of("ip", "10.10.10.97"),
+                                null,
+                                List.of(),
+                                "display"
+                        ))
+                ))
+        );
+
+        final var profileApplyView = facade.assembleProfileApplyView(profilePlan);
+        final var profileZipApplyView = facade.assembleProfileApplyView(zipPayload, profileZipPlan);
+        final var branchApplyView = facade.assembleBranchApplyView(branchPlan);
+        final var mergeApplyView = facade.mergeIntoExistingBranchJsonApplyView(zipPayload, existingBranchJson, mergePlan);
+
+        assertThat(profileApplyView.profileJson()).contains("display-apply");
+        assertThat(profileApplyView.deviceTypesCount()).isEqualTo(1);
+        assertThat(profileApplyView.computationsByDeviceType())
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(profileZipApplyView.profileJson()).contains("display");
+        assertThat(profileZipApplyView.deviceTypesCount()).isEqualTo(1);
+        assertThat(profileZipApplyView.computationsByDeviceType())
+                .containsEntry("display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(branchApplyView.branchJson()).contains("branch-apply");
+        assertThat(branchApplyView.branchesCount()).isEqualTo(1);
+        assertThat(branchApplyView.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
+        assertThat(branchApplyView.computationsByTarget())
+                .containsEntry("branch-apply:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
+        assertThat(mergeApplyView.branchJson()).contains("existing");
+        assertThat(mergeApplyView.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
+        assertThat(mergeApplyView.computationsByTarget())
+                .containsEntry("existing:display", new ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry(0, 1));
     }
 
     @Test
@@ -738,14 +914,20 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
 
         final var profileFromBase64 = facade.importDttBase64SetToProfile(List.of(archiveBase64), MergeStrategy.FAIL_IF_EXISTS);
+        final var profileViewFromBase64 = facade.importDttBase64SetToProfileView(List.of(archiveBase64), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromBase64.deviceTypes()).containsKey("display");
+        assertThat(profileViewFromBase64.profileJson()).contains("display");
+        assertThat(profileViewFromBase64.deviceTypesCount()).isEqualTo(1);
 
         final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(countDttEntries(zipPayload)).isEqualTo(1);
         assertThat(firstDttEntryName(zipPayload)).isEqualTo("Display.dtt");
 
         final var profileFromZip = facade.importDttZipToProfile(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+        final var profileViewFromZip = facade.importDttZipToProfileView(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromZip.deviceTypes()).containsKey("display");
+        assertThat(profileViewFromZip.profileJson()).contains("display");
+        assertThat(profileViewFromZip.deviceTypesCount()).isEqualTo(1);
 
         final String zipBase64 = facade.exportProfileToDttZipBase64(new ProfileExportRequest(profileFromBase64, List.of("display"), null));
         assertThat(zipBase64).isNotBlank();
@@ -755,7 +937,11 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         assertThat(countDttEntries(zipFromProfileJson)).isEqualTo(1);
 
         final var branch = facade.importDttSetToBranch(List.of(archiveBytes), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final var branchView = facade.importDttSetToBranchView(List.of(archiveBytes), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
         final String branchJson = facade.toBranchJson(branch);
+        assertThat(branchView.branchJson()).contains("branch-1");
+        assertThat(branchView.branchesCount()).isEqualTo(1);
+        assertThat(branchView.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
         final byte[] zipFromBranchJson = facade.exportBranchToDttZip(
                 branchJson,
                 List.of("branch-1"),
@@ -764,6 +950,14 @@ class DefaultDeviceTemplateLibraryFacadeTest {
                 "2.0.0"
         );
         assertThat(countDttEntries(zipFromBranchJson)).isEqualTo(1);
+
+        final var branchBase64View = facade.importDttBase64SetToBranchView(List.of(archiveBase64), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(branchBase64View.branchJson()).contains("branch-1");
+        assertThat(branchBase64View.branchesCount()).isEqualTo(1);
+
+        final var branchZipView = facade.importDttZipToBranchView(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        assertThat(branchZipView.branchJson()).contains("branch-1");
+        assertThat(branchZipView.branchesCount()).isEqualTo(1);
     }
 
     @Test
@@ -1209,27 +1403,52 @@ class DefaultDeviceTemplateLibraryFacadeTest {
         final String archiveBase64 = java.util.Base64.getEncoder().encodeToString(archiveBytes);
 
         final var profileFromBytes = facade.previewDttSetToProfile(List.of(archiveBytes), MergeStrategy.FAIL_IF_EXISTS);
+        final var profileViewFromBytes = facade.previewDttSetToProfileView(List.of(archiveBytes), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromBytes.deviceTypes()).containsKey("display");
+        assertThat(profileViewFromBytes.profileJson()).contains("display");
+        assertThat(profileViewFromBytes.deviceTypesCount()).isEqualTo(1);
 
         final var profileFromBase64 = facade.previewDttBase64SetToProfile(List.of(archiveBase64), MergeStrategy.FAIL_IF_EXISTS);
+        final var profileViewFromBase64 = facade.previewDttBase64SetToProfileView(List.of(archiveBase64), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromBase64.deviceTypes()).containsKey("display");
+        assertThat(profileViewFromBase64.profileJson()).contains("display");
+        assertThat(profileViewFromBase64.deviceTypesCount()).isEqualTo(1);
 
         final byte[] zipPayload = facade.exportProfileToDttZip(new ProfileExportRequest(profileFromBytes, List.of("display"), null));
         final var profileFromZip = facade.previewDttZipToProfile(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
+        final var profileViewFromZip = facade.previewDttZipToProfileView(zipPayload, MergeStrategy.FAIL_IF_EXISTS);
         assertThat(profileFromZip.deviceTypes()).containsKey("display");
+        assertThat(profileViewFromZip.profileJson()).contains("display");
+        assertThat(profileViewFromZip.deviceTypesCount()).isEqualTo(1);
 
         final var branchFromBytes = facade.previewDttSetToBranch(List.of(archiveBytes), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final var branchViewFromBytes = facade.previewDttSetToBranchView(List.of(archiveBytes), List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(branchFromBytes.branches()).containsKey("branch-1");
+        assertThat(branchViewFromBytes.branchJson()).contains("branch-1");
+        assertThat(branchViewFromBytes.branchesCount()).isEqualTo(1);
+        assertThat(branchViewFromBytes.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
 
         final var branchFromBase64 = facade.previewDttBase64SetToBranch(
                 List.of(archiveBase64),
                 List.of("branch-1"),
                 MergeStrategy.FAIL_IF_EXISTS
         );
+        final var branchViewFromBase64 = facade.previewDttBase64SetToBranchView(
+                List.of(archiveBase64),
+                List.of("branch-1"),
+                MergeStrategy.FAIL_IF_EXISTS
+        );
         assertThat(branchFromBase64.branches()).containsKey("branch-1");
+        assertThat(branchViewFromBase64.branchJson()).contains("branch-1");
+        assertThat(branchViewFromBase64.branchesCount()).isEqualTo(1);
+        assertThat(branchViewFromBase64.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
 
         final var branchFromZip = facade.previewDttZipToBranch(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
+        final var branchViewFromZip = facade.previewDttZipToBranchView(zipPayload, List.of("branch-1"), MergeStrategy.FAIL_IF_EXISTS);
         assertThat(branchFromZip.branches()).containsKey("branch-1");
+        assertThat(branchViewFromZip.branchJson()).contains("branch-1");
+        assertThat(branchViewFromZip.branchesCount()).isEqualTo(1);
+        assertThat(branchViewFromZip.deviceTypeMetadata()).extracting(DeviceTypeMetadata::id).contains("display");
     }
 
     @Test

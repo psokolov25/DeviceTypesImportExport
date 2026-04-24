@@ -5,6 +5,10 @@ import org.junit.jupiter.api.Test;
 import ru.aritmos.dtt.api.DeviceTemplateLibrary;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
 import ru.aritmos.dtt.archive.DttIconSupport;
@@ -850,8 +854,9 @@ class DttControllerTest {
         final ImportDttSetToProfileRequest request = new ImportDttSetToProfileRequest(
                 List.of(),
                 MergeStrategy.FAIL_IF_EXISTS,
-                List.of(new ImportProfileDeviceTypeRequest(
+                List.of(new ProfileDeviceTypeImportSourceRequest(
                         Base64.getEncoder().encodeToString(bytes),
+                        null,
                         Map.of("printerServiceURL", "http://override.local:8084", "prefix", "OVR"),
                         null
                 ))
@@ -872,14 +877,15 @@ class DttControllerTest {
                 List.of(),
                 List.of(),
                 MergeStrategy.FAIL_IF_EXISTS,
-                List.of(new ImportBranchRequest(
+                List.of(new BranchImportSourceRequest(
                         "branch-custom",
                         "Отделение custom",
-                        List.of(new ImportBranchDeviceTypeRequest(
+                        List.of(new BranchDeviceTypeImportSourceRequest(
                                 Base64.getEncoder().encodeToString(bytes),
+                                null,
                                 Map.of("TicketZone", "9"),
                                 null,
-                                List.of(new ImportBranchDeviceRequest(
+                                List.of(new DeviceInstanceImportRequest(
                                         "display-1",
                                         "display-1",
                                         "Display 1",

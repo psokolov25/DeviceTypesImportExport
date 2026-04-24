@@ -156,6 +156,18 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 - `prepareProfileAssemblyRequestFromZip(...)`
 - `prepareBranchAssemblyRequest(...)`
 - `prepareBranchAssemblyRequestFromZip(...)`
+- `importDttSetToProfileView(...)`
+- `importDttBase64SetToProfileView(...)`
+- `importDttZipToProfileView(...)`
+- `importDttSetToBranchView(...)`
+- `importDttBase64SetToBranchView(...)`
+- `importDttZipToBranchView(...)`
+- `importDttSetToExistingBranchView(...)`
+- `importDttBase64SetToExistingBranchJsonView(...)`
+- `importDttZipToExistingBranchJsonView(...)`
+- `toNormalizedBranchAssemblyView(...)`
+- `exportDttSetFromProfileView(...)`
+- `exportDttSetFromBranchView(...)`
 - `computeProfileImportPreview(...)`
 - `computeProfileImportPreview(byte[] zipPayload, ...)`
 - `computeBranchImportPreview(...)`
@@ -164,6 +176,16 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 - `previewProfileImportDetailed(byte[] zipPayload, ...)`
 - `previewBranchImportDetailed(...)`
 - `previewBranchImportDetailed(byte[] zipPayload, ...)`
+- `previewDttSetToProfileView(...)`
+- `previewDttBase64SetToProfileView(...)`
+- `previewDttZipToProfileView(...)`
+- `previewDttSetToBranchView(...)`
+- `previewDttBase64SetToBranchView(...)`
+- `previewDttZipToBranchView(...)`
+- `previewProfileImportView(...)`
+- `previewProfileImportView(byte[] zipPayload, ...)`
+- `previewBranchImportView(...)`
+- `previewBranchImportView(byte[] zipPayload, ...)`
 
 Что именно делает этот слой:
 
@@ -178,6 +200,8 @@ DeviceTemplateLibraryFacade facade = DeviceTemplateLibrary.createDefaultFacade()
 9. Для детального preview может одним вызовом вернуть и собранную preview-модель, и диагностические счётчики defaults/overrides без ручной склейки нескольких вызовов фасада.
 
 Это позволяет держать HTTP-слой тонким: контроллер и application-service только валидируют входной payload и делегируют подготовку импорта в библиотеку.
+
+Дополнительно transport DTO demo-service для structured/import upload сценариев могут напрямую переиспользовать library import-plan типы (`ProfileDeviceTypeImportSourceRequest`, `BranchImportSourceRequest`) без промежуточных nested-конвертаций.
 
 
 ##### Когда нужен именно детальный preview
@@ -195,6 +219,8 @@ ProfileImportPreviewResult preview = facade.previewProfileImportDetailed(plan);
 EquipmentProfile previewProfile = preview.profile();
 Map<String, ImportPreviewComputationEntry> counters = preview.computationsByDeviceType();
 ```
+
+Если нужен готовый JSON и агрегированные счётчики в том же вызове, используйте `previewProfileImportView(...)` / `previewBranchImportView(...)`.
 
 ### 4.1. Карта сценариев с быстрым выбором метода
 
@@ -1452,12 +1478,18 @@ BranchEquipment branchEquipment = facade.assembleBranch(facade.prepareBranchAsse
 
 - `assembleProfile(ProfileImportPlanRequest)`
 - `assembleProfile(byte[] zipPayload, ProfileImportPlanRequest)`
+- `assembleProfileApplyView(ProfileImportPlanRequest)`
+- `assembleProfileApplyView(byte[] zipPayload, ProfileImportPlanRequest)`
 - `assembleBranch(BranchImportPlanRequest)`
 - `assembleBranch(byte[] zipPayload, BranchImportPlanRequest)`
+- `assembleBranchApplyView(BranchImportPlanRequest)`
+- `assembleBranchApplyView(byte[] zipPayload, BranchImportPlanRequest)`
 - `mergeIntoExistingBranch(BranchEquipment, BranchImportPlanRequest)`
 - `mergeIntoExistingBranch(byte[] zipPayload, BranchEquipment, BranchImportPlanRequest)`
 - `mergeIntoExistingBranchJson(String, BranchImportPlanRequest)`
 - `mergeIntoExistingBranchJson(byte[] zipPayload, String, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJsonApplyView(String, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJsonApplyView(byte[] zipPayload, String, BranchImportPlanRequest)`
 
 ### 9.2 Зачем этот слой нужен
 
@@ -1471,6 +1503,26 @@ BranchEquipment branchEquipment = facade.assembleBranch(facade.prepareBranchAsse
 - merge incoming model в existing model.
 
 В результате demo-service и любая интеграционная служба могут использовать библиотеку как готовый движок прикладных операций, а не только как набор низкоуровневых примитивов.
+
+### 9.4 Пошаговая миграция на apply-view контракты
+
+Если у вас уже есть интеграция на `assembleProfile(...)`/`assembleBranch(...)`, переход на apply-view выполняется по шагам:
+
+1. Замените вызов `assembleProfile(...)` на `assembleProfileApplyView(...)`.
+2. Вместо ручного `toProfileJson(...)` используйте `view.profileJson()`.
+3. Вместо отдельного подсчёта типов используйте `view.deviceTypesCount()`.
+4. Для диагностического UI используйте `view.computationsByDeviceType()`.
+5. Аналогично для branch: `assembleBranchApplyView(...)` и `mergeIntoExistingBranchJsonApplyView(...)`.
+6. Удалите из прикладного слоя повторяющийся код `assemble -> toJson -> count -> computePreview`.
+
+Пример:
+
+```java
+ProfileImportApplyView profile = facade.assembleProfileApplyView(plan);
+String json = profile.profileJson();
+int count = profile.deviceTypesCount();
+Map<String, ImportPreviewComputationEntry> diagnostics = profile.computationsByDeviceType();
+```
 
 ### 9.3 Рекомендуемая граница ответственности
 

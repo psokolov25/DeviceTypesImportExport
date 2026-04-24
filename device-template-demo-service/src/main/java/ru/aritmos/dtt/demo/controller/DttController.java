@@ -179,7 +179,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}")
             )
     )
     public ImportDttSetToProfileResponse importToProfile(@Body ImportDttSetToProfileRequest request) {
@@ -213,7 +213,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"Invalid Base64 DTT archive payload at index 0\"}")
             )
     )
     public ImportDttSetToProfileResponse previewProfile(@Body ImportDttSetToProfileRequest request) {
@@ -348,7 +348,7 @@ public class DttController {
             description = "Ошибка входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"branchIds must contain at least one branch id\"}")
             )
     )
     public ImportDttSetToBranchResponse importToBranch(@Body ImportDttSetToBranchRequest request) {
@@ -386,7 +386,7 @@ public class DttController {
             description = "Ошибка входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"existingBranchJson must not be blank\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"existingBranchJson must not be blank\"}")
             )
     )
     public ImportDttSetToBranchResponse importToExistingBranch(@Body ImportDttSetToExistingBranchRequest request) {
@@ -436,7 +436,7 @@ public class DttController {
             description = "Ошибка входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"branchIds must contain at least one branch id\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"branchIds must contain at least one branch id\"}")
             )
     )
     public ImportDttSetToBranchResponse previewBranch(@Body ImportDttSetToBranchRequest request) {
@@ -829,7 +829,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"deviceTypeId must not be blank\"}")
             )
     )
     public ExportSingleDttResponse exportSingleFromProfile(@Body ExportSingleDttFromProfileRequest request) {
@@ -868,7 +868,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"deviceTypeId must not be blank\"}")
             )
     )
     public SingleDttExportPreviewResponse previewSingleExportFromProfile(@Body ExportSingleDttFromProfileRequest request) {
@@ -961,7 +961,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either profile or profileJson must be provided\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"Either profile or profileJson must be provided\"}")
             )
     )
     public ExportAllDttFromProfileResponse exportAllFromProfile(@Body ExportAllDttFromProfileRequest request) {
@@ -1022,7 +1022,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"deviceTypeId must not be blank\"}")
             )
     )
     public ExportSingleDttResponse exportSingleFromBranch(@Body ExportSingleDttFromBranchRequest request) {
@@ -1073,7 +1073,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"deviceTypeId must not be blank\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"deviceTypeId must not be blank\"}")
             )
     )
     public SingleDttExportPreviewResponse previewSingleExportFromBranch(@Body ExportSingleDttFromBranchRequest request) {
@@ -1171,7 +1171,7 @@ public class DttController {
             description = "Ошибка валидации входных данных",
             content = @Content(
                     schema = @Schema(implementation = DemoErrorResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"BAD_REQUEST\",\"message\":\"Either branchEquipment or branchJson must be provided\"}")
+                    examples = @ExampleObject(value = "{\"code\":\"INVALID_ARGUMENT\",\"message\":\"Either branchEquipment or branchJson must be provided\"}")
             )
     )
     public ExportAllDttFromBranchResponse exportAllFromBranch(@Body ExportAllDttFromBranchRequest request) {
