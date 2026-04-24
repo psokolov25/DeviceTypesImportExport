@@ -2,6 +2,7 @@ package ru.aritmos.dtt.demo.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import ru.aritmos.dtt.api.dto.MergeStrategy;
+import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
 
 import java.util.List;
 
@@ -22,7 +23,7 @@ public record ImportDttSetToProfileRequest(
         @Schema(description = "Стратегия merge", example = "FAIL_IF_EXISTS")
         MergeStrategy mergeStrategy,
         @Schema(description = "Структурированные запросы импорта с override-значениями параметров типа устройства")
-        List<ImportProfileDeviceTypeRequest> deviceTypes
+        List<ProfileDeviceTypeImportSourceRequest> deviceTypes
 ) {
     public ImportDttSetToProfileRequest(List<String> archivesBase64, MergeStrategy mergeStrategy) {
         this(archivesBase64, mergeStrategy, List.of());

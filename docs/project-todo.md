@@ -60,5 +60,38 @@
 - [x] Single-export response orchestration (совместная отдача `bytes + Base64`) вынесена в facade через `ExportResult`, demo-service переведён на thin-adapter делегирование.
 - [x] DTT inspect orchestration вынесен в facade (`inspectDtt` + `DttInspectionResult`), demo-service больше не собирает inspect-результат вручную из archive DTO.
 - [x] Пост-обработка assemble-результатов (JSON + агрегированные счётчики + metadata) вынесена в facade (`toProfileAssemblyView`, `toBranchAssemblyView`), demo-service больше не дублирует расчёты вручную.
+- [x] Детальный preview import-plan получил прикладные view-контракты в библиотеке (`previewProfileImportView`, `previewBranchImportView`, включая zip-перегрузки): demo-service больше не дублирует сериализацию JSON и агрегированные счётчики для detailed preview endpoint-ов.
+- [x] Legacy preview API получил прикладные view-контракты (`previewDttSetToProfileView`, `previewDttBase64SetToProfileView`, `previewDttZipToProfileView`, `previewDttSetToBranchView`, `previewDttBase64SetToBranchView`, `previewDttZipToBranchView`), что убрало дублирование JSON/counts orchestration в demo-service.
+- [x] Legacy import API получил прикладные view-контракты (`importDttSetToProfileView`, `importDttBase64SetToProfileView`, `importDttZipToProfileView`, `importDttSetToBranchView`, `importDttBase64SetToBranchView`, `importDttZipToBranchView`, включая existing-branch варианты), что убрало дублирование JSON/counts orchestration в demo-service.
+- [x] Нормализация metadata в branch response-path вынесена в библиотеку (`toNormalizedBranchAssemblyView` + использование в import/preview view), demo-service больше не вызывает `normalizeDeviceTypeMetadata(...)` для branch-ответов.
+- [x] Batch export response-path вынесен в библиотеку через `BatchDttExportView` (`exportDttSetFromProfileView`, `exportDttSetFromBranchView`), demo-service больше не считает `encoded.size()` вручную.
+- [x] Transport request DTO demo-service переведены на переиспользование library import-plan типов (`ProfileDeviceTypeImportSourceRequest`, `BranchImportSourceRequest`), что убрало основную часть ручного nested mapping в demo-service.
 - [x] Нормализация metadata типов устройств (fallback name/displayName/description + default icon) вынесена в facade (`normalizeDeviceTypeMetadata`), demo-service больше не дублирует эту логику.
 - [x] Добавлен скрипт `scripts/offline-test.sh` для офлайн прогона тестов (`-o`) через Maven Wrapper или system Maven.
+
+## 5) Задачи следующей итерации (после текущего переноса)
+
+1. [x] Вынести из demo-service в библиотеку typed adapter для import-plan request mapping (конвертация transport DTO -> library plan DTO), чтобы demo-service оставался полностью transport-only.
+2. [x] Добавить в facade ready-to-use preview-view контракты для legacy preview API (`previewDttSetToProfile`, `previewDttSetToBranch`, zip/base64 режимы), чтобы унифицировать response orchestration.
+3. [x] Расширить каталог фич sequence-диаграммами по сценариям `import-plan -> preview-view -> apply`, включая merge-конфликты по каждой стратегии.
+4. [x] Добавить import-view методы для high-level import-plan orchestration (`assembleProfile/assembleBranch/mergeIntoExistingBranch`) с единым контрактом JSON/counts на уровне apply/merge (`assembleProfileView`, `assembleBranchView`, `mergeIntoExistingBranchJsonView`).
+5. [x] Убрать ручной mapping preview-computation DTO в demo-service: detailed preview endpoint-ы используют `ImportPreviewComputationEntry` из библиотеки напрямую.
+
+## 6) Задачи следующей итерации (новый цикл)
+
+1. [x] Вынести детальную apply-диагностику в отдельные facade DTO для high-level apply/merge (по аналогии с detailed preview), чтобы в одном ответе были JSON/counts и карты defaults/overrides после фактического применения.
+2. [x] Свести оставшийся top-level mapping `toLibraryProfileImportPlan(...)`/`toLibraryBranchImportPlan(...)` к отдельному reusable adapter-компоненту demo-service с минимальным сервисным кодом (`ImportPlanRequestMapper`).
+3. [x] Добавить sequence-диаграммы для всех merge-стратегий (`FAIL_IF_EXISTS`, `REPLACE`, `MERGE_NON_NULLS`, `MERGE_PRESERVE_EXISTING`, `CREATE_COPY_WITH_SUFFIX`) в apply/preview сценариях.
+4. [x] Дополнить feature-catalog матрицей «входные ограничения -> ожидаемая диагностика -> рекомендуемый endpoint фасада» для ошибок валидации и merge-конфликтов.
+
+## 7) Что ещё осталось перенести в библиотеку
+
+1. [x] Унификация примеров OpenAPI/README/feature-catalog вокруг новых apply-view контрактов как основного API для structured apply-эндпоинтов.
+2. [x] Полное выравнивание всех endpoint-примеров demo-service (multipart/base64/json) под один стиль диагностических ответов и error-code описаний.
+3. [x] Автоматическая генерация SVG по новым PlantUML диаграммам в CI (чтобы docs/plantuml и docs/plantuml/svg оставались синхронизированы).
+
+## 8) Следующий цикл задач
+
+1. [x] Добавить контрактные OpenAPI тесты, валидирующие присутствие apply-view методов в примерах structured endpoint-ов.
+2. [x] Добавить smoke-проверку скрипта `generate-plantuml-svg.sh` в документационном пайплайне без Docker (через локальный JAR fallback).
+3. [x] Уточнить в developer-guide пошаговую миграцию с `assembleProfile(...)`/`assembleBranch(...)` на `assemble*ApplyView(...)` для существующих интеграций.

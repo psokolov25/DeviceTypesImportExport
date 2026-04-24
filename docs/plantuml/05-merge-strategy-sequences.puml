@@ -1,0 +1,49 @@
+@startuml
+title Apply/Preview merge-сценарии для всех MergeStrategy
+
+actor Client
+participant "Demo Controller" as C
+participant "DttDemoService" as S
+participant "DeviceTemplateLibraryFacade" as F
+participant "TemplateAssemblyService" as A
+
+== PREVIEW ==
+Client -> C: POST /preview (branch/profile)
+C -> S: preview...(...)
+S -> F: previewProfileImportView(...) / previewBranchImportView(...)
+F -> A: preview... + compute...Preview(...)
+F --> S: *PreviewView (json/counts/diagnostics)
+S --> C: DTO preview response
+C --> Client: 200 OK + preview JSON + computations
+
+== APPLY ==
+Client -> C: POST /import (branch/profile)
+C -> S: import...(...)
+S -> F: assemble...ApplyView(...)
+F -> A: assemble...
+F -> A: compute...Preview(...)
+F --> S: *ApplyView (json/counts/diagnostics)
+S --> C: DTO apply response
+C --> Client: 200 OK + applied JSON + diagnostics
+
+== MERGE (existing branch JSON) ==
+Client -> C: POST /import/existing-branch
+C -> S: importDttSetToExistingBranch(...)
+S -> F: mergeIntoExistingBranchJsonApplyView(...)
+F -> A: assemble incoming branch
+F -> F: mergeBranchEquipment(existing, incoming, strategy)
+alt FAIL_IF_EXISTS
+  F --> S: conflict error
+else REPLACE
+  F --> S: existing replaced by incoming
+else MERGE_NON_NULLS
+  F --> S: non-null incoming overlays existing
+else MERGE_PRESERVE_EXISTING
+  F --> S: existing fields preserved
+else CREATE_COPY_WITH_SUFFIX
+  F --> S: conflicting type copied with suffix
+end
+S --> C: merge result / error
+C --> Client: HTTP result
+
+@enduml

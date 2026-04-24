@@ -1,6 +1,7 @@
 package ru.aritmos.dtt.api;
 
 import ru.aritmos.dtt.api.dto.BatchDttExportResult;
+import ru.aritmos.dtt.api.dto.BatchDttExportView;
 import ru.aritmos.dtt.api.dto.BranchAssemblyView;
 import ru.aritmos.dtt.api.dto.DeviceTypeMetadata;
 import ru.aritmos.dtt.api.dto.DttInspectionResult;
@@ -23,13 +24,17 @@ import ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportApplyView;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewResult;
+import ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewView;
 import ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.BranchMetadataImportRequest;
 import ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry;
 import ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportApplyView;
 import ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewResult;
+import ru.aritmos.dtt.api.dto.importplan.ProfileImportPreviewView;
 import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.DefaultDttArchiveReader;
 import ru.aritmos.dtt.archive.DefaultDttArchiveWriter;
@@ -237,8 +242,38 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public ProfileAssemblyView assembleProfileView(ProfileImportPlanRequest request) {
+        return toProfileAssemblyView(assembleProfile(request));
+    }
+
+    @Override
     public EquipmentProfile assembleProfile(byte[] zipPayload, ProfileImportPlanRequest request) {
         return assembleProfile(prepareProfileAssemblyRequestFromZip(zipPayload, request));
+    }
+
+    @Override
+    public ProfileAssemblyView assembleProfileView(byte[] zipPayload, ProfileImportPlanRequest request) {
+        return toProfileAssemblyView(assembleProfile(zipPayload, request));
+    }
+
+    @Override
+    public ProfileImportApplyView assembleProfileApplyView(ProfileImportPlanRequest request) {
+        final ProfileAssemblyView apply = assembleProfileView(request);
+        return new ProfileImportApplyView(
+                apply.profileJson(),
+                apply.deviceTypesCount(),
+                computeProfileImportPreview(request)
+        );
+    }
+
+    @Override
+    public ProfileImportApplyView assembleProfileApplyView(byte[] zipPayload, ProfileImportPlanRequest request) {
+        final ProfileAssemblyView apply = assembleProfileView(zipPayload, request);
+        return new ProfileImportApplyView(
+                apply.profileJson(),
+                apply.deviceTypesCount(),
+                computeProfileImportPreview(zipPayload, request)
+        );
     }
 
     @Override
@@ -262,8 +297,40 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView assembleBranchView(BranchImportPlanRequest request) {
+        return toNormalizedBranchAssemblyView(assembleBranch(request));
+    }
+
+    @Override
     public BranchEquipment assembleBranch(byte[] zipPayload, BranchImportPlanRequest request) {
         return assembleBranch(prepareBranchAssemblyRequestFromZip(zipPayload, request));
+    }
+
+    @Override
+    public BranchAssemblyView assembleBranchView(byte[] zipPayload, BranchImportPlanRequest request) {
+        return toNormalizedBranchAssemblyView(assembleBranch(zipPayload, request));
+    }
+
+    @Override
+    public BranchImportApplyView assembleBranchApplyView(BranchImportPlanRequest request) {
+        final BranchAssemblyView apply = assembleBranchView(request);
+        return new BranchImportApplyView(
+                apply.branchJson(),
+                apply.branchesCount(),
+                apply.deviceTypeMetadata(),
+                computeBranchImportPreview(request)
+        );
+    }
+
+    @Override
+    public BranchImportApplyView assembleBranchApplyView(byte[] zipPayload, BranchImportPlanRequest request) {
+        final BranchAssemblyView apply = assembleBranchView(zipPayload, request);
+        return new BranchImportApplyView(
+                apply.branchJson(),
+                apply.branchesCount(),
+                apply.deviceTypeMetadata(),
+                computeBranchImportPreview(zipPayload, request)
+        );
     }
 
     @Override
@@ -296,8 +363,42 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView mergeIntoExistingBranchJsonView(String existingBranchJson, BranchImportPlanRequest request) {
+        return toNormalizedBranchAssemblyView(mergeIntoExistingBranchJson(existingBranchJson, request));
+    }
+
+    @Override
     public BranchEquipment mergeIntoExistingBranchJson(byte[] zipPayload, String existingBranchJson, BranchImportPlanRequest request) {
         return mergeIntoExistingBranch(zipPayload, parseBranchJson(existingBranchJson), request);
+    }
+
+    @Override
+    public BranchAssemblyView mergeIntoExistingBranchJsonView(byte[] zipPayload, String existingBranchJson, BranchImportPlanRequest request) {
+        return toNormalizedBranchAssemblyView(mergeIntoExistingBranchJson(zipPayload, existingBranchJson, request));
+    }
+
+    @Override
+    public BranchImportApplyView mergeIntoExistingBranchJsonApplyView(String existingBranchJson, BranchImportPlanRequest request) {
+        final BranchAssemblyView apply = mergeIntoExistingBranchJsonView(existingBranchJson, request);
+        return new BranchImportApplyView(
+                apply.branchJson(),
+                apply.branchesCount(),
+                apply.deviceTypeMetadata(),
+                computeBranchImportPreview(request)
+        );
+    }
+
+    @Override
+    public BranchImportApplyView mergeIntoExistingBranchJsonApplyView(byte[] zipPayload,
+                                                                      String existingBranchJson,
+                                                                      BranchImportPlanRequest request) {
+        final BranchAssemblyView apply = mergeIntoExistingBranchJsonView(zipPayload, existingBranchJson, request);
+        return new BranchImportApplyView(
+                apply.branchJson(),
+                apply.branchesCount(),
+                apply.deviceTypeMetadata(),
+                computeBranchImportPreview(zipPayload, request)
+        );
     }
 
     @Override
@@ -389,6 +490,16 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                 ))
                 .toList();
         return new BranchAssemblyView(branchJson, branchesCount, metadata);
+    }
+
+    @Override
+    public BranchAssemblyView toNormalizedBranchAssemblyView(BranchEquipment branchEquipment) {
+        final BranchAssemblyView view = toBranchAssemblyView(branchEquipment);
+        return new BranchAssemblyView(
+                view.branchJson(),
+                view.branchesCount(),
+                normalizeDeviceTypeMetadata(view.deviceTypeMetadata())
+        );
     }
 
     @Override
@@ -573,6 +684,28 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public ProfileImportPreviewView previewProfileImportView(ProfileImportPlanRequest request) {
+        final ProfileImportPreviewResult preview = previewProfileImportDetailed(request);
+        final ProfileAssemblyView view = toProfileAssemblyView(preview.profile());
+        return new ProfileImportPreviewView(
+                view.profileJson(),
+                view.deviceTypesCount(),
+                preview.computationsByDeviceType()
+        );
+    }
+
+    @Override
+    public ProfileImportPreviewView previewProfileImportView(byte[] zipPayload, ProfileImportPlanRequest request) {
+        final ProfileImportPreviewResult preview = previewProfileImportDetailed(zipPayload, request);
+        final ProfileAssemblyView view = toProfileAssemblyView(preview.profile());
+        return new ProfileImportPreviewView(
+                view.profileJson(),
+                view.deviceTypesCount(),
+                preview.computationsByDeviceType()
+        );
+    }
+
+    @Override
     public BranchImportPreviewResult previewBranchImportDetailed(BranchImportPlanRequest request) {
         return new BranchImportPreviewResult(
                 assembleBranch(request),
@@ -585,6 +718,30 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
         return new BranchImportPreviewResult(
                 assembleBranch(zipPayload, request),
                 computeBranchImportPreview(zipPayload, request)
+        );
+    }
+
+    @Override
+    public BranchImportPreviewView previewBranchImportView(BranchImportPlanRequest request) {
+        final BranchImportPreviewResult preview = previewBranchImportDetailed(request);
+        final BranchAssemblyView view = toBranchAssemblyView(preview.branchEquipment());
+        return new BranchImportPreviewView(
+                view.branchJson(),
+                view.branchesCount(),
+                view.deviceTypeMetadata(),
+                preview.computationsByTarget()
+        );
+    }
+
+    @Override
+    public BranchImportPreviewView previewBranchImportView(byte[] zipPayload, BranchImportPlanRequest request) {
+        final BranchImportPreviewResult preview = previewBranchImportDetailed(zipPayload, request);
+        final BranchAssemblyView view = toBranchAssemblyView(preview.branchEquipment());
+        return new BranchImportPreviewView(
+                view.branchJson(),
+                view.branchesCount(),
+                view.deviceTypeMetadata(),
+                preview.computationsByTarget()
         );
     }
 
@@ -775,6 +932,12 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BatchDttExportView exportDttSetFromProfileView(ProfileExportRequest request) {
+        final Map<String, String> archivesBase64 = exportDttSetFromProfileBase64(request);
+        return new BatchDttExportView(archivesBase64, archivesBase64.size());
+    }
+
+    @Override
     public BatchDttExportResult exportDttSetFromProfileJson(String profileJson, List<String> deviceTypeIds, String dttVersion) {
         return exportDttSetFromProfile(new ProfileExportRequest(parseProfileJson(profileJson), deviceTypeIds, dttVersion));
     }
@@ -785,8 +948,18 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public ProfileAssemblyView importDttSetToProfileView(List<byte[]> archives, MergeStrategy mergeStrategy) {
+        return toProfileAssemblyView(importDttSetToProfile(archives, mergeStrategy));
+    }
+
+    @Override
     public EquipmentProfile previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
         return assemblyService.previewEquipmentProfile(toProfileAssemblyRequest(archives, mergeStrategy));
+    }
+
+    @Override
+    public ProfileAssemblyView previewDttSetToProfileView(List<byte[]> archives, MergeStrategy mergeStrategy) {
+        return toProfileAssemblyView(previewDttSetToProfile(archives, mergeStrategy));
     }
 
     @Override
@@ -848,6 +1021,12 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BatchDttExportView exportDttSetFromBranchView(BranchEquipmentExportRequest request) {
+        final Map<String, String> archivesBase64 = exportDttSetFromBranchBase64(request);
+        return new BatchDttExportView(archivesBase64, archivesBase64.size());
+    }
+
+    @Override
     public BatchDttExportResult exportDttSetFromBranchJson(String branchJson,
                                                            List<String> branchIds,
                                                            List<String> deviceTypeIds,
@@ -868,6 +1047,11 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView importDttSetToBranchView(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttSetToBranch(archives, branchIds, mergeStrategy));
+    }
+
+    @Override
     public BranchEquipment importDttSetToExistingBranch(List<byte[]> archives,
                                                         BranchEquipment existingBranchEquipment,
                                                         List<String> branchIds,
@@ -878,8 +1062,21 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView importDttSetToExistingBranchView(List<byte[]> archives,
+                                                               BranchEquipment existingBranchEquipment,
+                                                               List<String> branchIds,
+                                                               MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttSetToExistingBranch(archives, existingBranchEquipment, branchIds, mergeStrategy));
+    }
+
+    @Override
     public BranchEquipment previewDttSetToBranch(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
         return assemblyService.previewBranchEquipment(toBranchAssemblyRequest(archives, branchIds, mergeStrategy, false));
+    }
+
+    @Override
+    public BranchAssemblyView previewDttSetToBranchView(List<byte[]> archives, List<String> branchIds, MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(previewDttSetToBranch(archives, branchIds, mergeStrategy));
     }
 
     @Override
@@ -888,8 +1085,18 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public ProfileAssemblyView importDttBase64SetToProfileView(List<String> archivesBase64, MergeStrategy mergeStrategy) {
+        return toProfileAssemblyView(importDttBase64SetToProfile(archivesBase64, mergeStrategy));
+    }
+
+    @Override
     public EquipmentProfile previewDttBase64SetToProfile(List<String> archivesBase64, MergeStrategy mergeStrategy) {
         return previewDttSetToProfile(decodeBase64Archives(archivesBase64), mergeStrategy);
+    }
+
+    @Override
+    public ProfileAssemblyView previewDttBase64SetToProfileView(List<String> archivesBase64, MergeStrategy mergeStrategy) {
+        return toProfileAssemblyView(previewDttBase64SetToProfile(archivesBase64, mergeStrategy));
     }
 
     @Override
@@ -897,6 +1104,13 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
                                                       List<String> branchIds,
                                                       MergeStrategy mergeStrategy) {
         return importDttSetToBranch(decodeBase64Archives(archivesBase64), branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchAssemblyView importDttBase64SetToBranchView(List<String> archivesBase64,
+                                                             List<String> branchIds,
+                                                             MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy));
     }
 
     @Override
@@ -913,6 +1127,14 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView importDttBase64SetToExistingBranchView(List<String> archivesBase64,
+                                                                     BranchEquipment existingBranchEquipment,
+                                                                     List<String> branchIds,
+                                                                     MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttBase64SetToExistingBranch(archivesBase64, existingBranchEquipment, branchIds, mergeStrategy));
+    }
+
+    @Override
     public BranchEquipment importDttBase64SetToExistingBranchJson(List<String> archivesBase64,
                                                                   String existingBranchJson,
                                                                   List<String> branchIds,
@@ -926,10 +1148,25 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView importDttBase64SetToExistingBranchJsonView(List<String> archivesBase64,
+                                                                         String existingBranchJson,
+                                                                         List<String> branchIds,
+                                                                         MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttBase64SetToExistingBranchJson(archivesBase64, existingBranchJson, branchIds, mergeStrategy));
+    }
+
+    @Override
     public BranchEquipment previewDttBase64SetToBranch(List<String> archivesBase64,
                                                        List<String> branchIds,
                                                        MergeStrategy mergeStrategy) {
         return previewDttSetToBranch(decodeBase64Archives(archivesBase64), branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchAssemblyView previewDttBase64SetToBranchView(List<String> archivesBase64,
+                                                              List<String> branchIds,
+                                                              MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(previewDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy));
     }
 
     @Override
@@ -979,8 +1216,18 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public ProfileAssemblyView importDttZipToProfileView(byte[] zipPayload, MergeStrategy mergeStrategy) {
+        return toProfileAssemblyView(importDttZipToProfile(zipPayload, mergeStrategy));
+    }
+
+    @Override
     public EquipmentProfile previewDttZipToProfile(byte[] zipPayload, MergeStrategy mergeStrategy) {
         return previewDttSetToProfile(readDttFilesFromZip(zipPayload), mergeStrategy);
+    }
+
+    @Override
+    public ProfileAssemblyView previewDttZipToProfileView(byte[] zipPayload, MergeStrategy mergeStrategy) {
+        return toProfileAssemblyView(previewDttZipToProfile(zipPayload, mergeStrategy));
     }
 
     @Override
@@ -989,11 +1236,24 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView importDttZipToBranchView(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttZipToBranch(zipPayload, branchIds, mergeStrategy));
+    }
+
+    @Override
     public BranchEquipment importDttZipToExistingBranch(byte[] zipPayload,
                                                         BranchEquipment existingBranchEquipment,
                                                         List<String> branchIds,
                                                         MergeStrategy mergeStrategy) {
         return importDttSetToExistingBranch(readDttFilesFromZip(zipPayload), existingBranchEquipment, branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchAssemblyView importDttZipToExistingBranchView(byte[] zipPayload,
+                                                               BranchEquipment existingBranchEquipment,
+                                                               List<String> branchIds,
+                                                               MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttZipToExistingBranch(zipPayload, existingBranchEquipment, branchIds, mergeStrategy));
     }
 
     @Override
@@ -1010,8 +1270,21 @@ public class DefaultDeviceTemplateLibraryFacade implements DeviceTemplateLibrary
     }
 
     @Override
+    public BranchAssemblyView importDttZipToExistingBranchJsonView(byte[] zipPayload,
+                                                                   String existingBranchJson,
+                                                                   List<String> branchIds,
+                                                                   MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(importDttZipToExistingBranchJson(zipPayload, existingBranchJson, branchIds, mergeStrategy));
+    }
+
+    @Override
     public BranchEquipment previewDttZipToBranch(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy) {
         return previewDttSetToBranch(readDttFilesFromZip(zipPayload), branchIds, mergeStrategy);
+    }
+
+    @Override
+    public BranchAssemblyView previewDttZipToBranchView(byte[] zipPayload, List<String> branchIds, MergeStrategy mergeStrategy) {
+        return toNormalizedBranchAssemblyView(previewDttZipToBranch(zipPayload, branchIds, mergeStrategy));
     }
 
 

@@ -12,49 +12,28 @@ skinparam DatabaseBackgroundColor #eef2ff
 title Архитектура библиотеки DeviceTypesImportExport
 
 package "Приложение-интегратор" {
-  [DeviceTemplateLibraryFacade]
-как Facade
+  [DeviceTemplateLibraryFacade\nкак Facade] as Facade
 }
 
 package "device-template-library" {
-  [DttArchiveReader/Writer]
-ZIP + YAML + Groovy
-  [TemplateValidationService]
-валидация шаблона
-  [TemplateAssemblyService]
-сборка profile/branch
-  [Profile/Branch JSON Parsers]
-parse/generate JSON
-  [Canonical mappers]
-archive <-> canonical <-> projection
+  [DttArchiveReader/Writer\nZIP + YAML + Groovy] as Archive
+  [TemplateValidationService\nвалидация шаблона] as Validation
+  [TemplateAssemblyService\nсборка profile/branch] as Assembly
+  [Profile/Branch JSON Parsers\nparse/generate JSON] as Parsers
+  [Canonical mappers\narchive <-> canonical <-> projection] as Canonical
 }
 
 database "DTT archive" as DTT
 collections "EquipmentProfile / BranchEquipment" as MODELS
 collections "profile JSON / branch JSON" as JSON
 
-[DeviceTemplateLibraryFacade]
-как Facade --> [DttArchiveReader/Writer]
-ZIP + YAML + Groovy : read/write DTT
-[DeviceTemplateLibraryFacade]
-как Facade --> [TemplateValidationService]
-валидация шаблона : validate
-[DeviceTemplateLibraryFacade]
-как Facade --> [TemplateAssemblyService]
-сборка profile/branch : assemble/import/preview
-[DeviceTemplateLibraryFacade]
-как Facade --> [Profile/Branch JSON Parsers]
-parse/generate JSON : parse/toJson/exportFromJson
-[DttArchiveReader/Writer]
-ZIP + YAML + Groovy --> DTT
-[TemplateAssemblyService]
-сборка profile/branch --> MODELS
-[Profile/Branch JSON Parsers]
-parse/generate JSON --> JSON
-[Canonical mappers]
-archive <-> canonical <-> projection ..> [DttArchiveReader/Writer]
-ZIP + YAML + Groovy
-[Canonical mappers]
-archive <-> canonical <-> projection ..> [TemplateAssemblyService]
-сборка profile/branch
+Facade --> Archive : read/write DTT
+Facade --> Validation : validate
+Facade --> Assembly : assemble/import/preview
+Facade --> Parsers : parse/toJson/exportFromJson
+Archive --> DTT
+Assembly --> MODELS
+Parsers --> JSON
+Canonical ..> Archive
+Canonical ..> Assembly
 @enduml

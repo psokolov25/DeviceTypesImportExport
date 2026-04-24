@@ -101,10 +101,14 @@
 - parse/generate profile/branch JSON.
 - batch export/import DTT set из profile (`exportDttSetFromProfile` / `importDttSetToProfile`);
 - batch export/import DTT set из branch (`exportDttSetFromBranch` / `importDttSetToBranch`).
+- batch export-view для thin-adapter слоя (`exportDttSetFromProfileView`, `exportDttSetFromBranchView`).
 - batch import DTT set в уже существующий branch equipment (`importDttSetToExistingBranch`, `importDttBase64SetToExistingBranch`, `importDttZipToExistingBranch`).
+- legacy import-view для thin-adapter слоя (`importDttSetToProfileView`, `importDttBase64SetToProfileView`, `importDttZipToProfileView`, `importDttSetToBranchView`, `importDttBase64SetToBranchView`, `importDttZipToBranchView`, включая existing-branch варианты).
 - preview-сценарии на уровне библиотеки:
   - profile (`previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`);
   - branch equipment (`previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`).
+  - legacy preview-view для thin-adapter слоя (`previewDttSetToProfileView`, `previewDttBase64SetToProfileView`, `previewDttZipToProfileView`, `previewDttSetToBranchView`, `previewDttBase64SetToBranchView`, `previewDttZipToBranchView`).
+- transport DTO demo-service для structured/import upload могут напрямую использовать library import-plan типы (`ProfileDeviceTypeImportSourceRequest`, `BranchImportSourceRequest`) вместо отдельных nested DTO.
 - dual-mode передачи DTT на уровне фасада библиотеки:
   - Base64 (`importDttBase64SetToProfile`, `importDttBase64SetToBranch`, `importDttBase64SetToExistingBranch`);
   - upload-download zip (`importDttZipToProfile`, `importDttZipToBranch`, `importDttZipToExistingBranch`, `exportProfileToDttZip`, `exportBranchToDttZip`);
@@ -157,6 +161,8 @@ String profileJson = facade.toProfileJson(
 - `computeProfileImportPreview(byte[] zipPayload, ...)` / `computeBranchImportPreview(byte[] zipPayload, ...)` — делают то же самое для zip-based import-plan, включая выбор `archiveEntryName` и legacy-режим `все .dtt -> все branchId`.
 - `previewProfileImportDetailed(...)` / `previewBranchImportDetailed(...)` — возвращают одним вызовом и собранную preview-модель, и диагностику defaults/overrides.
 - `previewProfileImportDetailed(byte[] zipPayload, ...)` / `previewBranchImportDetailed(byte[] zipPayload, ...)` — тот же режим для zip-based import-plan.
+- `previewProfileImportView(...)` / `previewBranchImportView(...)` — возвращают прикладной preview-view: JSON + счётчики + диагностика, чтобы API-адаптер не дублировал пост-обработку.
+- `previewProfileImportView(byte[] zipPayload, ...)` / `previewBranchImportView(byte[] zipPayload, ...)` — тот же режим для zip-based import-plan.
 - `previewProfileImport(...)` / `previewBranchImport(...)` — выполняют прямую preview-сборку high-level import-plan без ручного `prepare + preview`.
 - `previewProfileImport(byte[] zipPayload, ...)` / `previewBranchImport(byte[] zipPayload, ...)` — прямой preview-режим для zip-based import-plan.
 
@@ -190,6 +196,8 @@ byte[] zipPayload = Files.readAllBytes(Path.of("device-types.zip"));
 Map<String, ImportPreviewComputationEntry> zipPreview = facade.computeProfileImportPreview(zipPayload, plan);
 ProfileImportPreviewResult detailedPreview = facade.previewProfileImportDetailed(zipPayload, plan);
 EquipmentProfile previewModel = detailedPreview.profile();
+ProfileImportPreviewView previewView = facade.previewProfileImportView(zipPayload, plan);
+String previewJson = previewView.profileJson();
 ```
 
 Пример использования для branch: 
@@ -268,16 +276,20 @@ BranchEquipment previewOnly = facade.previewBranchImport(plan);
    - Кейс: одновременно поддерживать object-model и raw JSON в интеграционном слое.
 
 8. **Прикладные представления результата сборки**
-   - Методы: `toProfileAssemblyView`, `toBranchAssemblyView`.
+   - Методы: `toProfileAssemblyView`, `toBranchAssemblyView`, `toNormalizedBranchAssemblyView`.
    - Кейс: получить за один вызов JSON и агрегированные счётчики (`deviceTypesCount`/`branchesCount`) без ручной пост-обработки в adapter-слое.
 
 9. **Batch import в profile**
    - Методы: `importDttSetToProfile`, `importDttBase64SetToProfile`, `importDttZipToProfile`.
+   - Import-view: `importDttSetToProfileView`, `importDttBase64SetToProfileView`, `importDttZipToProfileView`.
    - Preview: `previewDttSetToProfile`, `previewDttBase64SetToProfile`, `previewDttZipToProfile`.
+   - Preview-view: `previewDttSetToProfileView`, `previewDttBase64SetToProfileView`, `previewDttZipToProfileView`.
 
 10. **Batch import в branch**
    - Методы: `importDttSetToBranch`, `importDttBase64SetToBranch`, `importDttZipToBranch`.
+   - Import-view: `importDttSetToBranchView`, `importDttBase64SetToBranchView`, `importDttZipToBranchView`, `importDtt*ToExistingBranch*View`.
    - Preview: `previewDttSetToBranch`, `previewDttBase64SetToBranch`, `previewDttZipToBranch`.
+   - Preview-view: `previewDttSetToBranchView`, `previewDttBase64SetToBranchView`, `previewDttZipToBranchView`.
 
 11. **Импорт в существующий branch**
    - Методы: `importDttSetToExistingBranch`, `importDttBase64SetToExistingBranch`, `importDttZipToExistingBranch`.
@@ -711,6 +723,12 @@ PlantUML: [`docs/plantuml/03-derived-device-types.puml`](docs/plantuml/03-derive
 ![Выбор merge-стратегии](docs/plantuml/svg/04-merge-strategy-choice.svg)
 
 PlantUML: [`docs/plantuml/04-merge-strategy-choice.puml`](docs/plantuml/04-merge-strategy-choice.puml)
+
+#### 5. Последовательности apply/preview/merge для всех merge-стратегий
+
+PlantUML: [`docs/plantuml/05-merge-strategy-sequences.puml`](docs/plantuml/05-merge-strategy-sequences.puml)
+
+> Генерация SVG выполняется скриптом `./scripts/generate-plantuml-svg.sh`, а в CI добавлена проверка синхронизации `*.puml` и `docs/plantuml/svg/*.svg`.
 
 ### Быстрый старт для своей службы
 
@@ -1492,16 +1510,26 @@ java -jar device-template-demo-service/target/device-template-demo-service-0.1.0
 
 - `assembleProfile(ProfileImportPlanRequest)`
 - `assembleProfile(byte[] zipPayload, ProfileImportPlanRequest)`
+- `assembleProfileApplyView(ProfileImportPlanRequest)`
+- `assembleProfileApplyView(byte[] zipPayload, ProfileImportPlanRequest)`
 - `assembleBranch(BranchImportPlanRequest)`
 - `assembleBranch(byte[] zipPayload, BranchImportPlanRequest)`
+- `assembleBranchApplyView(BranchImportPlanRequest)`
+- `assembleBranchApplyView(byte[] zipPayload, BranchImportPlanRequest)`
 - `previewProfileImport(ProfileImportPlanRequest)`
 - `previewProfileImport(byte[] zipPayload, ProfileImportPlanRequest)`
 - `previewBranchImport(BranchImportPlanRequest)`
 - `previewBranchImport(byte[] zipPayload, BranchImportPlanRequest)`
+- `previewProfileImportView(ProfileImportPlanRequest)`
+- `previewProfileImportView(byte[] zipPayload, ProfileImportPlanRequest)`
+- `previewBranchImportView(BranchImportPlanRequest)`
+- `previewBranchImportView(byte[] zipPayload, BranchImportPlanRequest)`
 - `mergeIntoExistingBranch(BranchEquipment, BranchImportPlanRequest)`
 - `mergeIntoExistingBranch(byte[] zipPayload, BranchEquipment, BranchImportPlanRequest)`
 - `mergeIntoExistingBranchJson(String, BranchImportPlanRequest)`
 - `mergeIntoExistingBranchJson(byte[] zipPayload, String, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJsonApplyView(String, BranchImportPlanRequest)`
+- `mergeIntoExistingBranchJsonApplyView(byte[] zipPayload, String, BranchImportPlanRequest)`
 
 Этот слой полезен, когда прикладной сервис не хочет вручную выполнять цепочку:
 
@@ -1520,6 +1548,17 @@ ProfileImportPlanRequest plan = ...;
 EquipmentProfile profile = facade.assembleProfile(plan);
 ```
 
+### Пример: structured apply profile с готовым JSON/counts/diagnostics
+
+```java
+ProfileImportPlanRequest plan = ...;
+ProfileImportApplyView view = facade.assembleProfileApplyView(plan);
+
+String profileJson = view.profileJson();
+int deviceTypesCount = view.deviceTypesCount();
+Map<String, ImportPreviewComputationEntry> diagnostics = view.computationsByDeviceType();
+```
+
 ### Пример: merge structured branch-import в существующий DeviceManager.json
 
 ```java
@@ -1527,6 +1566,17 @@ BranchImportPlanRequest plan = ...;
 String existingBranchJson = Files.readString(Path.of("DeviceManager.json"));
 
 BranchEquipment merged = facade.mergeIntoExistingBranchJson(existingBranchJson, plan);
+```
+
+### Пример: structured apply merge в existing branch JSON с diagnostics
+
+```java
+BranchImportPlanRequest plan = ...;
+String existingBranchJson = Files.readString(Path.of("DeviceManager.json"));
+
+BranchImportApplyView view = facade.mergeIntoExistingBranchJsonApplyView(existingBranchJson, plan);
+String mergedJson = view.branchJson();
+Map<String, ImportPreviewComputationEntry> diagnostics = view.computationsByTarget();
 ```
 
 ## 9) Подробная документация по всем фичам, терминам и кейсам

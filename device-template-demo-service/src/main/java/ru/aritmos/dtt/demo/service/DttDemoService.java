@@ -10,9 +10,6 @@ import ru.aritmos.dtt.api.dto.MergeStrategy;
 import ru.aritmos.dtt.api.dto.ProfileBranchAssemblyResult;
 import ru.aritmos.dtt.api.dto.ProfileExportRequest;
 import ru.aritmos.dtt.api.dto.branch.BranchEquipmentExportRequest;
-import ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeMetadataOverrideImportRequest;
-import ru.aritmos.dtt.api.dto.importplan.BranchMetadataImportRequest;
-import ru.aritmos.dtt.api.dto.importplan.ProfileBranchMetadataImportPlanRequest;
 import ru.aritmos.dtt.archive.DttIconSupport;
 import ru.aritmos.dtt.demo.dto.BranchPreviewDetailedResponse;
 import ru.aritmos.dtt.demo.dto.DeviceTypeBasicMetadataResponse;
@@ -24,11 +21,6 @@ import ru.aritmos.dtt.demo.dto.DttVersionComparisonResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromBranchResponse;
 import ru.aritmos.dtt.demo.dto.ExportAllDttFromProfileResponse;
 import ru.aritmos.dtt.demo.dto.ExportSingleDttResponse;
-import ru.aritmos.dtt.demo.dto.ImportBranchDeviceRequest;
-import ru.aritmos.dtt.demo.dto.ImportBranchDeviceTypeRequest;
-import ru.aritmos.dtt.demo.dto.ImportBranchMetadataRequest;
-import ru.aritmos.dtt.demo.dto.ImportBranchRequest;
-import ru.aritmos.dtt.demo.dto.ImportDeviceTypeMetadataOverrideRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToBranchResponse;
 import ru.aritmos.dtt.demo.dto.ImportDttSetToExistingBranchRequest;
@@ -39,11 +31,9 @@ import ru.aritmos.dtt.demo.dto.ImportDttZipToExistingBranchUploadRequest;
 import ru.aritmos.dtt.demo.dto.ImportDttZipToProfileUploadRequest;
 import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataRequest;
 import ru.aritmos.dtt.demo.dto.ImportProfileBranchWithMetadataResponse;
-import ru.aritmos.dtt.demo.dto.ImportProfileDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.ImportUploadedBranchDeviceTypeRequest;
 import ru.aritmos.dtt.demo.dto.ImportUploadedBranchRequest;
 import ru.aritmos.dtt.demo.dto.ImportUploadedProfileDeviceTypeRequest;
-import ru.aritmos.dtt.demo.dto.PreviewComputationEntry;
 import ru.aritmos.dtt.demo.dto.ProfilePreviewDetailedResponse;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewIssueResponse;
 import ru.aritmos.dtt.demo.dto.SingleDttExportPreviewResponse;
@@ -51,8 +41,6 @@ import ru.aritmos.dtt.json.branch.BranchEquipment;
 import ru.aritmos.dtt.json.profile.EquipmentProfile;
 
 import java.io.IOException;
-import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,6 +52,7 @@ import java.util.Objects;
 public class DttDemoService {
 
     private final DeviceTemplateLibraryFacade facade;
+    private final ImportPlanRequestMapper importPlanRequestMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -72,7 +61,18 @@ public class DttDemoService {
      * @param facade фасад библиотеки DTT
      */
     public DttDemoService(DeviceTemplateLibraryFacade facade) {
+        this(facade, new ImportPlanRequestMapper());
+    }
+
+    /**
+     * Создаёт demo-сервис с явно переданным фасадом и mapper-адаптером import-plan запросов.
+     *
+     * @param facade фасад библиотеки DTT
+     * @param importPlanRequestMapper mapper transport DTO -> library import-plan DTO
+     */
+    public DttDemoService(DeviceTemplateLibraryFacade facade, ImportPlanRequestMapper importPlanRequestMapper) {
         this.facade = facade;
+        this.importPlanRequestMapper = importPlanRequestMapper;
     }
 
     /**
@@ -165,10 +165,8 @@ public class DttDemoService {
      * @return результат импорта с JSON и фактическим количеством device types
      */
     public ImportDttSetToProfileResponse importDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
-        final var profile = facade.importDttSetToProfile(archives, mergeStrategy);
-        final String profileJson = facade.toProfileJson(profile);
-        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
+        final var view = facade.importDttSetToProfileView(archives, mergeStrategy);
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     /**
@@ -179,25 +177,25 @@ public class DttDemoService {
      * @return результат импорта с JSON и фактическим количеством device types
      */
     public ImportDttSetToProfileResponse importDttSetToProfileBase64(List<String> archivesBase64, MergeStrategy mergeStrategy) {
-        final var profile = facade.importDttBase64SetToProfile(archivesBase64, mergeStrategy);
-        final String profileJson = facade.toProfileJson(profile);
-        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
+        final var view = facade.importDttBase64SetToProfileView(archivesBase64, mergeStrategy);
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     public ImportDttSetToProfileResponse importDttSetToProfile(ImportDttSetToProfileRequest request) {
-        return toProfileResponse(facade.assembleProfile(toLibraryProfileImportPlan(request)));
+        final var view = facade.assembleProfileApplyView(importPlanRequestMapper.toLibraryProfileImportPlan(request));
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     public ImportDttSetToProfileResponse previewDttSetToProfile(ImportDttSetToProfileRequest request) {
-        return toProfileResponse(facade.previewProfileImport(toLibraryProfileImportPlan(request)));
+        final var view = facade.previewProfileImportView(importPlanRequestMapper.toLibraryProfileImportPlan(request));
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     public ProfilePreviewDetailedResponse previewProfileDetailed(ImportDttSetToProfileRequest request) {
-        final var preview = facade.previewProfileImportDetailed(toLibraryProfileImportPlan(request));
+        final var preview = facade.previewProfileImportView(importPlanRequestMapper.toLibraryProfileImportPlan(request));
         return new ProfilePreviewDetailedResponse(
-                toJsonNode(facade.toProfileJson(preview.profile())),
-                toDemoPreviewComputations(preview.computationsByDeviceType())
+                toJsonNode(preview.profileJson()),
+                preview.computationsByDeviceType()
         );
     }
 
@@ -207,7 +205,7 @@ public class DttDemoService {
      */
     public ImportProfileBranchWithMetadataResponse importProfileAndBranchWithMetadata(ImportProfileBranchWithMetadataRequest request) {
         Objects.requireNonNull(request, "request must not be null");
-        final ProfileBranchAssemblyResult result = facade.assembleProfileAndBranchWithMetadata(toLibraryProfileBranchMetadataImportPlan(request));
+        final ProfileBranchAssemblyResult result = facade.assembleProfileAndBranchWithMetadata(importPlanRequestMapper.toLibraryProfileBranchMetadataImportPlan(request));
         return new ImportProfileBranchWithMetadataResponse(
                 toJsonNode(facade.toProfileJson(result.profile())),
                 toJsonNode(facade.toBranchJson(result.branchEquipment()))
@@ -224,10 +222,8 @@ public class DttDemoService {
     public ExportAllDttFromProfileResponse exportAllDttFromProfile(EquipmentProfile profile,
                                                                    List<String> deviceTypeIds,
                                                                    String dttVersion) {
-        final Map<String, String> encoded = facade.exportDttSetFromProfileBase64(
-                new ProfileExportRequest(profile, deviceTypeIds, dttVersion)
-        );
-        return new ExportAllDttFromProfileResponse(encoded, encoded.size());
+        final var view = facade.exportDttSetFromProfileView(new ProfileExportRequest(profile, deviceTypeIds, dttVersion));
+        return new ExportAllDttFromProfileResponse(view.archivesBase64ByDeviceTypeId(), view.archivesCount());
     }
 
     /**
@@ -315,8 +311,7 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse importDttSetToBranch(List<byte[]> archives,
                                                              List<String> branchIds,
                                                              MergeStrategy mergeStrategy) {
-        final var branch = facade.importDttSetToBranch(archives, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.importDttSetToBranchView(archives, branchIds, mergeStrategy));
     }
 
     /**
@@ -325,8 +320,7 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse importDttSetToBranchBase64(List<String> archivesBase64,
                                                                    List<String> branchIds,
                                                                    MergeStrategy mergeStrategy) {
-        final var branch = facade.importDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.importDttBase64SetToBranchView(archivesBase64, branchIds, mergeStrategy));
     }
 
     /**
@@ -342,28 +336,32 @@ public class DttDemoService {
                                                                             String existingBranchJson,
                                                                             List<String> branchIds,
                                                                             MergeStrategy mergeStrategy) {
-        final var branch = facade.importDttBase64SetToExistingBranchJson(archivesBase64, existingBranchJson, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.importDttBase64SetToExistingBranchJsonView(
+                archivesBase64,
+                existingBranchJson,
+                branchIds,
+                mergeStrategy
+        ));
     }
 
     public ImportDttSetToBranchResponse importDttSetToBranch(ImportDttSetToBranchRequest request) {
-        return toBranchResponse(facade.assembleBranch(toLibraryBranchImportPlan(request)));
+        return toBranchResponseView(facade.assembleBranchApplyView(importPlanRequestMapper.toLibraryBranchImportPlan(request)));
     }
 
     public ImportDttSetToBranchResponse previewDttSetToBranch(ImportDttSetToBranchRequest request) {
-        return toBranchResponse(facade.previewBranchImport(toLibraryBranchImportPlan(request)));
+        return toBranchResponseView(facade.previewBranchImportView(importPlanRequestMapper.toLibraryBranchImportPlan(request)));
     }
 
     public BranchPreviewDetailedResponse previewBranchDetailed(ImportDttSetToBranchRequest request) {
-        final var preview = facade.previewBranchImportDetailed(toLibraryBranchImportPlan(request));
+        final var preview = facade.previewBranchImportView(importPlanRequestMapper.toLibraryBranchImportPlan(request));
         return new BranchPreviewDetailedResponse(
-                toJsonNode(facade.toBranchJson(preview.branchEquipment())),
-                toDemoPreviewComputations(preview.computationsByTarget())
+                toJsonNode(preview.branchJson()),
+                preview.computationsByTarget()
         );
     }
 
     public ImportDttSetToBranchResponse importDttSetToExistingBranch(ImportDttSetToExistingBranchRequest request) {
-        return toBranchResponse(facade.mergeIntoExistingBranchJson(request.existingBranchJson(), toLibraryBranchImportPlan(request)));
+        return toBranchResponseView(facade.mergeIntoExistingBranchJsonApplyView(request.existingBranchJson(), importPlanRequestMapper.toLibraryBranchImportPlan(request)));
     }
 
     /**
@@ -374,20 +372,16 @@ public class DttDemoService {
      * @return рассчитанный preview profile JSON и количество типов устройств
      */
     public ImportDttSetToProfileResponse previewDttSetToProfile(List<byte[]> archives, MergeStrategy mergeStrategy) {
-        final var profile = facade.previewDttSetToProfile(archives, mergeStrategy);
-        final String profileJson = facade.toProfileJson(profile);
-        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
+        final var view = facade.previewDttSetToProfileView(archives, mergeStrategy);
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     /**
      * Выполняет preview-сборку profile JSON из Base64-представления набора DTT-архивов.
      */
     public ImportDttSetToProfileResponse previewDttSetToProfileBase64(List<String> archivesBase64, MergeStrategy mergeStrategy) {
-        final var profile = facade.previewDttBase64SetToProfile(archivesBase64, mergeStrategy);
-        final String profileJson = facade.toProfileJson(profile);
-        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
+        final var view = facade.previewDttBase64SetToProfileView(archivesBase64, mergeStrategy);
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     /**
@@ -401,8 +395,7 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse previewDttSetToBranch(List<byte[]> archives,
                                                               List<String> branchIds,
                                                               MergeStrategy mergeStrategy) {
-        final var branch = facade.previewDttSetToBranch(archives, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.previewDttSetToBranchView(archives, branchIds, mergeStrategy));
     }
 
     /**
@@ -411,8 +404,7 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse previewDttSetToBranchBase64(List<String> archivesBase64,
                                                                     List<String> branchIds,
                                                                     MergeStrategy mergeStrategy) {
-        final var branch = facade.previewDttBase64SetToBranch(archivesBase64, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.previewDttBase64SetToBranchView(archivesBase64, branchIds, mergeStrategy));
     }
 
     /**
@@ -423,10 +415,8 @@ public class DttDemoService {
      * @return рассчитанный preview profile JSON и количество типов устройств
      */
     public ImportDttSetToProfileResponse previewDttZipToProfile(byte[] zipBytes, MergeStrategy mergeStrategy) {
-        final var profile = facade.previewDttZipToProfile(zipBytes, mergeStrategy);
-        final String profileJson = facade.toProfileJson(profile);
-        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
+        final var view = facade.previewDttZipToProfileView(zipBytes, mergeStrategy);
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     /**
@@ -440,8 +430,7 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse previewDttZipToBranch(byte[] zipBytes,
                                                               List<String> branchIds,
                                                               MergeStrategy mergeStrategy) {
-        final var branch = facade.previewDttZipToBranch(zipBytes, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.previewDttZipToBranchView(zipBytes, branchIds, mergeStrategy));
     }
 
     /**
@@ -452,10 +441,8 @@ public class DttDemoService {
      * @return результат импорта профиля
      */
     public ImportDttSetToProfileResponse importDttZipToProfile(byte[] zipBytes, MergeStrategy mergeStrategy) {
-        final var profile = facade.importDttZipToProfile(zipBytes, mergeStrategy);
-        final String profileJson = facade.toProfileJson(profile);
-        final int deviceTypesCount = profile.deviceTypes() == null ? 0 : profile.deviceTypes().size();
-        return new ImportDttSetToProfileResponse(toJsonNode(profileJson), deviceTypesCount);
+        final var view = facade.importDttZipToProfileView(zipBytes, mergeStrategy);
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     /**
@@ -469,42 +456,50 @@ public class DttDemoService {
     public ImportDttSetToBranchResponse importDttZipToBranch(byte[] zipBytes,
                                                              List<String> branchIds,
                                                              MergeStrategy mergeStrategy) {
-        final var branch = facade.importDttZipToBranch(zipBytes, branchIds, mergeStrategy);
-        return toBranchResponse(branch);
+        return toBranchResponseView(facade.importDttZipToBranchView(zipBytes, branchIds, mergeStrategy));
     }
 
 
     public ImportDttSetToProfileResponse importDttZipToProfile(byte[] zipBytes, ImportDttZipToProfileUploadRequest request) {
-        return toProfileResponse(facade.assembleProfile(zipBytes, toLibraryProfileImportPlan(request)));
+        final var view = facade.assembleProfileApplyView(zipBytes, importPlanRequestMapper.toLibraryProfileImportPlan(request));
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     public ImportDttSetToProfileResponse previewDttZipToProfile(byte[] zipBytes, ImportDttZipToProfileUploadRequest request) {
-        return toProfileResponse(facade.previewProfileImport(zipBytes, toLibraryProfileImportPlan(request)));
+        final var view = facade.previewProfileImportView(zipBytes, importPlanRequestMapper.toLibraryProfileImportPlan(request));
+        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
     }
 
     public ImportDttSetToBranchResponse importDttZipToBranch(byte[] zipBytes, ImportDttZipToBranchUploadRequest request) {
-        return toBranchResponse(facade.assembleBranch(zipBytes, toLibraryBranchImportPlan(request)));
+        return toBranchResponseView(facade.assembleBranchApplyView(zipBytes, importPlanRequestMapper.toLibraryBranchImportPlan(request)));
     }
 
     public ImportDttSetToBranchResponse previewDttZipToBranch(byte[] zipBytes, ImportDttZipToBranchUploadRequest request) {
-        return toBranchResponse(facade.previewBranchImport(zipBytes, toLibraryBranchImportPlan(request)));
+        return toBranchResponseView(facade.previewBranchImportView(zipBytes, importPlanRequestMapper.toLibraryBranchImportPlan(request)));
     }
 
     public ImportDttSetToBranchResponse importDttZipToExistingBranch(byte[] zipBytes,
                                                                      ImportDttZipToExistingBranchUploadRequest request) {
-        return toBranchResponse(facade.mergeIntoExistingBranchJson(zipBytes, request.existingBranchJson(), toLibraryBranchImportPlan(request)));
+        return toBranchResponseView(facade.mergeIntoExistingBranchJsonApplyView(zipBytes, request.existingBranchJson(), importPlanRequestMapper.toLibraryBranchImportPlan(request)));
     }
 
-    private ImportDttSetToProfileResponse toProfileResponse(EquipmentProfile profile) {
-        final var view = facade.toProfileAssemblyView(profile);
-        return new ImportDttSetToProfileResponse(toJsonNode(view.profileJson()), view.deviceTypesCount());
+    private ImportDttSetToBranchResponse toBranchResponseView(ru.aritmos.dtt.api.dto.BranchAssemblyView view) {
+        return toBranchResponseView(view.branchJson(), view.branchesCount(), view.deviceTypeMetadata());
     }
 
-    private ImportDttSetToBranchResponse toBranchResponse(BranchEquipment branchEquipment) {
-        final var view = facade.toBranchAssemblyView(branchEquipment);
-        final List<DeviceTypeBasicMetadataResponse> metadata = facade.normalizeDeviceTypeMetadata(
-                        view.deviceTypeMetadata() == null ? List.<DeviceTypeMetadata>of() : view.deviceTypeMetadata()
-                ).stream()
+    private ImportDttSetToBranchResponse toBranchResponseView(ru.aritmos.dtt.api.dto.importplan.BranchImportPreviewView view) {
+        return toBranchResponseView(view.branchJson(), view.branchesCount(), view.deviceTypeMetadata());
+    }
+
+    private ImportDttSetToBranchResponse toBranchResponseView(ru.aritmos.dtt.api.dto.importplan.BranchImportApplyView view) {
+        return toBranchResponseView(view.branchJson(), view.branchesCount(), view.deviceTypeMetadata());
+    }
+
+    private ImportDttSetToBranchResponse toBranchResponseView(String branchJson,
+                                                              int branchesCount,
+                                                              List<DeviceTypeMetadata> deviceTypeMetadata) {
+        final List<DeviceTypeBasicMetadataResponse> metadata =
+                (deviceTypeMetadata == null ? List.<DeviceTypeMetadata>of() : deviceTypeMetadata).stream()
                 .map(item -> new DeviceTypeBasicMetadataResponse(
                         item.id(),
                         item.name(),
@@ -514,26 +509,7 @@ public class DttDemoService {
                         item.iconBase64()
                 ))
                 .toList();
-        return new ImportDttSetToBranchResponse(toJsonNode(view.branchJson()), view.branchesCount(), metadata);
-    }
-
-    private byte[] decodeBase64Archive(String archiveBase64) {
-        if (archiveBase64 == null || archiveBase64.isBlank()) {
-            throw new IllegalArgumentException("DTT archive payload must not be blank");
-        }
-        return Base64.getDecoder().decode(archiveBase64);
-    }
-
-    private String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
+        return new ImportDttSetToBranchResponse(toJsonNode(branchJson), branchesCount, metadata);
     }
 
     /**
@@ -548,14 +524,14 @@ public class DttDemoService {
                                                                  List<String> deviceTypeIds,
                                                                  MergeStrategy mergeStrategy,
                                                                  String dttVersion) {
-        final Map<String, String> encoded = facade.exportDttSetFromBranchBase64(new BranchEquipmentExportRequest(
+        final var view = facade.exportDttSetFromBranchView(new BranchEquipmentExportRequest(
                 branchEquipment,
                 branchIds,
                 deviceTypeIds,
                 mergeStrategy,
                 dttVersion
         ));
-        return new ExportAllDttFromBranchResponse(encoded, encoded.size());
+        return new ExportAllDttFromBranchResponse(view.archivesBase64ByDeviceTypeId(), view.archivesCount());
     }
 
     /**
@@ -729,188 +705,6 @@ public class DttDemoService {
                 mergeStrategy,
                 dttVersion
         );
-    }
-
-
-    private ProfileBranchMetadataImportPlanRequest toLibraryProfileBranchMetadataImportPlan(ImportProfileBranchWithMetadataRequest request) {
-        return new ProfileBranchMetadataImportPlanRequest(
-                request == null || request.deviceTypes() == null
-                        ? List.of()
-                        : request.deviceTypes().stream()
-                        .map(this::toLibraryProfileSource)
-                        .toList(),
-                request == null || request.branches() == null
-                        ? List.of()
-                        : request.branches().stream()
-                        .map(this::toLibraryBranchMetadataImport)
-                        .toList(),
-                request == null ? null : request.mergeStrategy()
-        );
-    }
-
-    private BranchMetadataImportRequest toLibraryBranchMetadataImport(ImportBranchMetadataRequest request) {
-        return new BranchMetadataImportRequest(
-                request.branchId(),
-                request.branchId(),
-                request.metadataOverrides() == null ? List.of() : request.metadataOverrides().stream()
-                        .map(override -> new BranchDeviceTypeMetadataOverrideImportRequest(override.deviceTypeId(), toLibraryMetadataOverride(override.metadata())))
-                        .toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest toLibraryProfileImportPlan(ImportDttSetToProfileRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest(
-                request == null ? null : request.archivesBase64(),
-                request == null ? null : request.mergeStrategy(),
-                request == null || request.deviceTypes() == null
-                        ? List.of()
-                        : request.deviceTypes().stream().map(this::toLibraryProfileSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest toLibraryProfileImportPlan(ImportDttZipToProfileUploadRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.ProfileImportPlanRequest(
-                null,
-                request == null ? null : request.mergeStrategy(),
-                request == null || request.deviceTypes() == null
-                        ? List.of()
-                        : request.deviceTypes().stream().map(this::toLibraryProfileSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest toLibraryBranchImportPlan(ImportDttSetToBranchRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest(
-                request == null ? null : request.archivesBase64(),
-                request == null ? null : request.branchIds(),
-                request == null ? null : request.mergeStrategy(),
-                request == null || request.branches() == null
-                        ? List.of()
-                        : request.branches().stream().map(this::toLibraryBranchSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest toLibraryBranchImportPlan(ImportDttSetToExistingBranchRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest(
-                request == null ? null : request.archivesBase64(),
-                request == null ? null : request.branchIds(),
-                request == null ? null : request.mergeStrategy(),
-                request == null || request.branches() == null
-                        ? List.of()
-                        : request.branches().stream().map(this::toLibraryBranchSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest toLibraryBranchImportPlan(ImportDttZipToBranchUploadRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest(
-                null,
-                request == null ? null : request.branchIds(),
-                request == null ? null : request.mergeStrategy(),
-                request == null || request.branches() == null
-                        ? List.of()
-                        : request.branches().stream().map(this::toLibraryBranchSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest toLibraryBranchImportPlan(ImportDttZipToExistingBranchUploadRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchImportPlanRequest(
-                null,
-                request == null ? null : request.branchIds(),
-                request == null ? null : request.mergeStrategy(),
-                request == null || request.branches() == null
-                        ? List.of()
-                        : request.branches().stream().map(this::toLibraryBranchSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest toLibraryProfileSource(ImportProfileDeviceTypeRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest(
-                request.archiveBase64(),
-                null,
-                request.deviceTypeParamValues(),
-                toLibraryMetadataOverride(request.metadataOverride())
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest toLibraryProfileSource(ImportUploadedProfileDeviceTypeRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.ProfileDeviceTypeImportSourceRequest(
-                null,
-                request.archiveEntryName(),
-                request.deviceTypeParamValues(),
-                toLibraryMetadataOverride(request.metadataOverride())
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest toLibraryBranchSource(ImportBranchRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest(
-                request.branchId(),
-                request.displayName(),
-                request.deviceTypes() == null ? List.of() : request.deviceTypes().stream().map(this::toLibraryBranchDeviceTypeSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest toLibraryBranchSource(ImportUploadedBranchRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchImportSourceRequest(
-                request.branchId(),
-                request.displayName(),
-                request.deviceTypes() == null ? List.of() : request.deviceTypes().stream().map(this::toLibraryBranchDeviceTypeSource).toList()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest toLibraryBranchDeviceTypeSource(ImportBranchDeviceTypeRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest(
-                request.archiveBase64(),
-                null,
-                request.deviceTypeParamValues(),
-                toLibraryMetadataOverride(request.metadataOverride()),
-                request.devices() == null ? List.of() : request.devices().stream().map(this::toLibraryDeviceInstance).toList(),
-                request.kind()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest toLibraryBranchDeviceTypeSource(ImportUploadedBranchDeviceTypeRequest request) {
-        return new ru.aritmos.dtt.api.dto.importplan.BranchDeviceTypeImportSourceRequest(
-                null,
-                request.archiveEntryName(),
-                request.deviceTypeParamValues(),
-                toLibraryMetadataOverride(request.metadataOverride()),
-                request.devices() == null ? List.of() : request.devices().stream().map(this::toLibraryDeviceInstance).toList(),
-                request.kind()
-        );
-    }
-
-    private ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest toLibraryDeviceInstance(ImportBranchDeviceRequest request) {
-        return new ru.aritmos.dtt.api.dto.branch.DeviceInstanceImportRequest(
-                request.id(),
-                request.name(),
-                request.displayName(),
-                request.description(),
-                request.deviceParamValues()
-        );
-    }
-
-    private DeviceTypeMetadata toLibraryMetadataOverride(ImportDeviceTypeMetadataOverrideRequest override) {
-        if (override == null) {
-            return null;
-        }
-        return new DeviceTypeMetadata(
-                override.id(),
-                override.name(),
-                override.displayName(),
-                override.description(),
-                override.version(),
-                override.iconBase64()
-        );
-    }
-
-    private Map<String, PreviewComputationEntry> toDemoPreviewComputations(
-            Map<String, ru.aritmos.dtt.api.dto.importplan.ImportPreviewComputationEntry> computations
-    ) {
-        final Map<String, PreviewComputationEntry> result = new LinkedHashMap<>();
-        computations.forEach((key, value) -> result.put(
-                key,
-                new PreviewComputationEntry(value.defaultValuesCount(), value.overrideValuesCount())
-        ));
-        return result;
     }
 
     private String toCompactJson(JsonNode node) {
